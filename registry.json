@@ -3,35 +3,22 @@
   "version": 1,
   "generated": "2026-09-29",
   "owner": "Icaro0310",
+  "note": "This hub repo is PRIVATE maintainer infrastructure (index + reusable CI + template). Public user-facing repos are listed below.",
   "repositories": [
-    {
-      "name": "devin-repo-template",
-      "url": "https://github.com/Icaro0310/devin-repo-template",
-      "kind": "infra",
-      "wave": 0,
-      "status": "active",
-      "description": "Template every devin-* repo is bootstrapped from."
-    },
-    {
-      "name": "devin-ci",
-      "url": "https://github.com/Icaro0310/devin-ci",
-      "kind": "infra",
-      "wave": 0,
-      "status": "active",
-      "description": "Reusable GitHub Actions workflows shared by all devin-* repos."
-    },
     {
       "name": "devin-powerups",
       "url": "https://github.com/Icaro0310/devin-powerups",
       "kind": "infra",
+      "visibility": "private",
       "wave": 0,
       "status": "active",
-      "description": "Hub: index, roadmap and machine-consumable registry."
+      "description": "Maintainer hub: index, roadmap, reusable workflows, repo template."
     },
     {
       "name": "devin-internals-spec",
       "url": "https://github.com/Icaro0310/devin-internals-spec",
       "kind": "project",
+      "visibility": "public",
       "wave": 0,
       "status": "in-progress",
       "description": "Documented internals of Devin Desktop/CLI stores + schema-version detection + fixtures."
@@ -40,6 +27,7 @@
       "name": "devin-redact",
       "url": "https://github.com/Icaro0310/devin-redact",
       "kind": "project",
+      "visibility": "public",
       "wave": 0,
       "status": "in-progress",
       "description": "Secret/PII redaction that understands Devin tool-call semantics, in-place in SQLite."

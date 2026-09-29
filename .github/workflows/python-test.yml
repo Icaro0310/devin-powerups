@@ -1,0 +1,32 @@
+name: python-test (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        type: string
+        default: "3.11"
+      package-dir:
+        type: string
+        default: "."
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      - name: Install
+        run: pip install -e "${{ inputs.package-dir }}[dev]"
+
+      - name: Test
+        run: pytest -q
+        working-directory: ${{ inputs.package-dir }}

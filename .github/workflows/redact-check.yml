@@ -1,0 +1,23 @@
+name: redact-check (reusable)
+
+# Verifies no secrets/tokens are committed. Uses devin-redact's scanner
+# once published; until then, a conservative grep-based fallback.
+
+on:
+  workflow_call:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan for secret-looking strings
+        run: |
+          set -e
+          PATTERNS='(ghp_[A-Za-z0-9]{36}|gho_[A-Za-z0-9]{36}|sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----|api[_-]?key["'"'"']?\s*[:=]\s*["'"'"'][A-Za-z0-9_-]{16,})'
+          if grep -rInE "$PATTERNS" --exclude-dir=.git .; then
+            echo "::error::Secret-looking content found. Sanitize before merging."
+            exit 1
+          fi
+          echo "No secret-looking content found."
