@@ -169,6 +169,16 @@
       "description": "Anti-poisoning memory store: provenance, versioning, quarantine gate."
     },
     {
+      "name": "devin-janitor",
+      "url": "https://github.com/Icaro0310/devin-janitor",
+      "kind": "project",
+      "visibility": "public",
+      "wave": 5,
+      "status": "in-progress",
+      "session": "deluxe-macaroni",
+      "description": "Session lifecycle janitor: export-then-delete pipeline, tiered classification, pluggable judge, pending-retry for locked stores."
+    },
+    {
       "name": "devin-bridge",
       "url": "https://github.com/Icaro0310/devin-bridge",
       "kind": "project",
