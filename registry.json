@@ -174,7 +174,8 @@
       "kind": "project",
       "visibility": "public",
       "wave": 5,
-      "status": "in-progress",
+      "status": "m1-done",
+      "version": "0.1.0",
       "session": "deluxe-macaroni",
       "description": "Session lifecycle janitor: export-then-delete pipeline, tiered classification, pluggable judge, pending-retry for locked stores."
     },
