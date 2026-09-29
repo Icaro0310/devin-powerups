@@ -33,7 +33,7 @@
       "url": "https://github.com/Icaro0310/devin-internals-spec",
       "kind": "project",
       "wave": 0,
-      "status": "planned",
+      "status": "in-progress",
       "description": "Documented internals of Devin Desktop/CLI stores + schema-version detection + fixtures."
     },
     {
@@ -41,7 +41,7 @@
       "url": "https://github.com/Icaro0310/devin-redact",
       "kind": "project",
       "wave": 0,
-      "status": "planned",
+      "status": "in-progress",
       "description": "Secret/PII redaction that understands Devin tool-call semantics, in-place in SQLite."
     }
   ]
