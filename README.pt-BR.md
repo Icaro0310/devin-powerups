@@ -41,7 +41,7 @@ Cloud API · `S9` sessões recuperáveis · `S10` schema versionado.
 | **1 — Adoção** | `devin-history` · `devin-doctor` · `devin-pm` | Entregue · 150 testes |
 | **2 — Diferencial** | `devin-qa-pack` · `devin-metrics` · `devin-backup` | Entregue |
 | **3 — Ampliação** | `devin-search` · `devin-graph` · `devin-evals` · `devin-metrics` (absorveu `devin-dashboard`) | Entregue |
-| **4 — Pesquisa** | `devin-memory` · `devin-bridge` · Jevin | Projetos entregues · 126 testes; pesquisa Jevin pendente |
+| **4 — Pesquisa** | `devin-memory` · `devin-bridge` · Djævin | Projetos entregues · 126 testes; pesquisa Djævin pendente |
 | **5 — Lifecycle** | `devin-janitor` | Entregue · 54 testes |
 
 ### Consolidação (2026-09-30)

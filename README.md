@@ -41,7 +41,7 @@ sessions · `S9` recoverable sessions · `S10` versioned schema.
 | **1 — Adoption** | `devin-history` · `devin-doctor` · `devin-pm` | Delivered · 150 tests |
 | **2 — Differentiator** | `devin-qa-pack` · `devin-metrics` (+ absorbed `devin-learning` → `devin-memory`) · `devin-backup` | Delivered |
 | **3 — Amplification** | `devin-search` · `devin-graph` · `devin-evals` · `devin-metrics` (+ absorbed `devin-dashboard`) | Delivered |
-| **4 — Research** | `devin-memory` · `devin-bridge` · Jevin | Projects delivered; Jevin research remains open |
+| **4 — Research** | `devin-memory` · `devin-bridge` · Djævin | Projects delivered; Djævin research remains open |
 | **5 — Lifecycle** | `devin-janitor` | Delivered |
 | **6 — Orchestration** | `devin-orchestrator` | Delivered |
 
