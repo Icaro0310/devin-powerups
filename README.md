@@ -14,9 +14,10 @@ each now carries its own inline CI workflow.
 | Path | Purpose |
 |---|---|
 | `registry.json` | Machine-consumable index of all `devin-*` repos |
-| `.github/workflows/` | Legacy reusable workflows retained for reference; projects use inline CI |
+| `.github/workflows/` | Legacy reusable workflows retained for reference, plus `weekly-repo-report.yml` (below); projects use inline CI |
 | `template/` | Skeleton every new repo is bootstrapped from |
 | `tools/new-repo.py` | Scaffolder: `python tools/new-repo.py <name> "<desc>"` |
+| `tools/weekly_repo_report.py` | Weekly public-project activity report → HTML (stdlib, GitHub public API) |
 
 ## The method
 
@@ -51,6 +52,23 @@ Node 22 and 24 on both. CI is inline because public repositories cannot reliably
 call reusable workflows in this private hub. The secrets-scan includes test
 source and excludes `.git`, `fixtures/`, and `node_modules/`; synthetic corpora
 intentionally live under `fixtures/`.
+
+## Weekly repo report
+
+`weekly-repo-report.yml` runs Sundays 10:00 UTC (and via `workflow_dispatch`):
+`tools/weekly_repo_report.py` queries the GitHub public commits API for the
+previous 7 days across the 16 public project repos in `registry.json`, renders
+a standalone HTML report grouped by repo and day, and uploads it as a workflow
+artifact every run. Only public-repo metadata is used — private hub commits
+are never included.
+
+Emailing the report additionally requires the four MailerSend secrets to be
+configured in this private hub (`MAILERSEND_SMTP_HOST`, `MAILERSEND_SMTP_PORT`,
+`MAILERSEND_SMTP_USER`, `MAILERSEND_SMTP_PASSWORD` — the same secret names used
+by PetSaas). Mail is sent over verified TLS with the documented PetSaas trial
+sandbox sender (`PetSaas Bot <petsaas@test-z0vklo638kvl7qrx.mlsender.net>`),
+which is distinct from the SMTP login. If any secrets are missing the run
+emits a warning and leaves the HTML artifact only.
 
 ## Conventions
 

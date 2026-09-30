@@ -1,0 +1,76 @@
+name: weekly-repo-report
+
+# Weekly activity report for the 16 public devin-* project repos listed in
+# registry.json (kind=project, visibility=public). Generates a standalone
+# HTML report and uploads it as an artifact on every run — including runs
+# where every repo fetch fails, in which case the generate step exits
+# non-zero and the run stays visibly red after artifact/email handling.
+#
+# If all four MailerSend SMTP secrets are configured in this private hub
+# (MAILERSEND_SMTP_HOST, MAILERSEND_SMTP_PORT, MAILERSEND_SMTP_USER,
+# MAILERSEND_SMTP_PASSWORD — the same names used by PetSaas), the report is
+# also emailed to the maintainer over verified TLS. The From identity is the
+# documented PetSaas trial sandbox sender (PetSaas Bot
+# <petsaas@test-z0vklo638kvl7qrx.mlsender.net>), which is distinct from the
+# SMTP login — no credential is hardcoded here. When secrets are absent the
+# run emits a warning and the artifact is still uploaded.
+#
+# Only public-repository metadata is queried; nothing about this private
+# hub repo is included in the report payload.
+
+on:
+  schedule:
+    - cron: "0 10 * * 0" # Sundays at 10:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Generate report
+        run: python tools/weekly_repo_report.py --out report/weekly-repo-report.html
+
+      - name: Upload report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-repo-report
+          path: report/weekly-repo-report.html
+          retention-days: 90
+
+      - name: Check MailerSend secrets
+        if: always()
+        id: mail
+        env:
+          MH: ${{ secrets.MAILERSEND_SMTP_HOST }}
+          MP: ${{ secrets.MAILERSEND_SMTP_PORT }}
+          MU: ${{ secrets.MAILERSEND_SMTP_USER }}
+          MW: ${{ secrets.MAILERSEND_SMTP_PASSWORD }}
+        run: |
+          if [ -n "$MH" ] && [ -n "$MP" ] && [ -n "$MU" ] && [ -n "$MW" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::MailerSend SMTP secrets are not configured in this hub — skipping email. The HTML report artifact was still uploaded."
+          fi
+
+      - name: Send report email
+        if: always() && steps.mail.outputs.present == 'true'
+        env:
+          MAILERSEND_SMTP_HOST: ${{ secrets.MAILERSEND_SMTP_HOST }}
+          MAILERSEND_SMTP_PORT: ${{ secrets.MAILERSEND_SMTP_PORT }}
+          MAILERSEND_SMTP_USER: ${{ secrets.MAILERSEND_SMTP_USER }}
+          MAILERSEND_SMTP_PASSWORD: ${{ secrets.MAILERSEND_SMTP_PASSWORD }}
+        run: >
+          python tools/weekly_repo_report.py
+          --send report/weekly-repo-report.html
+          --to icarogalvao5@gmail.com

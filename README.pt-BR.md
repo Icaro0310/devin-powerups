@@ -14,9 +14,10 @@ agora contém o seu workflow de CI inline.
 | Caminho | Propósito |
 |---|---|
 | `registry.json` | Índice consumível por máquina de todos os repos `devin-*` |
-| `.github/workflows/` | Workflows reutilizáveis antigos, mantidos como referência; os projetos usam CI inline |
+| `.github/workflows/` | Workflows reutilizáveis antigos, mantidos como referência, mais `weekly-repo-report.yml` (abaixo); os projetos usam CI inline |
 | `template/` | Esqueleto de onde nasce cada repo novo |
 | `tools/new-repo.py` | Scaffolder: `python tools/new-repo.py <nome> "<desc>"` |
+| `tools/weekly_repo_report.py` | Relatório semanal de atividade dos projetos públicos → HTML (stdlib, API pública do GitHub) |
 
 ## O método
 
@@ -51,6 +52,24 @@ testa Node 22 e 24 nos dois sistemas. O CI é inline porque repos públicos não
 conseguem depender com confiabilidade de workflows reutilizáveis neste hub
 privado. O secrets-scan inclui o código de testes e exclui `.git`, `fixtures/`
 e `node_modules/`; corpora sintéticos ficam intencionalmente em `fixtures/`.
+
+## Relatório semanal de repos
+
+O `weekly-repo-report.yml` corre aos domingos às 10:00 UTC (e via
+`workflow_dispatch`): o `tools/weekly_repo_report.py` consulta a API pública
+de commits do GitHub para os últimos 7 dias nos 16 repos públicos de projeto
+em `registry.json`, gera um relatório HTML autónomo agrupado por repo e dia,
+e publica-o como artifact em todas as execuções. Só metadados de repos
+públicos são usados — commits do hub privado nunca são incluídos.
+
+O envio por email requer adicionalmente os quatro secrets MailerSend
+configurados neste hub privado (`MAILERSEND_SMTP_HOST`, `MAILERSEND_SMTP_PORT`,
+`MAILERSEND_SMTP_USER`, `MAILERSEND_SMTP_PASSWORD` — os mesmos nomes de secrets
+usados pelo PetSaas). O email é enviado via TLS verificado com o remetente
+sandbox trial documentado do PetSaas
+(`PetSaas Bot <petsaas@test-z0vklo638kvl7qrx.mlsender.net>`), que é distinto do
+login SMTP. Se algum faltar, a execução emite um aviso e deixa apenas o
+artifact HTML.
 
 ## Convenções
 
