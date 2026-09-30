@@ -1,0 +1,36 @@
+name: scout-notify
+
+# Emails a weekly-ecosystem-scout report that was already committed to
+# reports/ by the local scout run. Mail goes through the repo-level
+# MailerSend SMTP secrets — no email credential ever lives on the machine.
+
+on:
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Scout report date (YYYY-MM-DD) matching reports/scout-<date>-proposals.md"
+        required: true
+        type: string
+
+jobs:
+  email:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Guard report file
+        run: test -s "reports/scout-${{ inputs.date }}-proposals.md"
+
+      - name: Send scout report via MailerSend SMTP
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.MAILERSEND_SMTP_HOST }}
+          server_port: ${{ secrets.MAILERSEND_SMTP_PORT }}
+          username: ${{ secrets.MAILERSEND_SMTP_USER }}
+          password: ${{ secrets.MAILERSEND_SMTP_PASSWORD }}
+          secure: false
+          subject: "Devin ecosystem — scout semanal ${{ inputs.date }}"
+          to: icarogalvao5@gmail.com
+          from: "Devin Scout <scout@test-z0vklo638kvl7qrx.mlsender.net>"
+          body: file://reports/scout-${{ inputs.date }}-proposals.md
+          attachments: reports/scout-${{ inputs.date }}-proposals.md
