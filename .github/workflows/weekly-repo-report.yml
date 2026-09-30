@@ -36,7 +36,12 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Run report tests
+        run: python tools/test_weekly_repo_report.py
+
       - name: Generate report
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python tools/weekly_repo_report.py --out report/weekly-repo-report.html
 
       - name: Upload report artifact
@@ -73,4 +78,4 @@ jobs:
         run: >
           python tools/weekly_repo_report.py
           --send report/weekly-repo-report.html
-          --to icarogalvao5@gmail.com
+          --to "${{ vars.REPORT_RECIPIENT || 'icarogalvao5@gmail.com' }}"

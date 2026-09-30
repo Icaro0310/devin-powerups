@@ -396,6 +396,55 @@ class SendEmailTests(unittest.TestCase):
                 rc = wrr.send_report_email(html_file, "icarogalvao5@gmail.com")
         self.assertEqual(rc, 2)
 
+    def test_send_invalid_port_returns_warning(self):
+        env = self._env()
+        env["MAILERSEND_SMTP_PORT"] = "not-a-port"
+        with tempfile.TemporaryDirectory() as tmp:
+            html_file = Path(tmp) / "r.html"
+            html_file.write_text("<html/>", encoding="utf-8")
+            with mock.patch.dict("os.environ", env, clear=True), mock.patch(
+                "smtplib.SMTP"
+            ) as smtp_cls:
+                rc = wrr.send_report_email(html_file, "icarogalvao5@gmail.com")
+        self.assertEqual(rc, 2)
+        smtp_cls.assert_not_called()
+
+    def test_send_smtp_failure_returns_nonzero(self):
+        import smtplib
+
+        with tempfile.TemporaryDirectory() as tmp:
+            html_file = Path(tmp) / "r.html"
+            html_file.write_text("<html/>", encoding="utf-8")
+            with mock.patch.dict("os.environ", self._env(), clear=True), mock.patch(
+                "smtplib.SMTP"
+            ) as smtp_cls:
+                smtp = smtp_cls.return_value.__enter__.return_value
+                smtp.login.side_effect = smtplib.SMTPAuthenticationError(535, b"bad creds")
+                rc = wrr.send_report_email(html_file, "icarogalvao5@gmail.com")
+        self.assertEqual(rc, 1)
+
+
+class GithubTokenTests(unittest.TestCase):
+    def test_github_token_env_adds_auth_header(self):
+        repo = project("devin-alpha")
+        seen = {}
+
+        def opener(request, timeout):
+            seen["auth"] = request.get_header("Authorization")
+            return FakeResponse([])
+
+        with mock.patch.dict("os.environ", {"GITHUB_TOKEN": "synthetic-token"}):
+            wrr.fetch_commits(repo, NOW - timedelta(days=7), NOW, opener=opener)
+        self.assertEqual(seen["auth"], "Bearer synthetic-token")
+
+        def opener2(request, timeout):
+            seen["auth2"] = request.get_header("Authorization")
+            return FakeResponse([])
+
+        with mock.patch.dict("os.environ", {}, clear=True):
+            wrr.fetch_commits(repo, NOW - timedelta(days=7), NOW, opener=opener2)
+        self.assertIsNone(seen["auth2"])
+
 
 class CliTests(unittest.TestCase):
     def test_rejects_non_positive_limits(self):

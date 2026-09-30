@@ -34,6 +34,7 @@ import argparse
 import html
 import http.client
 import json
+import os
 import re
 import smtplib
 import ssl
@@ -211,13 +212,17 @@ def fetch_commits(
                 "page": page,
             }
         )
+        headers = {
+            "Accept": "application/vnd.github+json",
+            "User-Agent": USER_AGENT,
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+        token = os.environ.get("GITHUB_TOKEN", "").strip()
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
         request = urllib.request.Request(
             f"{GITHUB_API}/repos/{api_path}/commits?{params}",
-            headers={
-                "Accept": "application/vnd.github+json",
-                "User-Agent": USER_AGENT,
-                "X-GitHub-Api-Version": "2022-11-28",
-            },
+            headers=headers,
         )
         try:
             with opener(request, timeout=timeout) as response:
@@ -387,8 +392,6 @@ def send_report_email(html_path: Path, recipient: str, sender: str = DEFAULT_SEN
     hostname are verified. From is the documented PetSaas sandbox sender
     identity — deliberately not the SMTP login user.
     """
-    import os
-
     missing = [var for var in SECRET_ENV_VARS if not os.environ.get(var)]
     if missing:
         print(
@@ -406,11 +409,28 @@ def send_report_email(html_path: Path, recipient: str, sender: str = DEFAULT_SEN
     message.add_alternative(body_html, subtype="html")
 
     context = ssl.create_default_context()
-    port = int(os.environ["MAILERSEND_SMTP_PORT"])
-    with smtplib.SMTP(os.environ["MAILERSEND_SMTP_HOST"], port, timeout=SMTP_TIMEOUT) as smtp:
-        smtp.starttls(context=context)
-        smtp.login(os.environ["MAILERSEND_SMTP_USER"], os.environ["MAILERSEND_SMTP_PASSWORD"])
-        smtp.send_message(message)
+    try:
+        port = int(os.environ["MAILERSEND_SMTP_PORT"])
+        if not 1 <= port <= 65535:
+            raise ValueError("out of range")
+    except ValueError:
+        print(
+            f"::warning::MAILERSEND_SMTP_PORT is not a valid port: "
+            f"{os.environ['MAILERSEND_SMTP_PORT'][:20]!r}",
+            file=sys.stderr,
+        )
+        return 2
+    try:
+        with smtplib.SMTP(os.environ["MAILERSEND_SMTP_HOST"], port, timeout=SMTP_TIMEOUT) as smtp:
+            smtp.starttls(context=context)
+            smtp.login(os.environ["MAILERSEND_SMTP_USER"], os.environ["MAILERSEND_SMTP_PASSWORD"])
+            smtp.send_message(message)
+    except smtplib.SMTPException as exc:
+        print(f"::error::SMTP send failed: {exc}", file=sys.stderr)
+        return 1
+    except OSError as exc:
+        print(f"::error::SMTP connection failed: {exc}", file=sys.stderr)
+        return 1
     print(f"email sent to {recipient}")
     return 0
 

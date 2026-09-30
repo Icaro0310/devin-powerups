@@ -248,6 +248,19 @@
       "ci": "inline",
       "tests": 55,
       "description": "Policy-gated ACP client (Node.js, CI matrix Node 22 + 24): isolated sessions per repo with allow/deny/ask permission policy."
+    },
+    {
+      "name": "devin-orchestrator",
+      "url": "https://github.com/Icaro0310/devin-orchestrator",
+      "kind": "project",
+      "visibility": "public",
+      "wave": 5,
+      "status": "delivered",
+      "version": "0.1.0",
+      "stack": "python",
+      "ci": "inline",
+      "tests": 15,
+      "description": "Background-worker fan-out policy: deterministic planner enforcing worker caps (max 3), no nesting, read-only profiles for review, collect-before-report. Skill + always-on rule."
     }
   ]
 }
