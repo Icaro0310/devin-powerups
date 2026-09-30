@@ -107,8 +107,11 @@ O `DevinWeeklyEcosystemScout` (Task Scheduler, domingos 06:30 local) corre o
    (`devin-repo-task.js --resume-only`), que escreve
    `reports/scout-<data>-proposals.md`: exatamente 3 propostas de features por
    repo mais até 5 ideias de projetos novos vindas das trends.
-4. **Deliver** — DM no Slack + email MailerSend com o resumo, issue
-   `e2e-failure` em qualquer repo que falhou, e commit+push do relatório.
+4. **Deliver** — DM no Slack + email com o resumo, issue `e2e-failure` em
+   qualquer repo que falhou, e commit+push do relatório. O email é enviado
+   pelo workflow `scout-notify.yml` (`workflow_dispatch`, input `date`) com
+   os secrets `MAILERSEND_SMTP_*` deste repo — nenhuma credencial de email
+   fica na máquina; um `MAILERSEND_API_TOKEN` em `gateways/.env` é só fallback.
 
 Propostas são propostas: nada é implementado sem aprovação do maintainer.
 Trabalho aprovado retoma a sessão mapeada do repo em `.sessions.json` — nunca

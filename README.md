@@ -111,8 +111,11 @@ emits a warning and leaves the HTML artifact only.
    (`devin-repo-task.js --resume-only`), which writes
    `reports/scout-<date>-proposals.md`: exactly 3 feature proposals per repo
    plus up to 5 new-project ideas from the trends.
-4. **Deliver** — Slack DM + MailerSend email with the summary, an
-   `e2e-failure` issue on any failing repo, and commit+push of the report.
+4. **Deliver** — Slack DM + email with the summary, an `e2e-failure` issue
+   on any failing repo, and commit+push of the report. Email is sent by the
+   `scout-notify.yml` workflow (`workflow_dispatch`, input `date`) using this
+   repo's `MAILERSEND_SMTP_*` secrets, so no email credential lives locally;
+   a `MAILERSEND_API_TOKEN` in `gateways/.env` is only a fallback.
 
 Proposals are proposals: nothing is implemented until the maintainer approves.
 Approved work resumes the repo's mapped session in `.sessions.json` — never a
