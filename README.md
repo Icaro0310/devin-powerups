@@ -39,14 +39,41 @@ sessions · `S9` recoverable sessions · `S10` versioned schema.
 |---|---|---|
 | **0 — Foundation** | `devin-internals-spec` · `devin-redact` | Delivered · 56 tests |
 | **1 — Adoption** | `devin-history` · `devin-doctor` · `devin-pm` | Delivered · 150 tests |
-| **2 — Differentiator** | `devin-qa-pack` · `devin-learning` · `devin-metrics` · `devin-backup` | Delivered · 166 tests |
-| **3 — Amplification** | `devin-search` · `devin-graph` · `devin-evals` · `devin-dashboard` | Delivered · 176 tests |
-| **4 — Research** | `devin-memory` · `devin-bridge` · Jevin | Projects delivered · 126 tests; Jevin research remains open |
-| **5 — Lifecycle** | `devin-janitor` | Delivered · 54 tests |
+| **2 — Differentiator** | `devin-qa-pack` · `devin-metrics` (+ absorbed `devin-learning` → `devin-memory`) · `devin-backup` | Delivered |
+| **3 — Amplification** | `devin-search` · `devin-graph` · `devin-evals` · `devin-metrics` (+ absorbed `devin-dashboard`) | Delivered |
+| **4 — Research** | `devin-memory` · `devin-bridge` · Jevin | Projects delivered; Jevin research remains open |
+| **5 — Lifecycle** | `devin-janitor` | Delivered |
+| **6 — Orchestration** | `devin-orchestrator` | Delivered |
+
+### Consolidation (2026-09-30)
+
+Dependent/duplicate projects were unified per the ecosystem rule "repos that
+only work together get merged":
+
+- `devin-dashboard` → merged into `devin-metrics` v0.2 (`devin_metrics.dashboard`
+  subpackage, `devin-metrics dashboard` subcommand, `devin-dashboard` alias). Repo deleted.
+- `devin-learning` → merged into `devin-memory` v0.2 (`devin_memory.learning`
+  subpackage, `devin-learning` alias, `devin-redact` dependency). Repo deleted.
+- `devin-subagent-orchestrator` (unpublished local draft) → merged into
+  `devin-orchestrator` v0.2 (SKILL rewrite + evals + policy tests).
+
+## Install (no PyPI yet)
+
+Every public project is installable directly from GitHub — the declared
+`devin-* @ git+https://…` dependencies resolve automatically:
+
+```bash
+pip install "git+https://github.com/Icaro0310/devin-metrics.git"
+pip install "git+https://github.com/Icaro0310/devin-memory.git"
+# …same pattern for every repo in registry.json
+```
+
+PyPI/npm publication is pending maintainer credentials; until then git
+installs are the supported path.
 
 ## CI status
 
-As of 2026-09-30, the latest GitHub Actions runs pass for all 16 project
+As of 2026-09-30, the latest GitHub Actions runs pass for all 15 project
 repositories. Python projects test on Windows and Ubuntu; `devin-bridge` tests
 Node 22 and 24 on both. CI is inline because public repositories cannot reliably
 call reusable workflows in this private hub. The secrets-scan includes test
@@ -55,9 +82,9 @@ intentionally live under `fixtures/`.
 
 ## Weekly repo report
 
-`weekly-repo-report.yml` runs Sundays 10:00 UTC (and via `workflow_dispatch`):
+`weekly-repo-report.yml` runs Sundays 07:00 UTC (04:00 Brasilia) (and via `workflow_dispatch`):
 `tools/weekly_repo_report.py` queries the GitHub public commits API for the
-previous 7 days across the 16 public project repos in `registry.json`, renders
+previous 7 days across the 15 public project repos in `registry.json`, renders
 a standalone HTML report grouped by repo and day, and uploads it as a workflow
 artifact every run. Only public-repo metadata is used — private hub commits
 are never included.

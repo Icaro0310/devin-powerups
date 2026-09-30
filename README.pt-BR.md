@@ -39,14 +39,36 @@ Cloud API · `S9` sessões recuperáveis · `S10` schema versionado.
 |---|---|---|
 | **0 — Fundação** | `devin-internals-spec` · `devin-redact` | Entregue · 56 testes |
 | **1 — Adoção** | `devin-history` · `devin-doctor` · `devin-pm` | Entregue · 150 testes |
-| **2 — Diferencial** | `devin-qa-pack` · `devin-learning` · `devin-metrics` · `devin-backup` | Entregue · 166 testes |
-| **3 — Ampliação** | `devin-search` · `devin-graph` · `devin-evals` · `devin-dashboard` | Entregue · 176 testes |
+| **2 — Diferencial** | `devin-qa-pack` · `devin-metrics` · `devin-backup` | Entregue |
+| **3 — Ampliação** | `devin-search` · `devin-graph` · `devin-evals` · `devin-metrics` (absorveu `devin-dashboard`) | Entregue |
 | **4 — Pesquisa** | `devin-memory` · `devin-bridge` · Jevin | Projetos entregues · 126 testes; pesquisa Jevin pendente |
 | **5 — Lifecycle** | `devin-janitor` | Entregue · 54 testes |
 
+### Consolidação (2026-09-30)
+
+Projetos dependentes/duplicados foram unificados:
+
+- `devin-dashboard` → fundido em `devin-metrics` v0.2 (subpacote `devin_metrics.dashboard`,
+  subcomando `devin-metrics dashboard`, alias `devin-dashboard`). Repo apagado.
+- `devin-learning` → fundido em `devin-memory` v0.2 (subpacote `devin_memory.learning`,
+  alias `devin-learning`, dependência `devin-redact`). Repo apagado.
+- `devin-subagent-orchestrator` (rascunho local não publicado) → fundido em
+  `devin-orchestrator` v0.2.
+
+### Instalação (sem PyPI ainda)
+
+Todo projeto público instala direto do GitHub — as dependências `devin-* @ git+https://…`
+resolvem automaticamente:
+
+```bash
+pip install "git+https://github.com/Icaro0310/devin-metrics.git"
+```
+
+Publicação PyPI/npm pendente de credenciais; até lá, instalação via git é o caminho suportado.
+
 ## Estado do CI
 
-Em 2026-09-30, as execuções mais recentes do GitHub Actions passaram nos 16
+Em 2026-09-30, as execuções mais recentes do GitHub Actions passaram nos 15
 repos de projeto. Projetos Python testam em Windows e Ubuntu; `devin-bridge`
 testa Node 22 e 24 nos dois sistemas. O CI é inline porque repos públicos não
 conseguem depender com confiabilidade de workflows reutilizáveis neste hub
@@ -55,9 +77,9 @@ e `node_modules/`; corpora sintéticos ficam intencionalmente em `fixtures/`.
 
 ## Relatório semanal de repos
 
-O `weekly-repo-report.yml` corre aos domingos às 10:00 UTC (e via
+O `weekly-repo-report.yml` corre aos domingos às 07:00 UTC (04:00 Brasília) (e via
 `workflow_dispatch`): o `tools/weekly_repo_report.py` consulta a API pública
-de commits do GitHub para os últimos 7 dias nos 16 repos públicos de projeto
+de commits do GitHub para os últimos 7 dias nos 15 repos públicos de projeto
 em `registry.json`, gera um relatório HTML autónomo agrupado por repo e dia,
 e publica-o como artifact em todas as execuções. Só metadados de repos
 públicos são usados — commits do hub privado nunca são incluídos.
