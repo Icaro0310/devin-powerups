@@ -1,6 +1,6 @@
 name: weekly-repo-report
 
-# Weekly activity report for the 16 public devin-* project repos listed in
+# Weekly activity report for the public devin-* project repos listed in
 # registry.json (kind=project, visibility=public). Generates a standalone
 # HTML report and uploads it as an artifact on every run — including runs
 # where every repo fetch fails, in which case the generate step exits
@@ -20,7 +20,7 @@ name: weekly-repo-report
 
 on:
   schedule:
-    - cron: "0 10 * * 0" # Sundays at 10:00 UTC
+    - cron: "0 7 * * 0" # Sundays at 07:00 UTC = 04:00 AM Brasília
   workflow_dispatch:
 
 permissions:
