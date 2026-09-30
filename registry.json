@@ -1,9 +1,19 @@
 {
   "$schema": "https://github.com/Icaro0310/devin-powerups/registry.schema.json",
-  "version": 2,
-  "generated": "2026-09-29",
+  "version": 3,
+  "generated": "2026-09-30",
   "owner": "Icaro0310",
-  "note": "This hub repo is PRIVATE maintainer infrastructure (index + reusable CI + template). Public user-facing repos are listed below.",
+  "note": "This hub repo is PRIVATE maintainer infrastructure (index + template + tools). It absorbed the former devin-ci and devin-repo-template repos. Public user-facing repos are listed below. CI is INLINE per repo; see the CI status section in README.md.",
+  "ci": {
+    "architecture": "inline",
+    "previous_architecture": "reusable workflows in the private devin-ci/devin-powerups hub",
+    "reason": "Reusable workflows living in a private repo are not reliably accessible from public repos, so each project ships a self-contained ci.yml.",
+    "shape": "test job (pytest for Python repos, node --test for devin-bridge) on windows-latest + ubuntu-latest, plus a secrets-scan job over the repository tree excluding .git, fixtures/ and node_modules/; test source is scanned.",
+    "status_doc": "README.md#ci-status"
+  },
+  "known_issues": [
+    "Jevin research/integration, package publishing and follow-on M2/M3 integrations remain open; heartbeat-session rotation is not implemented."
+  ],
   "repositories": [
     {
       "name": "devin-powerups",
@@ -12,7 +22,7 @@
       "visibility": "private",
       "wave": 0,
       "status": "active",
-      "description": "Maintainer hub: index, roadmap, reusable workflows, repo template."
+      "description": "Maintainer hub: index, roadmap, repo template, scaffolder. Formerly devin-ci + devin-repo-template, fused here. Reusable workflows superseded by inline per-repo CI."
     },
     {
       "name": "devin-internals-spec",
@@ -20,9 +30,12 @@
       "kind": "project",
       "visibility": "public",
       "wave": 0,
-      "status": "m2-done",
+      "status": "delivered",
       "version": "0.2.0",
       "session": "parallel-food",
+      "stack": "python",
+      "ci": "inline",
+      "tests": 33,
       "description": "Documented internals of Devin Desktop/CLI stores + schema-version detection + fixtures + devin-inspect CLI."
     },
     {
@@ -31,10 +44,14 @@
       "kind": "project",
       "visibility": "public",
       "wave": 0,
-      "status": "m2-done",
+      "status": "delivered",
       "version": "0.2.0",
       "session": "sparkling-metal",
-      "description": "Secret/PII redaction that understands Devin tool-call semantics, in-place in SQLite, with verify gate."
+      "stack": "python",
+      "ci": "inline",
+      "tests": 23,
+      "tag": "v0.2.0",
+      "description": "Secret/PII redaction that understands Devin tool-call semantics, in-place in SQLite, with verify gate. Tag v0.2.0 pushed (devin-learning depends on it via git dependency)."
     },
     {
       "name": "devin-history",
@@ -42,9 +59,12 @@
       "kind": "project",
       "visibility": "public",
       "wave": 1,
-      "status": "m1-done",
+      "status": "delivered",
       "version": "0.1.0",
       "session": "comet-soap",
+      "stack": "python",
+      "ci": "inline",
+      "tests": 44,
       "description": "Export and audit Devin session history — markdown notes, JSON, CSV, Obsidian-ready."
     },
     {
@@ -53,9 +73,12 @@
       "kind": "project",
       "visibility": "public",
       "wave": 1,
-      "status": "m1-done",
+      "status": "delivered",
       "version": "0.1.0",
       "session": "basalt-chill",
+      "stack": "python",
+      "ci": "inline",
+      "tests": 53,
       "description": "Diagnose a Devin Desktop installation: stores, schema, locks, config, disk — with fix suggestions."
     },
     {
@@ -64,9 +87,12 @@
       "kind": "project",
       "visibility": "public",
       "wave": 1,
-      "status": "m1-done",
+      "status": "delivered",
       "version": "0.1.0",
       "session": "smiling-loaf",
+      "stack": "python",
+      "ci": "inline",
+      "tests": 53,
       "description": "Project manager over sessions: per-repo rollups, milestones, status reports, registry.json."
     },
     {
@@ -75,9 +101,12 @@
       "kind": "project",
       "visibility": "public",
       "wave": 2,
-      "status": "m1-done",
+      "status": "delivered",
       "version": "0.1.0",
       "session": "smooth-beanie",
+      "stack": "python",
+      "ci": "inline",
+      "tests": 45,
       "description": "QA pack: verifies session deliverable claims against tool-call ground truth."
     },
     {
@@ -86,9 +115,12 @@
       "kind": "project",
       "visibility": "public",
       "wave": 2,
-      "status": "m1-done",
+      "status": "delivered",
       "version": "0.1.0",
       "session": "sulky-scarer",
+      "stack": "python",
+      "ci": "inline",
+      "tests": 37,
       "description": "Extract durable learnings into learned-* SKILL.md drafts with anti-poisoning review."
     },
     {
@@ -97,9 +129,12 @@
       "kind": "project",
       "visibility": "public",
       "wave": 2,
-      "status": "m1-done",
+      "status": "delivered",
       "version": "0.1.0",
       "session": "young-quasar",
+      "stack": "python",
+      "ci": "inline",
+      "tests": 36,
       "description": "Local-only usage metrics: cost, tokens, sessions per project/model/day — zero telemetry."
     },
     {
@@ -108,9 +143,12 @@
       "kind": "project",
       "visibility": "public",
       "wave": 2,
-      "status": "m1-done",
+      "status": "delivered",
       "version": "0.1.0",
       "session": "cactus-warlock",
+      "stack": "python",
+      "ci": "inline",
+      "tests": 48,
       "description": "Safe snapshot/verify/restore/rotate of Devin stores with schema-version manifests."
     },
     {
@@ -119,9 +157,12 @@
       "kind": "project",
       "visibility": "public",
       "wave": 3,
-      "status": "m1-done",
+      "status": "delivered",
       "version": "0.1.0",
       "session": "gusty-bite",
+      "stack": "python",
+      "ci": "inline",
+      "tests": 35,
       "description": "FTS5 full-text search across all Devin sessions, role-tagged and project-filtered."
     },
     {
@@ -130,9 +171,12 @@
       "kind": "project",
       "visibility": "public",
       "wave": 3,
-      "status": "m1-done",
+      "status": "delivered",
       "version": "0.1.0",
       "session": "flicker-hyacinth",
+      "stack": "python",
+      "ci": "inline",
+      "tests": 57,
       "description": "Knowledge graph: sessions, projects, files touched, tools used — queryable edges."
     },
     {
@@ -141,9 +185,12 @@
       "kind": "project",
       "visibility": "public",
       "wave": 3,
-      "status": "m1-done",
+      "status": "delivered",
       "version": "0.1.0",
       "session": "chemical-jury",
+      "stack": "python",
+      "ci": "inline",
+      "tests": 62,
       "description": "Deterministic eval harness: replay recorded sessions against rubric graders."
     },
     {
@@ -152,9 +199,12 @@
       "kind": "project",
       "visibility": "public",
       "wave": 3,
-      "status": "m1-done",
+      "status": "delivered",
       "version": "0.1.0",
       "session": "held-sandpaper",
+      "stack": "python",
+      "ci": "inline",
+      "tests": 22,
       "description": "Single-file static HTML dashboard over usage stats — offline, zero telemetry."
     },
     {
@@ -163,9 +213,12 @@
       "kind": "project",
       "visibility": "public",
       "wave": 4,
-      "status": "m1-done",
+      "status": "delivered",
       "version": "0.1.0",
       "session": "goldenrod-gadget",
+      "stack": "python",
+      "ci": "inline",
+      "tests": 71,
       "description": "Anti-poisoning memory store: provenance, versioning, quarantine gate."
     },
     {
@@ -174,9 +227,12 @@
       "kind": "project",
       "visibility": "public",
       "wave": 5,
-      "status": "m1-done",
+      "status": "delivered",
       "version": "0.1.0",
       "session": "deluxe-macaroni",
+      "stack": "python",
+      "ci": "inline",
+      "tests": 54,
       "description": "Session lifecycle janitor: export-then-delete pipeline, tiered classification, pluggable judge, pending-retry for locked stores."
     },
     {
@@ -185,10 +241,13 @@
       "kind": "project",
       "visibility": "public",
       "wave": 4,
-      "status": "m1-done",
+      "status": "delivered",
       "version": "0.1.0",
       "session": "massive-waltz",
-      "description": "Policy-gated ACP client (Node.js): isolated sessions per repo with allow/deny/ask permission policy."
+      "stack": "node",
+      "ci": "inline",
+      "tests": 55,
+      "description": "Policy-gated ACP client (Node.js, CI matrix Node 22 + 24): isolated sessions per repo with allow/deny/ask permission policy."
     }
   ]
 }

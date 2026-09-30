@@ -5,16 +5,16 @@
 
 **[Português (BR)](README.pt-BR.md)** · English
 
-Maintainer hub for the `devin-*` powerups ecosystem: index, roadmap,
-reusable CI and the repo template. **This repo is maintainer infrastructure —
-the user-facing projects live in their own public repos.**
+Private maintainer hub for the `devin-*` powerups ecosystem: registry,
+roadmap, template, and scaffolder. Public projects live in their own repos;
+each now carries its own inline CI workflow.
 
 ## What's here
 
 | Path | Purpose |
 |---|---|
 | `registry.json` | Machine-consumable index of all `devin-*` repos |
-| `.github/workflows/` | Reusable workflows (`python-test`, `redact-check`) called by every project repo |
+| `.github/workflows/` | Legacy reusable workflows retained for reference; projects use inline CI |
 | `template/` | Skeleton every new repo is bootstrapped from |
 | `tools/new-repo.py` | Scaffolder: `python tools/new-repo.py <name> "<desc>"` |
 
@@ -36,18 +36,28 @@ sessions · `S9` recoverable sessions · `S10` versioned schema.
 
 | Wave | Projects | Status |
 |---|---|---|
-| **0 — Foundation** | `devin-internals-spec` · `devin-redact` | 🔨 M1 done |
-| **1 — Adoption** | `devin-history` · `devin-doctor` · `devin-pm` | ⏳ |
-| **2 — Differentiator** | `devin-qa-pack` · `devin-learning` · `devin-metrics` · `devin-backup` | ⏳ |
-| **3 — Amplification** | `devin-search` · `devin-graph` · `devin-evals` · `devin-dashboard` | ⏳ |
-| **4 — Research** | `devin-memory` (anti-poisoning) · `devin-bridge` · Jevin | ⏳ |
+| **0 — Foundation** | `devin-internals-spec` · `devin-redact` | Delivered · 56 tests |
+| **1 — Adoption** | `devin-history` · `devin-doctor` · `devin-pm` | Delivered · 150 tests |
+| **2 — Differentiator** | `devin-qa-pack` · `devin-learning` · `devin-metrics` · `devin-backup` | Delivered · 166 tests |
+| **3 — Amplification** | `devin-search` · `devin-graph` · `devin-evals` · `devin-dashboard` | Delivered · 176 tests |
+| **4 — Research** | `devin-memory` · `devin-bridge` · Jevin | Projects delivered · 126 tests; Jevin research remains open |
+| **5 — Lifecycle** | `devin-janitor` | Delivered · 54 tests |
+
+## CI status
+
+As of 2026-09-30, the latest GitHub Actions runs pass for all 16 project
+repositories. Python projects test on Windows and Ubuntu; `devin-bridge` tests
+Node 22 and 24 on both. CI is inline because public repositories cannot reliably
+call reusable workflows in this private hub. The secrets-scan includes test
+source and excludes `.git`, `fixtures/`, and `node_modules/`; synthetic corpora
+intentionally live under `fixtures/`.
 
 ## Conventions
 
 - Bilingual docs: `README.md` (EN, canonical) + `README.pt-BR.md`.
 - MIT + unofficial notice on every public README.
 - Logic lives in the library; CLI/MCP/skill/plugin are thin wrappers.
-- No repo depends on another, except the `devin-internals` parsing library.
+- Shared dependencies (`devin-internals-spec`, `devin-redact`) are pinned by tag; avoid dependency cycles.
 - No telemetry, no network by default.
 
 ## Maintainer

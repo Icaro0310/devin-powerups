@@ -5,16 +5,16 @@
 
 **[English](README.md)** · Português (BR)
 
-Hub do maintainer para o ecossistema `devin-*`: índice, roadmap, CI
-reutilizável e o template de repos. **Este repo é infraestrutura do
-maintainer — os projetos virados ao utilizador vivem nos seus repos públicos.**
+Hub privado do maintainer para o ecossistema `devin-*`: registry, roadmap,
+template e scaffolder. Os projetos públicos vivem em repos próprios e cada um
+agora contém o seu workflow de CI inline.
 
 ## O que está aqui
 
 | Caminho | Propósito |
 |---|---|
 | `registry.json` | Índice consumível por máquina de todos os repos `devin-*` |
-| `.github/workflows/` | Workflows reutilizáveis (`python-test`, `redact-check`) chamados por cada repo de projeto |
+| `.github/workflows/` | Workflows reutilizáveis antigos, mantidos como referência; os projetos usam CI inline |
 | `template/` | Esqueleto de onde nasce cada repo novo |
 | `tools/new-repo.py` | Scaffolder: `python tools/new-repo.py <nome> "<desc>"` |
 
@@ -36,18 +36,28 @@ Cloud API · `S9` sessões recuperáveis · `S10` schema versionado.
 
 | Vaga | Projetos | Estado |
 |---|---|---|
-| **0 — Fundação** | `devin-internals-spec` · `devin-redact` | 🔨 M1 feito |
-| **1 — Adoção** | `devin-history` · `devin-doctor` · `devin-pm` | ⏳ |
-| **2 — Diferencial** | `devin-qa-pack` · `devin-learning` · `devin-metrics` · `devin-backup` | ⏳ |
-| **3 — Ampliação** | `devin-search` · `devin-graph` · `devin-evals` · `devin-dashboard` | ⏳ |
-| **4 — Pesquisa** | `devin-memory` (anti-poisoning) · `devin-bridge` · Jevin | ⏳ |
+| **0 — Fundação** | `devin-internals-spec` · `devin-redact` | Entregue · 56 testes |
+| **1 — Adoção** | `devin-history` · `devin-doctor` · `devin-pm` | Entregue · 150 testes |
+| **2 — Diferencial** | `devin-qa-pack` · `devin-learning` · `devin-metrics` · `devin-backup` | Entregue · 166 testes |
+| **3 — Ampliação** | `devin-search` · `devin-graph` · `devin-evals` · `devin-dashboard` | Entregue · 176 testes |
+| **4 — Pesquisa** | `devin-memory` · `devin-bridge` · Jevin | Projetos entregues · 126 testes; pesquisa Jevin pendente |
+| **5 — Lifecycle** | `devin-janitor` | Entregue · 54 testes |
+
+## Estado do CI
+
+Em 2026-09-30, as execuções mais recentes do GitHub Actions passaram nos 16
+repos de projeto. Projetos Python testam em Windows e Ubuntu; `devin-bridge`
+testa Node 22 e 24 nos dois sistemas. O CI é inline porque repos públicos não
+conseguem depender com confiabilidade de workflows reutilizáveis neste hub
+privado. O secrets-scan inclui o código de testes e exclui `.git`, `fixtures/`
+e `node_modules/`; corpora sintéticos ficam intencionalmente em `fixtures/`.
 
 ## Convenções
 
 - Docs bilingues: `README.md` (EN, canónico) + `README.pt-BR.md`.
 - MIT + aviso de não-oficial em todos os READMEs públicos.
 - A lógica vive na biblioteca; CLI/MCP/skill/plugin são wrappers finos.
-- Nenhum repo depende de outro, exceto a biblioteca `devin-internals`.
+- Dependências partilhadas (`devin-internals-spec`, `devin-redact`) são fixadas por tag; evite ciclos.
 - Sem telemetria, sem rede por omissão.
 
 ## Maintainer
