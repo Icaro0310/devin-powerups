@@ -97,6 +97,27 @@ sandbox sender (`PetSaas Bot <petsaas@test-z0vklo638kvl7qrx.mlsender.net>`),
 which is distinct from the SMTP login. If any secrets are missing the run
 emits a warning and leaves the HTML artifact only.
 
+## Weekly ecosystem scout
+
+`DevinWeeklyEcosystemScout` (Task Scheduler, Sundays 06:30 local) runs
+`scripts/weekly-ecosystem-scout.mjs` in the `personal-agent-system` workspace:
+
+1. **Scout** — `gh search repos` over agent-ecosystem queries (mcp-server,
+   agent-client-protocol, devin agent, claude code, coding agent cli, agent
+   skill), sorted by stars; top results feed new-project ideas.
+2. **E2E** — runs each registry repo's own test suite locally, serial, 3 min
+   per repo. Read-only: tests never modify or commit code.
+3. **Ideation** — dispatches to this repo's dedicated Devin session
+   (`devin-repo-task.js --resume-only`), which writes
+   `reports/scout-<date>-proposals.md`: exactly 3 feature proposals per repo
+   plus up to 5 new-project ideas from the trends.
+4. **Deliver** — Slack DM + MailerSend email with the summary, an
+   `e2e-failure` issue on any failing repo, and commit+push of the report.
+
+Proposals are proposals: nothing is implemented until the maintainer approves.
+Approved work resumes the repo's mapped session in `.sessions.json` — never a
+duplicate. Fail-open throughout; the run exits non-zero if any E2E fails.
+
 ## Conventions
 
 - Bilingual docs: `README.md` (EN, canonical) + `README.pt-BR.md`.

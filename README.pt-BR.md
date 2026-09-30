@@ -93,6 +93,28 @@ sandbox trial documentado do PetSaas
 login SMTP. Se algum faltar, a execução emite um aviso e deixa apenas o
 artifact HTML.
 
+## Scout semanal do ecossistema
+
+O `DevinWeeklyEcosystemScout` (Task Scheduler, domingos 06:30 local) corre o
+`scripts/weekly-ecosystem-scout.mjs` no workspace `personal-agent-system`:
+
+1. **Scout** — `gh search repos` sobre queries do ecossistema de agentes
+   (mcp-server, agent-client-protocol, devin agent, claude code, coding agent
+   cli, agent skill), ordenado por estrelas; o top alimenta ideias de projetos.
+2. **E2E** — corre a suite de testes de cada repo do registry localmente,
+   serial, 3 min por repo. Read-only: testes nunca modificam nem commitam.
+3. **Ideation** — despacha para a sessão Devin dedicada deste repo
+   (`devin-repo-task.js --resume-only`), que escreve
+   `reports/scout-<data>-proposals.md`: exatamente 3 propostas de features por
+   repo mais até 5 ideias de projetos novos vindas das trends.
+4. **Deliver** — DM no Slack + email MailerSend com o resumo, issue
+   `e2e-failure` em qualquer repo que falhou, e commit+push do relatório.
+
+Propostas são propostas: nada é implementado sem aprovação do maintainer.
+Trabalho aprovado retoma a sessão mapeada do repo em `.sessions.json` — nunca
+uma duplicada. Fail-open em tudo; a execução sai com código não-zero se algum
+E2E falhar.
+
 ## Convenções
 
 - Docs bilingues: `README.md` (EN, canónico) + `README.pt-BR.md`.
