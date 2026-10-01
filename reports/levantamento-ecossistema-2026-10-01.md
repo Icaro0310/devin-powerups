@@ -277,6 +277,15 @@ repo ganhou uma secção **"Platform support" / "Suporte de plataformas"** no
 `README.md` + `README.pt-BR.md` (12 repos atualizados e pushed; `devin-doctor`,
 `devin-memory`, `devin-bridge` e o hub já mencionavam Linux).
 
+**Convenção formalizada (2026-10-01):** *paridade Linux* é agora política
+oficial do ecossistema — toda feature/projeto/mudança tem de funcionar em
+Linux, documentada de forma adaptada. Vive em: `devin-powerups/README.md`
+(*Conventions*), `template/` do hub (README EN+pt-BR com secção obrigatória,
+CONTRIBUTING regra 5, `ci.yml` inline Windows+Ubuntu), DoD do roadmap
+(`planning/00-ROADMAP.md`) e regra always-on `.devin/rules/linux-parity.md`.
+O `ci.yml` do template ainda apontava workflows reutilizáveis do hub privado
+(decisão substituída) — corrigido para CI inline.
+
 **Inconsistência encontrada (a harmonizar):** `devin-pm` resolve a
 `sessions.db` em `~/.local/share/devin/` (`XDG_DATA_HOME`), enquanto todos os
 outros usam `~/.config/devin/` (`XDG_CONFIG_HOME`). Decidir qual é o canónico
