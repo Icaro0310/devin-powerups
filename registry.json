@@ -1,9 +1,9 @@
 {
  "$schema": "https://github.com/Icaro0310/devin-powerups/registry.schema.json",
- "version": 4,
- "generated": "2026-09-30",
+ "version": 5,
+ "generated": "2026-10-01",
  "owner": "Icaro0310",
- "note": "This hub repo is PRIVATE maintainer infrastructure (index + template + tools). It absorbed the former devin-ci and devin-repo-template repos. Public user-facing repos are listed below. Consolidation 2026-09-30: devin-dashboard->devin-metrics, devin-learning->devin-memory, devin-subagent-orchestrator->devin-orchestrator. CI is INLINE per repo; see the CI status section in README.md.",
+ "note": "This hub repo is PRIVATE maintainer infrastructure (index + template + tools). It absorbed the former devin-ci and devin-repo-template repos. Public user-facing repos are listed below (15 projects). Consolidation 2026-09-30: devin-dashboard->devin-metrics, devin-learning->devin-memory, devin-subagent-orchestrator->devin-orchestrator. 2026-10-01: personal-agent-system added as kind=system (private runtime repo, lives outside devin-ecosystem/ via local_dir). Non-ecosystem repos (PetSaas, qwenpaw-sync, ai-survival-trader-refactored, pokeemerald-hackrom) are intentionally NOT listed. CI is INLINE per repo; see the CI status section in README.md.",
  "ci": {
   "architecture": "inline",
   "previous_architecture": "reusable workflows in the private devin-ci/devin-powerups hub",
@@ -51,7 +51,7 @@
    "ci": "inline",
    "tests": 23,
    "tag": "v0.2.0",
-   "description": "Secret/PII redaction that understands Devin tool-call semantics, in-place in SQLite, with verify gate. Tag v0.2.0 pushed (devin-learning depends on it via git dependency)."
+   "description": "Secret/PII redaction that understands Devin tool-call semantics, in-place in SQLite, with verify gate. Tag v0.2.0 pushed (devin-memory depends on it via git dependency)."
   },
   {
    "name": "devin-history",
@@ -120,7 +120,7 @@
    "session": "young-quasar",
    "stack": "python",
    "ci": "inline",
-   "tests": 36,
+   "tests": 58,
    "description": "Local-only usage metrics: cost, tokens, sessions per project/model/day \u00e2\u20ac\u201d zero telemetry. Absorbed devin-dashboard (devin_metrics.dashboard subpackage + 'dashboard' subcommand, devin-dashboard script alias).",
    "note": "absorbed devin-dashboard (repo deleted)"
   },
@@ -191,7 +191,7 @@
    "session": "goldenrod-gadget",
    "stack": "python",
    "ci": "inline",
-   "tests": 71,
+   "tests": 108,
    "description": "Anti-poisoning memory store: provenance, versioning, quarantine gate. Absorbed devin-learning (devin_memory.learning subpackage, devin-learning script alias, devin-redact dep).",
    "note": "absorbed devin-learning (repo deleted)"
   },
@@ -233,9 +233,22 @@
    "version": "0.1.0",
    "stack": "python",
    "ci": "inline",
-   "tests": 15,
+   "tests": 18,
    "description": "Background-worker fan-out policy: deterministic planner enforcing worker caps (max 3), no nesting, read-only profiles for review, collect-before-report. Skill + always-on rule.",
    "note": "absorbed devin-subagent-orchestrator draft (never published)"
+  },
+  {
+   "name": "personal-agent-system",
+   "url": "https://github.com/Icaro0310/personal-agent-system",
+   "kind": "system",
+   "visibility": "private",
+   "wave": 0,
+   "status": "active",
+   "stack": "python",
+   "local_dir": "../personal-agent-system",
+   "tests_dir": "scripts",
+   "tests": 34,
+   "description": "The ecosystem's own runtime: memory/learning loop over Devin Desktop, Slack gateway, heartbeat, Obsidian brain, Djævin. Private — excluded from the public weekly-repo-report (kind!=project)."
   }
  ]
 }
