@@ -44,7 +44,8 @@ O ecossistema transforma o **Devin Desktop** num agente pessoal autónomo com:
 ## 2. Este repositório — `personal-agent-system`
 
 **Localização:** `C:\Users\Utilizador\Desktop\feat\personal-agent-system`
-**Git:** branch `main`, **sem remote configurado** (histórico local apenas).
+**Git:** branch `main` → `origin` = `github.com/Icaro0310/personal-agent-system`
+(**privado**, criado 2026-10-01; histórico completo pushed, scan de segredos limpo).
 **Docs-âncora:** `README.md`, `AGENT-SYSTEM.md`, `HEARTBEAT.md`,
 `DJAEVIN-LOCAL.md`, `OBSIDIAN_SETUP.md`, `RAM-OFFLOAD-PLAN.md`.
 
@@ -246,10 +247,25 @@ Exemplo — checkers (cron):
 
 ---
 
+### 5.5 Estado da cobertura Linux nos repos `devin-*`
+
+Auditado 2026-10-01 — **todos os 15 repos públicos já eram cross-platform no
+código** (deteção de plataforma em `paths.py`/equivalente) e todos têm CI em
+`windows-latest` + `ubuntu-latest`. O que faltava era a nota explícita: cada
+repo ganhou uma secção **"Platform support" / "Suporte de plataformas"** no
+`README.md` + `README.pt-BR.md` (12 repos atualizados e pushed; `devin-doctor`,
+`devin-memory`, `devin-bridge` e o hub já mencionavam Linux).
+
+**Inconsistência encontrada (a harmonizar):** `devin-pm` resolve a
+`sessions.db` em `~/.local/share/devin/` (`XDG_DATA_HOME`), enquanto todos os
+outros usam `~/.config/devin/` (`XDG_CONFIG_HOME`). Decidir qual é o canónico
+na próxima vaga — provavelmente `XDG_CONFIG_HOME`, alinhado com a store real
+do Devin CLI.
+
 ## 6. Limites conhecidos
 
-- PAS **não tem remote git** — histórico só local; a cópia online deste
-  levantamento vive no hub `devin-powerups`.
+- ~~PAS não tem remote git~~ → **resolvido 2026-10-01**: remote privado
+  `Icaro0310/personal-agent-system` criado e histórico pushed.
 - Heartbeat é emulação (não nativo); cada ciclo é sessão nova — estado via
   `state.json`/MCP/ficheiros.
 - Djævin é **consultivo opt-in** — a infra de enforcement foi desmontada
