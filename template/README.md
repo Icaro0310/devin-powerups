@@ -35,6 +35,16 @@ pipx install devin-{{name}}
 devin-{{name}} --help
 ```
 
+## Platform support
+
+<!-- REQUIRED — Linux parity is a project convention (see the hub README).
+     Everything shipped must work on Windows AND Linux. State the tested
+     platforms and any per-platform paths (%APPDATA% vs ~/.config/devin)
+     or overrides. If something genuinely cannot run on Linux, say so in
+     Limitations instead of hiding it. -->
+
+Tested on **Windows and Linux** (`windows-latest` + `ubuntu-latest` in CI).
+
 ## Limitations
 
 <!-- Be explicit: private/volatile internals, version-specific behavior,

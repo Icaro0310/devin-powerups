@@ -125,6 +125,12 @@ duplicate. Fail-open throughout; the run exits non-zero if any E2E fails.
 
 - Bilingual docs: `README.md` (EN, canonical) + `README.pt-BR.md`.
 - MIT + unofficial notice on every public README.
+- **Linux parity.** Every feature, project and change must also work on
+  Linux — not just Windows. Code: no hardcoded `%APPDATA%`/`C:\` paths (use
+  the shared platform-path helpers) and no PowerShell/`.bat`-only entry
+  points. Docs: every README carries a *Platform support* section. Any
+  capability that truly cannot run on Linux must be marked in
+  *Limitations*, not silently dropped.
 - Logic lives in the library; CLI/MCP/skill/plugin are thin wrappers.
 - Shared dependencies (`devin-internals-spec`, `devin-redact`) are pinned by tag; avoid dependency cycles.
 - No telemetry, no network by default.

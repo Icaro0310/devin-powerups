@@ -9,6 +9,11 @@
    unless the feature explicitly mutates them behind a flag.
 4. **Bilingual docs.** Changes to `README.md` must be mirrored in
    `README.pt-BR.md`.
+5. **Linux parity.** Features must work on Linux, not only Windows: no
+   hardcoded `%APPDATA%`/`C:\` paths (use the platform-path helpers),
+   no PowerShell/`.bat`-only entry points, and the README *Platform
+   support* section must stay accurate. Anything that truly cannot run
+   on Linux goes in *Limitations* — documented, never silent.
 
 ## Setup
 

@@ -35,6 +35,17 @@ pipx install devin-{{name}}
 devin-{{name}} --help
 ```
 
+## Suporte de plataformas
+
+<!-- OBRIGATÓRIO — paridade Linux é convenção do projeto (ver README do
+     hub). Tudo o que for entregue tem de funcionar em Windows E Linux.
+     Indica as plataformas testadas e os paths por plataforma
+     (%APPDATA% vs ~/.config/devin) ou overrides. Se algo não puder correr
+     em Linux, diz isso em Limitações em vez de omitir. -->
+
+Testado em **Windows e Linux** (o CI corre em `windows-latest` +
+`ubuntu-latest`).
+
 ## Limitações
 
 <!-- Sê explícito: internals privados/voláteis, comportamento por versão,
