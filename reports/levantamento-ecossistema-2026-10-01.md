@@ -137,8 +137,13 @@ bilingues EN+pt-BR, CI **inline** por repo (Windows + Linux), sem telemetria.
 | 4 Pesquisa | `devin-bridge` | público (JS) | — | — | entregue; Jevin pendente |
 | 5 Lifecycle | `devin-janitor` | público | — | — | entregue |
 
-**Totais:** 16 projetos públicos + hub privado · ~728 testes locais ·
-16 workflows CI verdes (2026-09-30) · stack Python + `devin-bridge` em Node.
+**Totais:** 15 projetos públicos `devin-*` + hub privado `devin-powerups` +
+`personal-agent-system` (privado) = **17 repos no ecossistema** · ~728 testes
+locais · CI inline verde · stack Python + `devin-bridge` em Node.
+
+> Correção 2026-10-01: o registry/roadmap diziam "16 projetos" porque ainda
+> contavam `devin-dashboard` e `devin-learning`, já absorvidos
+> (`→devin-metrics`, `→devin-memory`). Contagem real no GitHub: 15 públicos.
 
 **Consolidações:** `devin-dashboard`→`devin-metrics`, `devin-learning`→
 `devin-memory`, `devin-subagent-orchestrator`→`devin-orchestrator`,
@@ -158,6 +163,22 @@ não commitado).
 - `devin-redact` ainda não integrado por omissão no exportador de histórico.
 
 ---
+
+### 3.3 Outros repositórios da conta (fora do ecossistema `devin-*`)
+
+Conta `Icaro0310` — 21 repos no total (2026-10-01). Os 4 seguintes são
+projetos separados, fora do âmbito deste levantamento:
+
+| Repo | Visib. | Nota |
+|------|--------|------|
+| `PetSaas` | público | PetCare micro-SaaS (QR + medição + cuidadores) — acoplado ao Obsidian |
+| `qwenpaw-sync` | público | Sync QwenPaw (AgentScope + RAW.hq + local); `qwenpaw` corre na VM |
+| `ai-survival-trader-refactored` | privado | Refactoring do trading agent |
+| `pokeemerald-hackrom` | privado | ROM hack |
+
+**Arquivados** (removidos do GitHub em 2026-09-29, segundo o índice do vault):
+`wilson-reborn`, `living-island`, `unyleya-projeto-cicd`, `MobEAD`,
+`azure-voting-app-redis`.
 
 ## 4. Infra externa
 
