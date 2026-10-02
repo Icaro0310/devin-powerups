@@ -253,13 +253,57 @@
     {
       "name": "devin-dashboard",
       "url": "https://github.com/Icaro0310/devin-dashboard",
-      "kind": "infra",
+      "kind": "project",
       "visibility": "private",
       "wave": 0,
       "status": "active",
       "stack": "python",
       "session": "gui-dashboard",
-      "description": "Visual ecosystem monitoring: SPA served by VM (PM2), laptop reporter push via SSH tunnel :8900, tray launcher. Successor of the retired devin-dashboard name (previously absorbed into devin-metrics — now revived as its own service)."
+      "description": "Visual ecosystem monitoring: SPA+API na VM (PM2 :8900), laptop reporter via túnel SSH, tray launcher."
+    },
+    {
+      "name": "qwenpaw-sync",
+      "url": "https://github.com/Icaro0310/qwenpaw-sync",
+      "kind": "project",
+      "visibility": "public",
+      "wave": 0,
+      "status": "active",
+      "stack": "python",
+      "local_dir": "../qwenpaw-sync",
+      "description": "Sync GitHub↔local da plataforma QwenPaw."
+    },
+    {
+      "name": "devin-office",
+      "url": null,
+      "kind": "project",
+      "visibility": "private-local",
+      "wave": 0,
+      "status": "active",
+      "stack": "python",
+      "local_dir": "../devin-office",
+      "description": "Dashboard operacional pixel-art na VM (hub.py :8790, PM2)."
+    },
+    {
+      "name": "qwenpaw-bridge",
+      "url": null,
+      "kind": "project",
+      "visibility": "private-local",
+      "wave": 0,
+      "status": "active",
+      "stack": "python",
+      "local_dir": "../qwenpaw-bridge",
+      "description": "Flask :5000 no laptop → Ollama da VM via túnel :11435."
+    },
+    {
+      "name": "qwenpaw-orchestrator",
+      "url": null,
+      "kind": "project",
+      "visibility": "private-local",
+      "wave": 0,
+      "status": "active",
+      "stack": "python",
+      "local_dir": "../qwenpaw-orchestrator",
+      "description": "Healthcheck/satellite do QwenPaw na VM."
     }
   ]
 }
