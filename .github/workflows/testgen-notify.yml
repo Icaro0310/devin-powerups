@@ -1,0 +1,36 @@
+name: testgen-notify
+
+# Emails the weekly-testgen report committed to reports/ by the local run.
+# Mail goes through repo-level MailerSend SMTP secrets — no email
+# credential ever lives on the machine.
+
+on:
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Report date (YYYY-MM-DD) matching reports/testgen-<date>.md"
+        required: true
+        type: string
+
+jobs:
+  email:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Guard report file
+        run: test -s "reports/testgen-${{ inputs.date }}.md"
+
+      - name: Send testgen report via MailerSend SMTP
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.MAILERSEND_SMTP_HOST }}
+          server_port: ${{ secrets.MAILERSEND_SMTP_PORT }}
+          username: ${{ secrets.MAILERSEND_SMTP_USER }}
+          password: ${{ secrets.MAILERSEND_SMTP_PASSWORD }}
+          secure: false
+          subject: "Devin ecosystem — testgen semanal ${{ inputs.date }}"
+          to: icarogalvao5@gmail.com
+          from: "Devin Testgen <testgen@test-z0vklo638kvl7qrx.mlsender.net>"
+          body: file://reports/testgen-${{ inputs.date }}.md
+          attachments: reports/testgen-${{ inputs.date }}.md
