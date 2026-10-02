@@ -518,7 +518,7 @@
     }
   ],
   "pas": {
-    "root": "/home/ikaros/devin/personal-agent-system",
+    "root": "/home/user/devin/personal-agent-system",
     "docs": [
       "ECOSYSTEM.md",
       "AGENT-SYSTEM.md",

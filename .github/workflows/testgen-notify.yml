@@ -30,7 +30,7 @@ jobs:
           password: ${{ secrets.MAILERSEND_SMTP_PASSWORD }}
           secure: false
           subject: "Devin ecosystem — testgen semanal ${{ inputs.date }}"
-          to: icarogalvao5@gmail.com
+          to: ${{ vars.REPORT_RECIPIENT }}
           from: "Devin Testgen <testgen@test-z0vklo638kvl7qrx.mlsender.net>"
           body: file://reports/testgen-${{ inputs.date }}.md
           attachments: reports/testgen-${{ inputs.date }}.md

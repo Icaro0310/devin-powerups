@@ -370,7 +370,7 @@ class SendEmailTests(unittest.TestCase):
                 "smtplib.SMTP"
             ) as smtp_cls:
                 smtp = smtp_cls.return_value.__enter__.return_value
-                rc = wrr.send_report_email(html_file, "icarogalvao5@gmail.com")
+                rc = wrr.send_report_email(html_file, "reports@example.com")
 
         self.assertEqual(rc, 0)
         # STARTTLS must use a default (verified) SSL context
@@ -385,7 +385,7 @@ class SendEmailTests(unittest.TestCase):
             sent["From"], "PetSaas Bot <petsaas@test-z0vklo638kvl7qrx.mlsender.net>"
         )
         self.assertNotEqual(sent["From"], "smtp-login@example.test")
-        self.assertEqual(sent["To"], "icarogalvao5@gmail.com")
+        self.assertEqual(sent["To"], "reports@example.com")
         smtp.login.assert_called_once_with("smtp-login@example.test", "test-password")
 
     def test_send_missing_env_returns_warning(self):
@@ -393,7 +393,7 @@ class SendEmailTests(unittest.TestCase):
             html_file = Path(tmp) / "r.html"
             html_file.write_text("<html/>", encoding="utf-8")
             with mock.patch.dict("os.environ", {}, clear=True):
-                rc = wrr.send_report_email(html_file, "icarogalvao5@gmail.com")
+                rc = wrr.send_report_email(html_file, "reports@example.com")
         self.assertEqual(rc, 2)
 
     def test_send_invalid_port_returns_warning(self):
@@ -405,7 +405,7 @@ class SendEmailTests(unittest.TestCase):
             with mock.patch.dict("os.environ", env, clear=True), mock.patch(
                 "smtplib.SMTP"
             ) as smtp_cls:
-                rc = wrr.send_report_email(html_file, "icarogalvao5@gmail.com")
+                rc = wrr.send_report_email(html_file, "reports@example.com")
         self.assertEqual(rc, 2)
         smtp_cls.assert_not_called()
 
@@ -420,7 +420,7 @@ class SendEmailTests(unittest.TestCase):
             ) as smtp_cls:
                 smtp = smtp_cls.return_value.__enter__.return_value
                 smtp.login.side_effect = smtplib.SMTPAuthenticationError(535, b"bad creds")
-                rc = wrr.send_report_email(html_file, "icarogalvao5@gmail.com")
+                rc = wrr.send_report_email(html_file, "reports@example.com")
         self.assertEqual(rc, 1)
 
 

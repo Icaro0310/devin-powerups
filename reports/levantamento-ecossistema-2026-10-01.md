@@ -43,7 +43,7 @@ O ecossistema transforma o **Devin Desktop** num agente pessoal autónomo com:
 
 ## 2. Este repositório — `personal-agent-system`
 
-**Localização:** `C:\Users\Utilizador\Desktop\feat\personal-agent-system`
+**Localização:** `C:\Users\<user>\Desktop\feat\personal-agent-system`
 **Git:** branch `main` → `origin` = `github.com/Icaro0310/personal-agent-system`
 (**privado**, criado 2026-10-01; histórico completo pushed, scan de segredos limpo).
 **Docs-âncora:** `README.md`, `AGENT-SYSTEM.md`, `HEARTBEAT.md`,
@@ -184,9 +184,9 @@ projetos separados, fora do âmbito deste levantamento:
 
 | Recurso | Detalhe |
 |---------|---------|
-| **VM `devin-vm`** | Debian 12, Tailscale `100.102.159.65`, SSH :2222, 2 vCPU/3.7 GB. Corre sob PM2: `devin-office` (:8790), `qwenpaw` (:8088), `devin-bridge` stack (keepalive/watchdog/slack-poll/uptime-email/poll-watchdog), `ollama serve`, `browser-mcp` (:8765, Playwright headless + Xvfb), `janitor-purge` |
-| **Obsidian** | Vault `C:\Users\Utilizador\ObsidianVault` + plugin Local REST API (HTTP :27123). Bridge MCP próprio (`obsidian-bridge-server.py`) porque o `/mcp` nativo do plugin pendura. Watchdog relança a cada 5 min. Flags anti-throttling obrigatórias |
-| **Slack** | Workspace "Personal": bot `@devin2` (app "Devin", polling daemon via Startup folder), `@hermes` (sessão Hermes, Socket Mode opt-in). DM `D0C4NQ3QXUN`. Sessão ACP persistente "Slack Brain" — **nunca apagar** |
+| **VM `devin-vm`** | Debian 12, Tailscale `100.x.y.z`, SSH :2222, 2 vCPU/3.7 GB. Corre sob PM2: `devin-office` (:8790), `qwenpaw` (:8088), `devin-bridge` stack (keepalive/watchdog/slack-poll/uptime-email/poll-watchdog), `ollama serve`, `browser-mcp` (:8765, Playwright headless + Xvfb), `janitor-purge` |
+| **Obsidian** | Vault `C:\Users\<user>\ObsidianVault` + plugin Local REST API (HTTP :27123). Bridge MCP próprio (`obsidian-bridge-server.py`) porque o `/mcp` nativo do plugin pendura. Watchdog relança a cada 5 min. Flags anti-throttling obrigatórias |
+| **Slack** | Workspace "Personal": bot `@devin2` (app "Devin", polling daemon via Startup folder), `@hermes` (sessão Hermes, Socket Mode opt-in). DM `D…`. Sessão ACP persistente "Slack Brain" — **nunca apagar** |
 | **Devin Cloud** | Webhook automation ligado (`DEVIN_WEBHOOK_URL`+secret); emails do scout via workflow `scout-notify` no hub (SMTP secrets no repo) |
 | **GitHub** | `gh` autenticado como `Icaro0310` (scopes: repo, workflow, gist, delete_repo, read:org) |
 | **MCP `unified`** | Agregador global (27 tools: memory, nlsql, obsidian, github/gh, ecc) — 1 processo por sessão em vez de 5-8 |

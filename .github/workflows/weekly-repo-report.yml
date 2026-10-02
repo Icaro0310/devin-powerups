@@ -78,4 +78,4 @@ jobs:
         run: >
           python tools/weekly_repo_report.py
           --send report/weekly-repo-report.html
-          --to "${{ vars.REPORT_RECIPIENT || 'icarogalvao5@gmail.com' }}"
+          --to "${{ vars.REPORT_RECIPIENT }}"
