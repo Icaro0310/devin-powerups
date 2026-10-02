@@ -1,0 +1,65 @@
+{"key":"d6a309e8b9ca8b5a","title":"devin-roles","repo":"pas","class":"idea","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"e036c1ff47aacfb9","title":"devin-obsidian","repo":"pas","class":"idea","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"6bea4bedee9c661a","title":"devin-arch","repo":"pas","class":"idea","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"e743254ad5dd9571","title":"devin-agent-rules","repo":"pas","class":"idea","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"5c90b3c375cee685","title":"devin-context","repo":"pas","class":"idea","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"b36622e9acb0c5d0","title":"Publicar `registry.schema.json`","repo":"devin-powerups","class":"estender","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"ab6ff24a437d4a44","title":"`tools/e2e-preflight.py`","repo":"devin-powerups","class":"novo","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"a1373ff07a6d527b","title":"Fechar o loop do proposals-ledger","repo":"devin-powerups","class":"estender","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"22a8b28a2124e898","title":"Documentar `jev_log.db` e `session_locks/`","repo":"devin-internals-spec","class":"novo","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"1aea647937964b58","title":"Fixtures para `acp-messages/*.db`","repo":"devin-internals-spec","class":"estender","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"5e21beea2e3e39b5","title":"Spec dos formatos de config","repo":"devin-internals-spec","class":"novo","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"89ef81351ce3aafb","title":"Gate de export por omissão","repo":"devin-redact","class":"portar","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"9b525d2959a5fcca","title":"Scan de stores JSONL","repo":"devin-redact","class":"estender","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"999eb30ba210e7e5","title":"Desvendorizar padrões no `no_secrets` do devin-evals","repo":"devin-redact","class":"estender","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"8a313697c7cc9aba","title":"Export de sessões GUI","repo":"devin-history","class":"portar","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"c218ba758634b203","title":"Export incremental por sessão","repo":"devin-history","class":"portar","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"1d495b387111e3c1","title":"Anchors de provenance","repo":"devin-history","class":"novo","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"6d6dd7ad7014f6e6","title":"Check de toolchain de testes","repo":"devin-doctor","class":"novo","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"64d8ce2f3740b688","title":"`--fix` para itens seguros","repo":"devin-doctor","class":"estender","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"840772c33b8776ac","title":"Check \"automação órfã\"","repo":"devin-doctor","class":"novo","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"cacc2106b6c0855e","title":"Harmonizar path Linux","repo":"devin-pm","class":"estender","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"0d4d962e85ab8864","title":"`devin-pm drift`","repo":"devin-pm","class":"novo","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"e58a56071d771cf0","title":"Rollups de sessões GUI","repo":"devin-pm","class":"estender","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"b3f373777e15c7dc","title":"Handler `audit` agendado","repo":"devin-qa-pack","class":"portar","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"f7c68e6ab93da25c","title":"Claims de delegação","repo":"devin-qa-pack","class":"novo","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"71dffbc080e3d227","title":"Série histórica de veredictos","repo":"devin-qa-pack","class":"estender","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"0e056e53ca1d92c5","title":"Digest agendado","repo":"devin-metrics","class":"portar","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"125a9ec92426da3d","title":"Painel custo-por-modelo pós-pin","repo":"devin-metrics","class":"novo","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"7074b0da9c14f05c","title":"Export `metrics.json`","repo":"devin-metrics","class":"novo","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"a8faf31b56071c31","title":"`devin-backup install`","repo":"devin-backup","class":"portar","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"87087d466407ce68","title":"Destino remoto com re-verify","repo":"devin-backup","class":"portar","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"36d137ea8b05a746","title":"Perfil PAS","repo":"devin-backup","class":"estender","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"ffa83749926b81bd","title":"Re-index incremental no SessionEnd","repo":"devin-search","class":"portar","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"2de098ce18f8909a","title":"`devin-search serve`","repo":"devin-search","class":"novo","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"a13b4a476ed90e6e","title":"Semântico opt-in sem LLM","repo":"devin-search","class":"estender","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"3bf2525edc2abd51","title":"Grafo partilhado com o codegraph do PAS","repo":"devin-graph","class":"portar","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"d76de717641c423f","title":"`devin-graph impact <file>`","repo":"devin-graph","class":"novo","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"b38b6b474db71634","title":"`devin-graph diff`","repo":"devin-graph","class":"novo","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"87b56c2d24338c77","title":"Judge via backend ACP free","repo":"devin-evals","class":"portar","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"649af6b2b8907f7f","title":"Biblioteca de rubricas","repo":"devin-evals","class":"novo","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"c56809d7a3941e38","title":"`session_ref` em sessões GUI","repo":"devin-evals","class":"novo","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"637ab268bfe0bf59","title":"Extração sessão→memória","repo":"devin-memory","class":"portar","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"b4a92fb46ebb6d84","title":"MCP server quarantine-aware","repo":"devin-memory","class":"portar","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"854dbd215f9816d6","title":"`expires_at` + decay no recall","repo":"devin-memory","class":"novo","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"fd671c97d0107c8f","title":"`devin-janitor install`","repo":"devin-janitor","class":"portar","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"c3d2e12b7b9da0a3","title":"Tiers para artefactos `.devin/`","repo":"devin-janitor","class":"novo","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"122b11422e4430e6","title":"Notificação pós-run","repo":"devin-janitor","class":"estender","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"b08935542194c371","title":"Suporte Linux real","repo":"devin-bridge","class":"estender","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"5aa7ae96ee4be08b","title":"Intake por mailbox","repo":"devin-bridge","class":"portar","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"07cbe97ae8f7b0d1","title":"`devin-bridge rotate`","repo":"devin-bridge","class":"novo","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"f41b488cd7e68b2f","title":"Sinal `ram_pressure` no planner","repo":"devin-orchestrator","class":"novo","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"97c25698689ba3ce","title":"Plano como trigger manifest","repo":"devin-orchestrator","class":"novo","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"82f358e3dd680695","title":"Routing de perfis por stack","repo":"devin-orchestrator","class":"estender","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"69e63c765b691734","title":"Instalador de schedulers Linux","repo":"personal-agent-system","class":"novo","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"ff6113734fa63581","title":"`scripts/bootstrap-linux.sh`","repo":"personal-agent-system","class":"novo","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"eef5924c4188d3a3","title":"mcp-hub como serviço","repo":"personal-agent-system","class":"estender","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"aa84742087a5e3be","title":"Suite de testes","repo":"devin-dashboard","class":"novo","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"2b9288b589409f01","title":"Badge de E2E/scout no SPA","repo":"devin-dashboard","class":"estender","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"22e379e1721ece30","title":"Alertas de threshold","repo":"devin-dashboard","class":"novo","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"09fa49cf91a4f0a4","title":"Suite de testes","repo":"devin-office","class":"novo","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"254f0a64c7663f92","title":"Feed de eventos do ecossistema","repo":"devin-office","class":"estender","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"f75a516bd8f41e7e","title":"Probe multi-host","repo":"devin-office","class":"novo","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"ebc6f09dfdc88501","title":"Suite de testes","repo":"qwenpaw-suite","class":"novo","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"bc5fedb7eb04c804","title":"Backend ACP na bridge","repo":"qwenpaw-suite","class":"estender","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
+{"key":"e5572584a13d49ce","title":"Paridade Linux nos docs/scripts","repo":"qwenpaw-suite","class":"estender","first_seen":"2026-10-02","last_seen":"2026-10-02","status":"candidate","recurrences":0}
