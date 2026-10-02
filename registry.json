@@ -3,7 +3,7 @@
   "version": 5,
   "generated": "2026-10-01",
   "owner": "Icaro0310",
-  "note": "This hub repo is PRIVATE maintainer infrastructure (index + template + tools). It absorbed the former devin-ci and devin-repo-template repos. Public user-facing repos are listed below (15 projects). Consolidation 2026-09-30: devin-dashboard->devin-metrics, devin-learning->devin-memory, devin-subagent-orchestrator->devin-orchestrator. 2026-10-01: personal-agent-system added as kind=system (private runtime repo, lives outside devin-ecosystem/ via local_dir). Non-ecosystem repos (PetSaas, qwenpaw-sync, ai-survival-trader-refactored, pokeemerald-hackrom) are intentionally NOT listed. CI is INLINE per repo; see the CI status section in README.md.",
+  "note": "This hub repo is PRIVATE maintainer infrastructure (index + template + tools). It absorbed the former devin-ci and devin-repo-template repos. Public user-facing repos are listed below (15 projects). Consolidation 2026-09-30: devin-dashboard->devin-metrics, devin-learning->devin-memory, devin-subagent-orchestrator->devin-orchestrator. 2026-10-01: personal-agent-system added as kind=system (private runtime repo, lives outside devin-ecosystem/ via local_dir). Non-ecosystem repos (PetSaas, qwenpaw-suite, ai-survival-trader-refactored, pokeemerald-hackrom) are intentionally NOT listed. CI is INLINE per repo; see the CI status section in README.md.",
   "ci": {
     "architecture": "inline",
     "previous_architecture": "reusable workflows in the private devin-ci/devin-powerups hub",
@@ -262,17 +262,6 @@
       "description": "Visual ecosystem monitoring: SPA+API na VM (PM2 :8900), laptop reporter via túnel SSH, tray launcher."
     },
     {
-      "name": "qwenpaw-sync",
-      "url": "https://github.com/Icaro0310/qwenpaw-sync",
-      "kind": "project",
-      "visibility": "public",
-      "wave": 0,
-      "status": "active",
-      "stack": "python",
-      "local_dir": "../qwenpaw-sync",
-      "description": "Sync GitHub↔local da plataforma QwenPaw."
-    },
-    {
       "name": "devin-office",
       "url": null,
       "kind": "project",
@@ -284,26 +273,15 @@
       "description": "Dashboard operacional pixel-art na VM (hub.py :8790, PM2)."
     },
     {
-      "name": "qwenpaw-bridge",
-      "url": null,
+      "name": "qwenpaw-suite",
+      "url": "https://github.com/Icaro0310/qwenpaw-suite",
       "kind": "project",
-      "visibility": "private-local",
+      "visibility": "public",
       "wave": 0,
       "status": "active",
       "stack": "python",
-      "local_dir": "../qwenpaw-bridge",
-      "description": "Flask :5000 no laptop → Ollama da VM via túnel :11435."
-    },
-    {
-      "name": "qwenpaw-orchestrator",
-      "url": null,
-      "kind": "project",
-      "visibility": "private-local",
-      "wave": 0,
-      "status": "active",
-      "stack": "python",
-      "local_dir": "../qwenpaw-orchestrator",
-      "description": "Healthcheck/satellite do QwenPaw na VM."
+      "local_dir": "../qwenpaw-suite",
+      "description": "Suite QwenPaw unificada: bridge/ (Flask :5000→Ollama), orchestrator/ (healthcheck VM), sync/ docs GitHub↔local. Absorveu qwenpaw-sync/-bridge/-orchestrator standalone."
     }
   ]
 }
