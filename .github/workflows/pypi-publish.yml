@@ -1,0 +1,66 @@
+name: reusable-pypi-publish
+
+# Reusable workflow: build a Python package and publish it to PyPI.
+#
+# Caller repos need one secret: PYPI_API_TOKEN (a PyPI account/project API
+# token). Upload uses twine over HTTPS, no OIDC setup required per project.
+#
+# Usage from a caller repo:
+#
+#   jobs:
+#     publish:
+#       uses: Icaro0310/devin-powerups/.github/workflows/pypi-publish.yml@main
+#       secrets:
+#         PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+
+on:
+  workflow_call:
+    inputs:
+      package-dir:
+        description: Directory containing pyproject.toml
+        required: false
+        type: string
+        default: "."
+      python-version:
+        description: Python version used to build
+        required: false
+        type: string
+        default: "3.12"
+    secrets:
+      PYPI_API_TOKEN:
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+      - name: Build sdist and wheel
+        working-directory: ${{ inputs.package-dir }}
+        run: |
+          python -m pip install --upgrade build twine
+          python -m build
+          python -m twine check dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: ${{ inputs.package-dir }}/dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Upload to PyPI
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          python -m pip install --upgrade twine
+          python -m twine upload --non-interactive --skip-existing dist/*
