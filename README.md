@@ -1,3 +1,9 @@
+<div align="center">
+
+<img src="assets/banner.svg" alt="devin-powerups" width="100%"/>
+
+</div>
+
 # devin-powerups
 
 > Unofficial community tooling for Devin. Not affiliated with, endorsed by, or
