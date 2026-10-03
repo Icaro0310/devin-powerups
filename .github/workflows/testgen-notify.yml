@@ -1,14 +1,20 @@
 name: testgen-notify
 
-# Emails the weekly-testgen report committed to reports/ by the local run.
-# Mail goes through repo-level MailerSend SMTP secrets — no email
-# credential ever lives on the machine.
+# Emails a maintainer-supplied testgen report when manually dispatched.
+# The report markdown is passed as a workflow input — reports are not stored
+# in this repository (they may contain maintainer-private context).
+# Configure MailerSend SMTP secrets plus REPORT_RECIPIENT and REPORT_SENDER
+# repository variables; this workflow does not generate the report.
 
 on:
   workflow_dispatch:
     inputs:
       date:
-        description: "Report date (YYYY-MM-DD) matching reports/testgen-<date>.md"
+        description: "Report date (YYYY-MM-DD), used in the subject line"
+        required: true
+        type: string
+      report_md:
+        description: "Report markdown content to email"
         required: true
         type: string
 
@@ -16,12 +22,30 @@ jobs:
   email:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Write supplied report
+        env:
+          REPORT_MD: ${{ inputs.report_md }}
+        run: printf '%s' "$REPORT_MD" > testgen-report.md && test -s testgen-report.md
 
-      - name: Guard report file
-        run: test -s "reports/testgen-${{ inputs.date }}.md"
+      - name: Check email configuration
+        id: mail
+        env:
+          SMTP_HOST: ${{ secrets.MAILERSEND_SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.MAILERSEND_SMTP_PORT }}
+          SMTP_USER: ${{ secrets.MAILERSEND_SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.MAILERSEND_SMTP_PASSWORD }}
+          REPORT_RECIPIENT: ${{ vars.REPORT_RECIPIENT }}
+          REPORT_SENDER: ${{ vars.REPORT_SENDER }}
+        run: |
+          if [ -n "$SMTP_HOST" ] && [ -n "$SMTP_PORT" ] && [ -n "$SMTP_USER" ] && [ -n "$SMTP_PASSWORD" ] && [ -n "$REPORT_RECIPIENT" ] && [ -n "$REPORT_SENDER" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Configure SMTP secrets and REPORT_RECIPIENT/REPORT_SENDER variables to enable email."
+          fi
 
       - name: Send testgen report via MailerSend SMTP
+        if: steps.mail.outputs.ready == 'true'
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: ${{ secrets.MAILERSEND_SMTP_HOST }}
@@ -31,6 +55,6 @@ jobs:
           secure: false
           subject: "Devin ecosystem — testgen semanal ${{ inputs.date }}"
           to: ${{ vars.REPORT_RECIPIENT }}
-          from: "Devin Testgen <testgen@test-z0vklo638kvl7qrx.mlsender.net>"
-          body: file://reports/testgen-${{ inputs.date }}.md
-          attachments: reports/testgen-${{ inputs.date }}.md
+          from: ${{ vars.REPORT_SENDER }}
+          body: file://testgen-report.md
+          attachments: testgen-report.md

@@ -25,8 +25,15 @@ One-line description of what this tool does.
 
 ## Install
 
+Requires Python ≥ 3.10 and `pipx`. On Windows (PowerShell), install `pipx`
+with `py -m pip install --user pipx`, then run `py -m pipx ensurepath` and
+reopen the terminal. On Debian/Ubuntu Linux, run
+`sudo apt install pipx python3-venv` and `pipx ensurepath`; reopen the terminal.
+
+After this project has a public GitHub repository, install it with:
+
 ```bash
-pipx install devin-{{name}}
+pipx install "devin-{{name}} @ git+https://github.com/Icaro0310/devin-{{name}}.git"
 ```
 
 ## Usage
@@ -39,11 +46,13 @@ devin-{{name}} --help
 
 <!-- REQUIRED — Linux parity is a project convention (see the hub README).
      Everything shipped must work on Windows AND Linux. State the tested
-     platforms and any per-platform paths (%APPDATA% vs ~/.config/devin)
-     or overrides. If something genuinely cannot run on Linux, say so in
-     Limitations instead of hiding it. -->
+     platforms and paths for session data (%APPDATA% vs XDG_DATA_HOME) and
+     UI config (XDG_CONFIG_HOME), plus overrides. If something genuinely
+     cannot run on Linux, say so in Limitations instead of hiding it. -->
 
 Tested on **Windows and Linux** (`windows-latest` + `ubuntu-latest` in CI).
+On Linux, Devin session data defaults to `~/.local/share/devin`; UI config
+is under `~/.config/Devin`. Document any paths or overrides this tool uses.
 
 ## Limitations
 

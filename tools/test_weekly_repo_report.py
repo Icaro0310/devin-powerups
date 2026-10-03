@@ -360,9 +360,10 @@ class SendEmailTests(unittest.TestCase):
             "MAILERSEND_SMTP_PORT": "587",
             "MAILERSEND_SMTP_USER": "smtp-login@example.test",
             "MAILERSEND_SMTP_PASSWORD": "test-password",
+            "REPORT_SENDER": "Report Bot <reports@example.test>",
         }
 
-    def test_send_uses_verified_tls_and_petsaas_from(self):
+    def test_send_uses_verified_tls_and_configured_sender(self):
         with tempfile.TemporaryDirectory() as tmp:
             html_file = Path(tmp) / "r.html"
             html_file.write_text("<html>report</html>", encoding="utf-8")
@@ -379,11 +380,9 @@ class SendEmailTests(unittest.TestCase):
         self.assertIsInstance(context, ssl.SSLContext)
         self.assertEqual(context.verify_mode, ssl.CERT_REQUIRED)
         self.assertTrue(context.check_hostname)
-        # From is the documented PetSaas sender, NOT the SMTP login
+        # From is a configured sender, not the SMTP login
         sent = smtp.send_message.call_args.args[0]
-        self.assertEqual(
-            sent["From"], "PetSaas Bot <petsaas@test-z0vklo638kvl7qrx.mlsender.net>"
-        )
+        self.assertEqual(sent["From"], "Report Bot <reports@example.test>")
         self.assertNotEqual(sent["From"], "smtp-login@example.test")
         self.assertEqual(sent["To"], "reports@example.com")
         smtp.login.assert_called_once_with("smtp-login@example.test", "test-password")
@@ -395,6 +394,19 @@ class SendEmailTests(unittest.TestCase):
             with mock.patch.dict("os.environ", {}, clear=True):
                 rc = wrr.send_report_email(html_file, "reports@example.com")
         self.assertEqual(rc, 2)
+
+    def test_send_missing_sender_returns_warning(self):
+        env = self._env()
+        env.pop("REPORT_SENDER")
+        with tempfile.TemporaryDirectory() as tmp:
+            html_file = Path(tmp) / "r.html"
+            html_file.write_text("<html/>", encoding="utf-8")
+            with mock.patch.dict("os.environ", env, clear=True), mock.patch(
+                "smtplib.SMTP"
+            ) as smtp_cls:
+                rc = wrr.send_report_email(html_file, "reports@example.com")
+        self.assertEqual(rc, 2)
+        smtp_cls.assert_not_called()
 
     def test_send_invalid_port_returns_warning(self):
         env = self._env()

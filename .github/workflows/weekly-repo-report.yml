@@ -6,17 +6,13 @@ name: weekly-repo-report
 # where every repo fetch fails, in which case the generate step exits
 # non-zero and the run stays visibly red after artifact/email handling.
 #
-# If all four MailerSend SMTP secrets are configured in this private hub
-# (MAILERSEND_SMTP_HOST, MAILERSEND_SMTP_PORT, MAILERSEND_SMTP_USER,
-# MAILERSEND_SMTP_PASSWORD — the same names used by PetSaas), the report is
-# also emailed to the maintainer over verified TLS. The From identity is the
-# documented PetSaas trial sandbox sender (PetSaas Bot
-# <petsaas@test-z0vklo638kvl7qrx.mlsender.net>), which is distinct from the
-# SMTP login — no credential is hardcoded here. When secrets are absent the
-# run emits a warning and the artifact is still uploaded.
+# Email is optional. Configure the four MailerSend SMTP secrets plus the
+# REPORT_RECIPIENT and REPORT_SENDER repository variables in Settings → Secrets
+# and variables → Actions. The sender must be verified with your mail provider.
+# If configuration is incomplete, the HTML artifact is still uploaded and the
+# email step is skipped.
 #
-# Only public-repository metadata is queried; nothing about this private
-# hub repo is included in the report payload.
+# Only registry entries tagged kind=project and visibility=public are queried.
 
 on:
   schedule:
@@ -52,7 +48,7 @@ jobs:
           path: report/weekly-repo-report.html
           retention-days: 90
 
-      - name: Check MailerSend secrets
+      - name: Check email configuration
         if: always()
         id: mail
         env:
@@ -60,12 +56,14 @@ jobs:
           MP: ${{ secrets.MAILERSEND_SMTP_PORT }}
           MU: ${{ secrets.MAILERSEND_SMTP_USER }}
           MW: ${{ secrets.MAILERSEND_SMTP_PASSWORD }}
+          RECIPIENT: ${{ vars.REPORT_RECIPIENT }}
+          SENDER: ${{ vars.REPORT_SENDER }}
         run: |
-          if [ -n "$MH" ] && [ -n "$MP" ] && [ -n "$MU" ] && [ -n "$MW" ]; then
+          if [ -n "$MH" ] && [ -n "$MP" ] && [ -n "$MU" ] && [ -n "$MW" ] && [ -n "$RECIPIENT" ] && [ -n "$SENDER" ]; then
             echo "present=true" >> "$GITHUB_OUTPUT"
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::MailerSend SMTP secrets are not configured in this hub — skipping email. The HTML report artifact was still uploaded."
+            echo "::warning::Configure SMTP secrets and REPORT_RECIPIENT/REPORT_SENDER variables to enable email. The HTML artifact was still uploaded."
           fi
 
       - name: Send report email
@@ -75,7 +73,10 @@ jobs:
           MAILERSEND_SMTP_PORT: ${{ secrets.MAILERSEND_SMTP_PORT }}
           MAILERSEND_SMTP_USER: ${{ secrets.MAILERSEND_SMTP_USER }}
           MAILERSEND_SMTP_PASSWORD: ${{ secrets.MAILERSEND_SMTP_PASSWORD }}
+          REPORT_RECIPIENT: ${{ vars.REPORT_RECIPIENT }}
+          REPORT_SENDER: ${{ vars.REPORT_SENDER }}
         run: >
           python tools/weekly_repo_report.py
           --send report/weekly-repo-report.html
-          --to "${{ vars.REPORT_RECIPIENT }}"
+          --to "$REPORT_RECIPIENT"
+          --from "$REPORT_SENDER"

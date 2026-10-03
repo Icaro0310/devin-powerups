@@ -3,7 +3,7 @@
   "version": 5,
   "generated": "2026-10-01",
   "owner": "Icaro0310",
-  "note": "This hub repo is PRIVATE maintainer infrastructure (index + template + tools). It absorbed the former devin-ci and devin-repo-template repos. Public user-facing repos are listed below (15 projects). Consolidation 2026-09-30: devin-dashboard->devin-metrics, devin-learning->devin-memory, devin-subagent-orchestrator->devin-orchestrator. 2026-10-01: personal-agent-system added as kind=system (private runtime repo, lives outside devin-ecosystem/ via local_dir). Non-ecosystem repos (PetSaas, qwenpaw-suite, ai-survival-trader-refactored, pokeemerald-hackrom) are intentionally NOT listed. CI is INLINE per repo; see the CI status section in README.md.",
+  "note": "Public maintainer toolkit: registry, template, scaffolder, and public-project report. Public Devin tools are listed below; the maintainer's private runtime remains kind=system and is excluded from public-project reports. Unrelated personal repositories are not part of this catalog. CI is inline per public project; see README.md.",
   "ci": {
     "architecture": "inline",
     "previous_architecture": "reusable workflows in the private devin-ci/devin-powerups hub",
@@ -19,7 +19,7 @@
       "name": "devin-powerups",
       "url": "https://github.com/Icaro0310/devin-powerups",
       "kind": "infra",
-      "visibility": "private",
+      "visibility": "public",
       "wave": 0,
       "status": "active",
       "description": "Maintainer hub: index, roadmap, repo template, scaffolder. Formerly devin-ci + devin-repo-template, fused here. Reusable workflows superseded by inline per-repo CI."
@@ -248,7 +248,7 @@
       "local_dir": "../personal-agent-system",
       "tests_dir": "scripts",
       "tests": 34,
-      "description": "The ecosystem's own runtime: memory/learning loop over Devin Desktop, Slack gateway, heartbeat, Obsidian brain, Djævin. Private — excluded from the public weekly-repo-report (kind!=project)."
+      "description": "Private maintainer runtime for personal workflows; excluded from public project reports (kind=system)."
     },
     {
       "name": "devin-dashboard",
@@ -259,18 +259,18 @@
       "status": "active",
       "stack": "python",
       "session": "gui-dashboard",
-      "description": "Visual ecosystem monitoring: SPA+API na VM (PM2 :8900), laptop reporter via túnel SSH, tray launcher."
+      "description": "Private environment-monitoring deployment for the maintainer; not a public user tool."
     },
     {
       "name": "devin-office",
-      "url": null,
+      "url": "https://github.com/Icaro0310/devin-office",
       "kind": "project",
-      "visibility": "private-local",
+      "visibility": "public",
       "wave": 0,
       "status": "active",
       "stack": "python",
       "local_dir": "../devin-office",
-      "description": "Dashboard operacional pixel-art na VM (hub.py :8790, PM2)."
+      "description": "Local-first Devin session and subagent dashboard with standalone and optional private-hub modes."
     },
     {
       "name": "qwenpaw-suite",
@@ -281,7 +281,18 @@
       "status": "active",
       "stack": "python",
       "local_dir": "../qwenpaw-suite",
-      "description": "Suite QwenPaw unificada: bridge/ (Flask :5000→Ollama), orchestrator/ (healthcheck VM), sync/ docs GitHub↔local. Absorveu qwenpaw-sync/-bridge/-orchestrator standalone."
+      "description": "QwenPaw suite (OPTIONAL add-on, not required by the devin-* tools): bridge/ (Flask :5000 → local model server), orchestrator/ healthcheck, sync/ docs GitHub↔local. Absorbeu qwenpaw-sync/-bridge/-orchestrator standalone."
+    },
+    {
+      "name": "poordjaevin",
+      "url": "https://github.com/Icaro0310/poordjaevin",
+      "kind": "project",
+      "visibility": "public",
+      "wave": 0,
+      "status": "active",
+      "stack": "python",
+      "local_dir": "../personal-agent-system/vendor/poordjaevin",
+      "description": "Djævin: fork of poordjaevin adding a Devin ACP backend (uses the model Devin already runs, no extra download); local NLI backend stays as fully-offline fallback."
     }
   ]
 }

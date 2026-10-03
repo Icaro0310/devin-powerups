@@ -3,3 +3,6 @@ __pycache__/
 .pytest_cache/
 .venv/
 .devin/memory/
+
+# Generated reports live in the private runtime — never commit them here
+reports/

@@ -7,8 +7,8 @@ repo (bounded pagination), and writes a standalone HTML report grouped by
 repository and day (date, short SHA linked to GitHub, escaped first-line
 commit subject).
 
-Only public-repository data is queried or rendered; nothing about this
-private hub repo itself is inspected or reported.
+Only registry entries tagged ``kind=project`` and ``visibility=public`` are
+queried or included in the report.
 
 Usage:
     python tools/weekly_repo_report.py [--registry registry.json]
@@ -18,14 +18,12 @@ Usage:
 
     python tools/weekly_repo_report.py --send weekly-repo-report.html
                                        --to someone@example.com
-                                       [--from "Name <addr>"]
+                                       --from "Name <verified-sender>"
 
 --send uses the MailerSend SMTP env vars (MAILERSEND_SMTP_HOST,
 MAILERSEND_SMTP_PORT, MAILERSEND_SMTP_USER, MAILERSEND_SMTP_PASSWORD) over
-verified TLS (ssl.create_default_context). The From identity defaults to the
-documented PetSaas sandbox sender and is NOT the SMTP login. The script
-exits non-zero if any variable is missing — callers are expected to gate on
-secret presence first.
+verified TLS (ssl.create_default_context). The sender identity must be supplied
+with ``--from`` or ``REPORT_SENDER``; it is not the SMTP login.
 """
 
 from __future__ import annotations
@@ -54,7 +52,7 @@ USER_AGENT = "devin-powerups-weekly-report"
 DEFAULT_DAYS = 7
 DEFAULT_MAX_COMMITS = 25
 DEFAULT_TIMEOUT = 15
-DEFAULT_SENDER = "PetSaas Bot <petsaas@test-z0vklo638kvl7qrx.mlsender.net>"
+DEFAULT_SENDER = os.environ.get("REPORT_SENDER", "")
 PER_PAGE = 100
 MAX_PAGES = 3
 SMTP_TIMEOUT = 30
@@ -378,19 +376,21 @@ code {{ font-family: ui-monospace, Consolas, monospace; }}
 (inclusive, UTC). {total_fetched}{approx} commit(s) fetched across
 {len(report['repos'])} public project repo(s), {total_shown} shown;
 {errors} fetch error(s). Source: registry.json
-(kind=project, visibility=public). Private hub data is not included.</p>
+only entries tagged kind=project and visibility=public are included.</p>
 {body}
 </body>
 </html>
 """
 
 
-def send_report_email(html_path: Path, recipient: str, sender: str = DEFAULT_SENDER) -> int:
+def send_report_email(
+    html_path: Path, recipient: str, sender: str | None = None
+) -> int:
     """Send the rendered report via MailerSend SMTP (env-provided creds).
 
     STARTTLS uses ssl.create_default_context() so the server certificate and
-    hostname are verified. From is the documented PetSaas sandbox sender
-    identity — deliberately not the SMTP login user.
+    hostname are verified. The sender identity must be supplied by the caller
+    or the ``REPORT_SENDER`` environment variable, not inferred from SMTP login.
     """
     missing = [var for var in SECRET_ENV_VARS if not os.environ.get(var)]
     if missing:
@@ -398,6 +398,11 @@ def send_report_email(html_path: Path, recipient: str, sender: str = DEFAULT_SEN
             f"::warning::Missing env vars {', '.join(missing)} — cannot send email.",
             file=sys.stderr,
         )
+        return 2
+    sender = (sender or os.environ.get("REPORT_SENDER", "")).strip()
+    if not sender:
+        print("::warning::Set REPORT_SENDER or pass --from — cannot send email.",
+              file=sys.stderr)
         return 2
 
     body_html = Path(html_path).read_text(encoding="utf-8")
@@ -444,8 +449,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT)
     parser.add_argument("--send", metavar="HTML", help="send an existing report file via MailerSend SMTP")
     parser.add_argument("--to", metavar="ADDR", help="email recipient (required with --send)")
-    parser.add_argument("--from", dest="sender", default=DEFAULT_SENDER,
-                        help="email From identity (default: documented PetSaas sandbox sender)")
+    parser.add_argument("--from", dest="sender", default=os.environ.get("REPORT_SENDER", ""),
+                        help="verified email From identity (or set REPORT_SENDER)")
     args = parser.parse_args(argv)
 
     if args.days <= 0 or args.max_commits <= 0 or args.timeout <= 0:
