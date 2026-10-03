@@ -146,6 +146,29 @@ Issues e pull requests são bem-vindos. Projetos novos devem documentar
 propósito, prior art, instalação e uso, plataformas suportadas, limitações e
 como a capacidade Devin melhora a ferramenta base.
 
+## Quando usar
+
+- Você mantém o ecossistema Devin do Icaro0310 (ou faz fork do padrão) e precisa do registry, scaffolder, relatório semanal ou workflow `pypi-publish.yml` partilhado.
+- Você está a começar um novo projeto `devin-*` e quer o template bilingue com docs, CI e convenções já em lugar (`tools/new-repo.py`).
+- Você quer um relatório público de atividade que lê apenas metadados públicos de commits do GitHub — sem conteúdo de repos privados, sem dados de sessões.
+- Você quer um único workflow de publicação PyPI por token reutilizado em todos os repos Python em vez de plumbing de publicação por repo.
+
+## Quando NÃO usar
+
+- Você é um utilizador final de uma ferramenta `devin-*` específica — instale o repositório dessa ferramenta; este hub é infraestrutura de mantenedor e não é necessário em runtime.
+- Você procura o motor privado de scout/ideação — está deliberadamente não publicado neste repositório.
+- Você quer relatórios por email out of the box — a entrega precisa dos *seus* segredos SMTP e de um remetente verificado; o artefacto HTML funciona sem nada disso.
+
+## FAQ
+
+**O que é o devin-powerups?** O hub público do mantenedor para o ecossistema da comunidade Devin. Contém o catálogo `registry.json` legível por máquina, o template bilingue de arranque, o scaffolder `new-repo.py`, o gerador de relatórios `weekly_repo_report.py`, e o workflow reutilizável `pypi-publish.yml` de GitHub Actions que os repos Python partilham.
+
+**Preciso deste repo para usar as ferramentas do ecossistema?** Não. Cada projeto em `registry.json` instala-se e corre standalone a partir do seu próprio repositório. Este hub existe para o workflow do mantenedor — scaffolding, catalogação e reporting — não para utilizadores finais.
+
+**O relatório semanal expõe dados privados?** Não. Filtra o registry para `kind=project` e `visibility=public`, e lê apenas a API pública de commits do GitHub. A entrega por email é opcional e usa segredos e variáveis que configura no seu próprio fork; se faltarem, o workflow mantém o artefacto HTML e salta o email.
+
+**Como os outros repos publicam no PyPI?** Chamam o workflow reutilizável: `uses: Icaro0310/devin-powerups/.github/workflows/pypi-publish.yml@main` com um segredo `PYPI_API_TOKEN`. Um workflow por token, sem setup OIDC por repo.
+
 ## Licença
 
 MIT — vê [LICENSE](LICENSE).
