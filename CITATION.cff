@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: devin-powerups
+authors:
+  - family-names: Galvao
+    given-names: Icaro
+url: "https://github.com/Icaro0310/devin-powerups"
+repository-code: "https://github.com/Icaro0310/devin-powerups"
+license: MIT
+abstract: "Public maintainer hub for the Devin community ecosystem: machine-readable registry, bilingual starter template, repo scaffolder, weekly report generator, and shared PyPI publish workflow."
+keywords: [devin, maintainer-tools, registry, scaffolding, reporting, github-actions]

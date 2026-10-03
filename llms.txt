@@ -1,0 +1,29 @@
+# devin-powerups
+
+> Public maintainer hub for the Devin community ecosystem: a machine-readable project registry, a bilingual starter template, a local repo scaffolder, a weekly activity-report generator, and the shared reusable `pypi-publish.yml` workflow.
+
+devin-powerups solves the maintenance side of running a 20+ repo ecosystem: keeping a machine-readable catalog of projects (`registry.json`, filtered to `kind=project` + `visibility=public` for public reports), scaffolding new `devin-<name>` repos from a consistent template (`tools/new-repo.py`), generating a weekly public activity report from GitHub commit metadata (`tools/weekly_repo_report.py`, standalone HTML, optional email via maintainer-configured SMTP secrets), and publishing Python packages through one reusable `pypi-publish.yml` GitHub Actions workflow that caller repos invoke with a `PYPI_API_TOKEN` secret. It is for the maintainer of the Icaro0310 Devin ecosystem (and forks reusing the pattern); end users install the individual tools from their own repositories and never need this hub at runtime. Unofficial community tooling, not affiliated with Cognition AI.
+
+## Docs
+
+- [README](https://github.com/Icaro0310/devin-powerups/blob/main/README.md): full documentation
+- [registry.json](https://github.com/Icaro0310/devin-powerups/blob/main/registry.json): machine-readable catalog of the public projects
+
+## Key commands
+
+- `python3 tools/new-repo.py history "Export and audit Devin session history"`: scaffold a sibling `devin-<name>` checkout from `template/` and `git init -b main` (no GitHub remote created)
+- `python3 tools/weekly_repo_report.py --days 7 --out report/weekly-repo-report.html`: generate the standalone HTML report from the registry via the public GitHub commits API (`GITHUB_TOKEN` optional)
+- `python3 tools/weekly_repo_report.py --send report.html --to ADDR --from "Name <verified-address>"`: optional email delivery (requires SMTP secrets + `REPORT_SENDER`)
+- `uses: Icaro0310/devin-powerups/.github/workflows/pypi-publish.yml@main` with `secrets: PYPI_API_TOKEN`: reusable PyPI publish workflow for every Python repo in the ecosystem
+- `py -3 tools/...`: Windows (PowerShell) equivalents of the maintainer scripts
+
+## When to use / when not
+
+- Use when: you maintain the Icaro0310 Devin ecosystem (or a fork of the pattern) and need the registry, scaffolder, weekly report or shared publish workflow; you want a consistent bilingual template for new `devin-*` repos; you want a public activity report that reads only public commit metadata; you want one token-based PyPI publish workflow reused by all Python projects.
+- Not when: you are an end user of a specific devin-* tool (install that tool's own repo — this hub is maintainer infrastructure and is not needed at runtime); you want the private scout/ideation engine (deliberately not published here); you need report delivery to work without configuring your own SMTP secrets (email is opt-in; the HTML artifact always exists).
+
+## Related
+
+- [devin-ecosystem](https://icaro0310.github.io/): the 20+ tool ecosystem this hub maintains
+- [awesome-devin](https://github.com/Icaro0310/awesome-devin): human-readable catalog of the ecosystem
+- [devin-internals-spec](https://github.com/Icaro0310/devin-internals-spec): shared spec package many registry projects depend on
