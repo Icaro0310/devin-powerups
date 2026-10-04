@@ -227,3 +227,18 @@ como a capacidade Devin melhora a ferramenta base.
 ## Licença
 
 MIT — vê [LICENSE](LICENSE).
+
+## Agendador (`tools/schedule.py`) — fundação F6
+
+Agendamento opt-in com três backends, resolvidos automaticamente ou fixados
+com `--backend`:
+
+- **tasksch** (Windows): `schtasks /create /tn devin-<nome>`.
+- **cron** (Linux/macOS): linhas marcadas no `crontab`.
+- **elapsed** (fallback corporativo, sempre disponível): jobs ficam em
+  `.devin-ecosystem/scheduled.json` e rodam a partir de um hook
+  `UserPromptSubmit` chamando `schedule.py check --run` — sem daemon, o
+  próprio prompt é o tick.
+
+`--requires-devin-closed` envolve o comando com guarda "Devin fechado" —
+obrigatório para jobs que fariam VACUUM ou reescreveriam stores do Devin.

@@ -247,3 +247,20 @@ setup.
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+## Scheduler (`tools/schedule.py`) — F6 foundation
+
+Opt-in scheduling with three backends, resolved automatically or pinned
+with `--backend`:
+
+- **tasksch** (Windows): `schtasks /create /tn devin-<name>`.
+- **cron** (Linux/macOS): tagged lines in `crontab` (`# devin-ecosystem:<name>`).
+- **elapsed** (corporate fallback, always available): jobs live in
+  `.devin-ecosystem/scheduled.json` and run from a `UserPromptSubmit`
+  hook calling `schedule.py check --run` — no daemon, the prompt is the tick.
+
+    python tools/schedule.py install backup "devin-backup snapshot" --daily
+    python tools/schedule.py list | check [--run] | uninstall <name>
+
+`--requires-devin-closed` wraps the command with a "Devin not running"
+guard — required for jobs that would VACUUM or rewrite Devin stores.
