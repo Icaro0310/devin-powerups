@@ -13,7 +13,8 @@ Aplique estas licoes quando trabalhar em tarefas relacionadas.
 ## Licoes
 
 - (2026-10-02) never propose as new something the workspace already does; do not commit or push anything; when done, reply with just DONE
+- (2026-10-04) never propose as new something the workspace already does; do not commit or push anything; when done, reply with just DONE
 
 ## Changelog
 
-- v1 (2026-10-02): 1 nova(s) licao(oes)
+- v2 (2026-10-04): 1 nova(s) licao(oes)

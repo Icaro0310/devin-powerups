@@ -24,6 +24,10 @@ own repositories; they do not need this hub at runtime.
 | `template/` | Bilingual starter repository with Windows/Linux documentation and CI. |
 | `tools/new-repo.py` | Creates a new `devin-<name>` sibling checkout from the template and initializes Git. It does not create a GitHub repository or push. |
 | `tools/weekly_repo_report.py` | Reads public GitHub commit metadata from the registry and writes a standalone HTML report. Email delivery is optional. |
+| `tools/validate_registry.py` | Validates `registry.json` against `registry.schema.json` — dependency-free, exits non-zero on violations. |
+| `tools/reconcile_registry.py` | Reconciles the registry against the GitHub account and local clones: missing entries, missing repos, stale version/tag fields. Read-only. |
+| `registry.schema.json` | JSON Schema (2020-12) for `registry.json`. |
+| `capability-profile.schema.json` + `docs/capability-profile.md` | The F10 contract: `corporate` (fail-closed default) vs `personal` machine profiles, capability keys, and how extras declare `requires:`. |
 | `.github/workflows/` | Per-project CI template and optional workflows for uploading/emailing reports that already exist. |
 
 The local scout/ideation engine is not included in this public repository. The
@@ -118,6 +122,10 @@ The hub itself is optional — every tool in `registry.json` installs and runs
 standalone. What runs locally with zero external services:
 
 - `registry.json` — plain JSON; read it, filter it, script against it.
+- `tools/validate_registry.py` — schema-validates the registry, no deps.
+- `tools/reconcile_registry.py` — audits registry vs GitHub vs local
+  clones. It shells out to `gh` for GitHub data, so it needs `gh auth` or
+  `GITHUB_TOKEN`; without them it still reports local-only findings.
 - `tools/new-repo.py` — scaffolds a local checkout (`git init` only, no
   GitHub calls; creating a remote is a separate explicit step).
 - `tools/weekly_repo_report.py --out report.html` — writes a standalone HTML

@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Icaro0310/devin-powerups/registry.schema.json",
+  "title": "devin-powerups registry",
+  "description": "Machine-readable catalog of the Icaro0310 devin-* ecosystem: public projects plus clearly marked maintainer-only records.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "generated", "owner", "repositories"],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Registry format/content version, bumped on structural changes."
+    },
+    "generated": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "ISO date the registry was last regenerated."
+    },
+    "owner": {
+      "type": "string",
+      "minLength": 1,
+      "description": "GitHub account that owns the listed repositories."
+    },
+    "note": {
+      "type": "string",
+      "description": "Free-form maintainer note about catalog scope."
+    },
+    "ci": {
+      "type": "object",
+      "description": "Ecosystem-wide CI architecture documentation.",
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {"type": "string"},
+        "previous_architecture": {"type": "string"},
+        "reason": {"type": "string"},
+        "shape": {"type": "string"},
+        "status_doc": {"type": "string"}
+      }
+    },
+    "known_issues": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "repositories": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "url",
+          "kind",
+          "visibility",
+          "wave",
+          "status",
+          "description"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "url": {
+            "type": "string",
+            "pattern": "^https://github\\.com/[A-Za-z0-9-]+/[A-Za-z0-9_.-]+$",
+            "description": "Canonical https GitHub URL (<owner>/<repo>)."
+          },
+          "kind": {
+            "enum": ["project", "infra", "system"],
+            "description": "project = public tool; infra = hub/meta; system = private maintainer runtime."
+          },
+          "visibility": {
+            "enum": ["public", "private"]
+          },
+          "wave": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Delivery wave; 0 = hub/standalone entries."
+          },
+          "status": {
+            "enum": ["active", "delivered"]
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+            "description": "Current semantic version (without leading v)."
+          },
+          "session": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Devin session id/slug that delivered the repo."
+          },
+          "stack": {
+            "enum": ["python", "node"]
+          },
+          "ci": {
+            "enum": ["inline"],
+            "description": "CI architecture used by the repo (inline = self-contained ci.yml)."
+          },
+          "tests": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Test count at time of cataloging."
+          },
+          "tag": {
+            "type": "string",
+            "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$",
+            "description": "Published git tag, when one was pushed."
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "note": {
+            "type": "string",
+            "description": "Absorption/rename notes (e.g. 'absorbed devin-dashboard')."
+          },
+          "local_dir": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Maintainer-local checkout path, relative to this repo."
+          },
+          "tests_dir": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directory holding tests for non-standard layouts."
+          }
+        }
+      }
+    }
+  }
+}

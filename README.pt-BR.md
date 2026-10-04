@@ -24,6 +24,10 @@ ferramentas nos respetivos repositórios; não precisam deste hub em runtime.
 | `template/` | Repositório inicial bilingue com documentação Windows/Linux e CI. |
 | `tools/new-repo.py` | Cria um checkout irmão `devin-<nome>` a partir do template e inicializa Git. Não cria repositório no GitHub nem faz push. |
 | `tools/weekly_repo_report.py` | Lê metadados públicos de commits do GitHub e gera um relatório HTML autónomo. O envio por email é opcional. |
+| `tools/validate_registry.py` | Valida `registry.json` contra `registry.schema.json` — sem dependências, sai com erro nas violações. |
+| `tools/reconcile_registry.py` | Reconcilia o registry contra a conta GitHub e os clones locais: entradas em falta, repos ausentes, campos version/tag obsoletos. Read-only. |
+| `registry.schema.json` | JSON Schema (2020-12) do `registry.json`. |
+| `capability-profile.schema.json` + `docs/capability-profile.md` | O contrato F10: perfis `corporate` (fail-closed, padrão) vs `personal`, chaves de capacidade e como extras declaram `requires:`. |
 | `.github/workflows/` | Template de CI por projeto e workflows opcionais para publicar/enviar relatórios já existentes. |
 
 O motor local de scout/ideação não faz parte deste repositório público. Os
@@ -121,6 +125,10 @@ O hub em si é opcional — cada ferramenta do `registry.json` instala-se e corr
 de forma autónoma. O que funciona localmente sem serviços externos:
 
 - `registry.json` — JSON simples; lê, filtra, usa em scripts.
+- `tools/validate_registry.py` — valida o registry contra o schema, sem deps.
+- `tools/reconcile_registry.py` — audita registry vs GitHub vs clones locais.
+  Usa `gh` para dados do GitHub (precisa de `gh auth` ou `GITHUB_TOKEN`);
+  sem eles, ainda reporta os achados locais.
 - `tools/new-repo.py` — gera um checkout local (`git init` apenas, sem
   chamadas ao GitHub; criar um remote é um passo separado e explícito).
 - `tools/weekly_repo_report.py --out report.html` — gera um relatório HTML

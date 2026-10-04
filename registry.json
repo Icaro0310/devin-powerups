@@ -1,7 +1,7 @@
 {
   "$schema": "https://github.com/Icaro0310/devin-powerups/registry.schema.json",
-  "version": 5,
-  "generated": "2026-10-01",
+  "version": 6,
+  "generated": "2026-10-04",
   "owner": "Icaro0310",
   "note": "Public maintainer toolkit: registry, template, scaffolder, and public-project report. Public Devin tools are listed below; the maintainer's private runtime remains kind=system and is excluded from public-project reports. Unrelated personal repositories are not part of this catalog. CI is inline per public project; see README.md.",
   "ci": {
@@ -36,7 +36,8 @@
       "stack": "python",
       "ci": "inline",
       "tests": 33,
-      "description": "Documented internals of Devin Desktop/CLI stores + schema-version detection + fixtures + devin-inspect CLI."
+      "description": "Documented internals of Devin Desktop/CLI stores + schema-version detection + fixtures + devin-inspect CLI.",
+      "tag": "v0.2.0"
     },
     {
       "name": "devin-redact",
@@ -270,7 +271,9 @@
       "status": "active",
       "stack": "python",
       "local_dir": "../devin-office",
-      "description": "Local-first Devin session and subagent dashboard with standalone and optional private-hub modes."
+      "description": "Local-first Devin session and subagent dashboard with standalone and optional private-hub modes.",
+      "version": "0.1.0",
+      "tag": "v0.1.0"
     },
     {
       "name": "qwenpaw-suite",
@@ -292,7 +295,18 @@
       "status": "active",
       "stack": "python",
       "local_dir": "../personal-agent-system/vendor/poordjaevin",
-      "description": "Djævin: fork of poordjaevin adding a Devin ACP backend (uses the model Devin already runs, no extra download); local NLI backend stays as fully-offline fallback."
+      "description": "Djævin: fork of poordjaevin adding a Devin ACP backend (uses the model Devin already runs, no extra download); local NLI backend stays as fully-offline fallback.",
+      "version": "0.1.0",
+      "tag": "v0.1.0"
+    },
+    {
+      "name": "awesome-devin",
+      "url": "https://github.com/Icaro0310/awesome-devin",
+      "kind": "project",
+      "visibility": "public",
+      "wave": 99,
+      "status": "active",
+      "description": "Curated awesome-list of Devin tooling and resources (CC0)."
     }
   ]
 }
