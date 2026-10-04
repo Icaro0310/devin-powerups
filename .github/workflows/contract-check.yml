@@ -1,0 +1,38 @@
+name: contract-check (weekly)
+
+# A5: exercises devin-internals-spec's `contract check` weekly — the guard
+# that must fail loudly the day Devin ships a store version the ecosystem
+# does not know. Runs against synthetic fixtures only; no real stores.
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"   # Mondays 06:17 UTC
+  workflow_dispatch:
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install devin-internals-spec from git
+        run: |
+          pip install \
+            "git+https://github.com/Icaro0310/devin-internals-spec@main"
+
+      - name: Known-schema fixture passes the contract
+        run: |
+          devin-internals make-fixture --out /tmp/fx
+          devin-internals contract /tmp/fx
+
+      - name: Future-schema fixture fails loudly
+        run: |
+          python -c "from devin_internals import fixtures; \
+            fixtures.create_devin_data_dir('/tmp/future', schema_version=99)"
+          if devin-internals contract /tmp/future; then
+            echo "::error::contract accepted an unknown schema — drift guard broken"
+            exit 1
+          fi
+          echo "contract check correctly rejected the future-schema fixture"
