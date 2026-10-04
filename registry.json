@@ -307,6 +307,15 @@
       "wave": 99,
       "status": "active",
       "description": "Curated awesome-list of Devin tooling and resources (CC0)."
+    },
+    {
+      "name": "devin-dream",
+      "url": "https://github.com/Icaro0310/devin-dream",
+      "kind": "project",
+      "visibility": "public",
+      "wave": 2,
+      "status": "active",
+      "description": "Synthetic Devin sessions with known verdicts — labeled defects (D01-D09), adversarial inject mode, and fleet generation. Regression/adversarial test data for the catalog."
     }
   ]
 }
