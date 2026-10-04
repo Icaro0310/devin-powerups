@@ -390,10 +390,66 @@ def _skip_reason(entry: dict, profile: str) -> str | None:
     return None
 
 
+def _run_handler_win(
+    command: str, stdin_data: bytes, timeout: float, env: Mapping[str, str]
+) -> tuple[str, int | None]:
+    """Windows variant: ``shell=True`` spawns ``cmd.exe``, and grandchildren
+    inherit PIPE handles — ``run(timeout=)`` kills only the shell and then
+    ``communicate()`` blocks forever waiting for pipe EOF held open by the
+    orphaned tree. Capture via a temp file instead and kill the whole tree
+    with ``taskkill /T`` on timeout."""
+    import tempfile
+
+    try:
+        with tempfile.TemporaryFile() as out:
+            try:
+                proc = subprocess.Popen(
+                    command,
+                    shell=True,
+                    stdin=subprocess.PIPE,
+                    stdout=out,
+                    stderr=subprocess.STDOUT,
+                    env=dict(env),
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                )
+            except OSError as exc:
+                print(
+                    f"hooks_dispatch: cannot spawn {command!r}: {exc}",
+                    file=sys.stderr,
+                )
+                return "error", None
+            try:
+                proc.communicate(input=stdin_data, timeout=timeout)
+            except subprocess.TimeoutExpired:
+                subprocess.run(
+                    ["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+                    capture_output=True,
+                )
+                try:
+                    proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                return "timeout", None
+            rc = proc.returncode
+    except OSError as exc:
+        print(
+            f"hooks_dispatch: cannot spawn {command!r}: {exc}",
+            file=sys.stderr,
+        )
+        return "error", None
+    if rc == ABORT_EXIT_CODE:
+        return "abort", rc
+    if rc == 0:
+        return "ok", rc
+    return "failed", rc
+
+
 def _run_handler(
     command: str, stdin_data: bytes, timeout: float, env: Mapping[str, str]
 ) -> tuple[str, int | None]:
     """Run one handler; returns ``(status, exit_code)``."""
+    if os.name == "nt":
+        return _run_handler_win(command, stdin_data, timeout, env)
     try:
         proc = subprocess.run(
             command,
