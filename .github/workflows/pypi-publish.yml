@@ -2,16 +2,19 @@ name: reusable-pypi-publish
 
 # Reusable workflow: build a Python package and publish it to PyPI.
 #
-# Caller repos need one secret: PYPI_API_TOKEN (a PyPI account/project API
-# token). Upload uses twine over HTTPS, no OIDC setup required per project.
+# Two auth modes:
+#   - Trusted Publishing (recommended, zero secrets): configure a
+#     (pending) publisher on PyPI for the caller repo + workflow name +
+#     environment "pypi"; the OIDC token minted by id-token:write does
+#     the upload. Leave PYPI_API_TOKEN unset.
+#   - API token: set repo secret PYPI_API_TOKEN; passed as the action's
+#     password instead of OIDC.
 #
 # Usage from a caller repo:
 #
 #   jobs:
 #     publish:
 #       uses: Icaro0310/devin-powerups/.github/workflows/pypi-publish.yml@main
-#       secrets:
-#         PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
 
 on:
   workflow_call:
@@ -28,7 +31,7 @@ on:
         default: "3.12"
     secrets:
       PYPI_API_TOKEN:
-        required: true
+        required: false
 
 jobs:
   build:
@@ -52,15 +55,17 @@ jobs:
   publish:
     needs: build
     runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write  # PyPI Trusted Publishing (OIDC)
     steps:
       - uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist/
       - name: Upload to PyPI
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-        run: |
-          python -m pip install --upgrade twine
-          python -m twine upload --non-interactive --skip-existing dist/*
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # empty = OIDC trusted publishing; set PYPI_API_TOKEN to use a token
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          skip-existing: true
