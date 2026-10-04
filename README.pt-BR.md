@@ -187,3 +187,20 @@ como a capacidade Devin melhora a ferramenta base.
 ## Licença
 
 MIT — vê [LICENSE](LICENSE).
+
+## Dispatcher de hooks (`tools/hooks_dispatch.py`)
+
+Um único entrypoint de hook do Devin que distribui para handlers
+registrados — em vez de cada repo instalar seu próprio comando, instala-se o
+dispatcher e declaram-se handlers em `<config-dir>/.devin-ecosystem/hooks.json`:
+
+    python hooks_dispatch.py dispatch <event>      # dentro de um hook
+    python hooks_dispatch.py register <event> <id> "<comando>"
+    python hooks_dispatch.py list [--event E] --json | check | unregister
+
+- stdin é lido uma vez (nunca bloqueia) e repassado verbatim a cada handler.
+- Exit não-zero é logado e nunca falha o hook — exceto 42 (abort explícito),
+  propagado pelo dispatcher.
+- `timeout_seconds` por handler (default 30) + orçamento global de 120 s;
+  handlers podem declarar `profile` e `requires` — gated como no
+  `devin-doctor capabilities` (default fail-closed `corporate`).

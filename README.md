@@ -26,6 +26,7 @@ own repositories; they do not need this hub at runtime.
 | `tools/weekly_repo_report.py` | Reads public GitHub commit metadata from the registry and writes a standalone HTML report. Email delivery is optional. |
 | `tools/validate_registry.py` | Validates `registry.json` against `registry.schema.json` — dependency-free, exits non-zero on violations. |
 | `tools/reconcile_registry.py` | Reconciles the registry against the GitHub account and local clones: missing entries, missing repos, stale version/tag fields. Read-only. |
+| `tools/hooks_dispatch.py` | The F5 hook dispatcher: one Devin hook command fans out to handlers registered in `.devin-ecosystem/hooks.json` under the Devin config dir, instead of every repo installing its own hook. Never fails the hook (abort contract: handler exit 42), per-handler + global timeouts, JSONL dispatch log. |
 | `registry.schema.json` | JSON Schema (2020-12) for `registry.json`. |
 | `capability-profile.schema.json` + `docs/capability-profile.md` | The F10 contract: `corporate` (fail-closed default) vs `personal` machine profiles, capability keys, and how extras declare `requires:`. |
 | `.github/workflows/` | Per-project CI template and optional workflows for uploading/emailing reports that already exist. |
@@ -90,6 +91,42 @@ optional and can increase rate limits. Its options are:
 
 Both tools can be run from PowerShell or a Linux shell with the commands above.
 
+## Hook dispatcher (F5)
+
+Devin hooks (`hooks` in `config.json`, or project `.devin/hooks.v1.json`)
+run one shell command per event. `tools/hooks_dispatch.py` is that one
+command — it fans out to handlers registered declaratively in
+`<config-dir>/.devin-ecosystem/hooks.json` so individual repos do not need
+their own hook entries:
+
+```json
+{"version": 1,
+ "handlers": {"SessionStart": [
+    {"id": "my-handler", "command": "python tools/x.py",
+     "timeout_seconds": 30, "enabled": true,
+     "profile": "any", "requires": ["daemon"]}]}}
+```
+
+Install it once as the hook command, e.g.
+`python tools/hooks_dispatch.py dispatch SessionStart`. The config dir
+resolves to `--config-dir`, then `DEVIN_CONFIG_DIR`, then
+`%APPDATA%\Devin` (Windows) or `~/.config/Devin`/`~/.config/devin` (Linux).
+
+| Subcommand | Purpose |
+|---|---|
+| `dispatch <event>` | Runs enabled handlers sequentially. Whatever the hook pipes to stdin is read once (bounded — it never blocks on input) and forwarded verbatim to every handler. Always exits 0, so a failing handler never breaks the session — the documented abort contract is a handler exiting **42**, which stops the fan-out and makes the dispatcher exit 42. Per-handler `timeout_seconds` defaults to 30 s; a hard global cap of 120 s bounds one dispatch. Every evaluated handler appends one JSONL record (`ts`, `iso`, `event`, `handler`, `status`, `exit_code`, `duration_ms`) to `.devin-ecosystem/hook-fires.jsonl`. |
+| `list [--event E] [--json]` | Show registered handlers per event. |
+| `check` | Validate the registry shape (0 valid / 1 invalid / 2 unreadable, like `validate_registry.py`). |
+| `register <event> <id> "<command>" [--timeout N] [--requires CAP,...] [--profile P] [--disabled] [--force]` | Add a handler entry — files only, no side effects. |
+| `unregister <event> <id>` | Remove a handler entry. |
+
+Skipping rules: `enabled: false` skips; `profile` restricts a handler to
+one machine profile; a non-empty `requires` capability list (e.g.
+`["daemon"]`) skips the handler on the `corporate` profile. The machine
+profile resolves the same way as devin-doctor (F10):
+`DEVIN_ECOSYSTEM_PROFILE` > `devin-profile.json` in the config dir >
+`corporate` (fail-closed).
+
 ## Weekly public report
 
 The `weekly-repo-report` GitHub Actions workflow runs on Sundays and can also be
@@ -129,6 +166,10 @@ standalone. What runs locally with zero external services:
 
 - `registry.json` — plain JSON; read it, filter it, script against it.
 - `tools/validate_registry.py` — schema-validates the registry, no deps.
+- `tools/hooks_dispatch.py` — hook fan-out is fully local: reads
+  `.devin-ecosystem/hooks.json`, runs registered shell commands with
+  subprocess timeouts, appends to `hook-fires.jsonl`. No network, no
+  input prompts.
 - `tools/reconcile_registry.py` — audits registry vs GitHub vs local
   clones. It shells out to `gh` for GitHub data, so it needs `gh auth` or
   `GITHUB_TOKEN`; without them it still reports local-only findings.
@@ -206,3 +247,21 @@ setup.
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+## Hooks dispatcher (`tools/hooks_dispatch.py`)
+
+One Devin hook entrypoint that fans out to registered handlers — instead of
+every repo installing its own hook command, install this dispatcher and
+declare handlers in `<config-dir>/.devin-ecosystem/hooks.json`:
+
+    python hooks_dispatch.py dispatch <event>      # inside a hook command
+    python hooks_dispatch.py register <event> <id> "<command>"
+    python hooks_dispatch.py list [--event E] --json | check | unregister
+
+- stdin is read once (never blocks) and forwarded verbatim to each handler.
+- Non-zero handler exits are logged, never fail the hook — except exit 42
+  (explicit abort), which the dispatcher propagates.
+- Per-handler `timeout_seconds` (default 30) + 120 s global budget; handlers
+  can declare `profile` (corporate/personal/any) and `requires` capabilities
+  — gated the same way as `devin-doctor capabilities` (fail-closed default
+  `corporate`).
