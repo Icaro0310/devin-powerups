@@ -247,21 +247,3 @@ setup.
 ## License
 
 MIT — see [LICENSE](LICENSE).
-
-## Hooks dispatcher (`tools/hooks_dispatch.py`)
-
-One Devin hook entrypoint that fans out to registered handlers — instead of
-every repo installing its own hook command, install this dispatcher and
-declare handlers in `<config-dir>/.devin-ecosystem/hooks.json`:
-
-    python hooks_dispatch.py dispatch <event>      # inside a hook command
-    python hooks_dispatch.py register <event> <id> "<command>"
-    python hooks_dispatch.py list [--event E] --json | check | unregister
-
-- stdin is read once (never blocks) and forwarded verbatim to each handler.
-- Non-zero handler exits are logged, never fail the hook — except exit 42
-  (explicit abort), which the dispatcher propagates.
-- Per-handler `timeout_seconds` (default 30) + 120 s global budget; handlers
-  can declare `profile` (corporate/personal/any) and `requires` capabilities
-  — gated the same way as `devin-doctor capabilities` (fail-closed default
-  `corporate`).

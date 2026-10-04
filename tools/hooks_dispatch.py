@@ -55,6 +55,8 @@ Contract for handlers (documented for registry authors):
   handler on the ``corporate`` profile; on ``personal`` the entry runs and
   the handler itself must still refuse gracefully if the capability is
   actually missing (per the F10 contract).
+- Handlers inherit the environment plus ``DEVIN_EVENT``/``DEVIN_HOOK_EVENT``
+  (the event name) and ``DEVIN_ECOSYSTEM_PROFILE`` (the resolved profile).
 
 Every evaluated handler appends one JSONL record to
 ``<config-dir>/.devin-ecosystem/hook-fires.jsonl``:
@@ -69,7 +71,6 @@ validation problem / 2 file problem; list 0.
 from __future__ import annotations
 
 import argparse
-import io
 import json
 import os
 import re
