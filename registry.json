@@ -316,6 +316,15 @@
       "wave": 2,
       "status": "active",
       "description": "Synthetic Devin sessions with known verdicts — labeled defects (D01-D09), adversarial inject mode, and fleet generation. Regression/adversarial test data for the catalog."
+    },
+    {
+      "name": "devin-switch",
+      "url": "https://github.com/Icaro0310/devin-switch",
+      "kind": "project",
+      "visibility": "public",
+      "wave": 2,
+      "status": "active",
+      "description": "Switch between Devin configuration profiles (hooks, MCP, models) with snapshot, sha256 verify, atomic write, journal and rollback. Dry-run by default; secrets never printed."
     }
   ]
 }
