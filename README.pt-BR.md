@@ -22,7 +22,7 @@ ferramentas nos respetivos repositórios; não precisam deste hub em runtime.
 |---|---|
 | `registry.json` | Catálogo de projetos públicos e registos de maintainer claramente marcados. O relatório semanal filtra `kind=project` e `visibility=public`. |
 | `template/` | Repositório inicial bilingue com documentação Windows/Linux e CI. |
-| `tools/new-repo.py` | Cria um checkout irmão `devin-<nome>` a partir do template e inicializa Git. Não cria repositório no GitHub nem faz push. |
+| `tools/new-repo.py` | Cria um checkout irmão `devin-<nome>` a partir do template, inicializa Git e regista o repo em `registry.json` (validado contra o schema antes de escrever). `--dry-run` pré-visualiza sem efeitos. Não cria repositório no GitHub nem faz push. |
 | `tools/weekly_repo_report.py` | Lê metadados públicos de commits do GitHub e gera um relatório HTML autónomo. O envio por email é opcional. |
 | `tools/validate_registry.py` | Valida `registry.json` contra `registry.schema.json` — sem dependências, sai com erro nas violações. |
 | `tools/reconcile_registry.py` | Reconcilia o registry contra a conta GitHub e os clones locais: entradas em falta, repos ausentes, campos version/tag obsoletos. Read-only. |
@@ -66,10 +66,16 @@ python3 tools/new-repo.py history "Export and audit Devin session history"
 python3 tools/weekly_repo_report.py --days 7 --out report/weekly-repo-report.html
 ```
 
-`new-repo.py` recebe exatamente `<nome> "<descrição>"`. Valida um nome
+`new-repo.py` recebe `<nome> "<descrição>"` mais opções. Valida um nome
 kebab-case, cria um irmão `devin-<nome>` a partir de `template/`, executa
-`git init -b main` e mostra os próximos passos. Não cria um remote no GitHub.
-Revê os ficheiros gerados e escolhe o remote/visibilidade explicitamente.
+`git init -b main` e depois regista o repo em `registry.json` — o documento
+resultante é validado contra `registry.schema.json` antes de qualquer
+escrita, por isso uma violação do schema aborta sem efeitos secundários.
+`--dry-run` mostra os ficheiros que criaria e a entrada que acrescentaria ao
+registry sem tocar em nada; `--no-register` apenas gera o scaffold. `--kind`,
+`--visibility` e `--wave` sobrepõem os defaults do registry
+(`project`/`public`/`0`). Não cria um remote no GitHub. Revê os ficheiros
+gerados e escolhe o remote/visibilidade explicitamente.
 
 `weekly_repo_report.py` usa a API pública de commits do GitHub. `GITHUB_TOKEN`
 é opcional e pode aumentar os limites de API. Opções:
@@ -129,8 +135,9 @@ de forma autónoma. O que funciona localmente sem serviços externos:
 - `tools/reconcile_registry.py` — audita registry vs GitHub vs clones locais.
   Usa `gh` para dados do GitHub (precisa de `gh auth` ou `GITHUB_TOKEN`);
   sem eles, ainda reporta os achados locais.
-- `tools/new-repo.py` — gera um checkout local (`git init` apenas, sem
-  chamadas ao GitHub; criar um remote é um passo separado e explícito).
+- `tools/new-repo.py` — gera um checkout local e regista-o em
+  `registry.json` (`git init` apenas, sem chamadas ao GitHub; criar um
+  remote é um passo separado e explícito). `--dry-run` não tem efeitos.
 - `tools/weekly_repo_report.py --out report.html` — gera um relatório HTML
   autónomo. Lê a API pública de commits do GitHub, por isso precisa de acesso
   de rede não autenticado a `github.com` (`GITHUB_TOKEN` só aumenta os rate
