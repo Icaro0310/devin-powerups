@@ -334,6 +334,15 @@
       "wave": 2,
       "status": "active",
       "description": "Lifecycle + quality gates for .devin skills/rules: scan, lint, diff, G1/G2 gates, quarantined→approved→active lifecycle, sha256-verified export/import bundles (imports land quarantined)."
+    },
+    {
+      "name": "devin-learning",
+      "url": "https://github.com/Icaro0310/devin-powerups",
+      "kind": "system",
+      "visibility": "private",
+      "wave": 0,
+      "status": "delivered",
+      "description": "Learning-loop runtime (SessionEnd hooks → .devin/skills/learned-*, hook-fires.jsonl). Absorbed into devin-powerups — never had its own repo; entry exists so devin-pm verify reconciles session history."
     }
   ]
 }
