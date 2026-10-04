@@ -325,6 +325,15 @@
       "wave": 2,
       "status": "active",
       "description": "Switch between Devin configuration profiles (hooks, MCP, models) with snapshot, sha256 verify, atomic write, journal and rollback. Dry-run by default; secrets never printed."
+    },
+    {
+      "name": "devin-skill-catalog",
+      "url": "https://github.com/Icaro0310/devin-skill-catalog",
+      "kind": "project",
+      "visibility": "public",
+      "wave": 2,
+      "status": "active",
+      "description": "Lifecycle + quality gates for .devin skills/rules: scan, lint, diff, G1/G2 gates, quarantined→approved→active lifecycle, sha256-verified export/import bundles (imports land quarantined)."
     }
   ]
 }
