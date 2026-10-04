@@ -270,6 +270,81 @@ def fetch_commits(
     return result
 
 
+def fetch_ci_status(
+    repo: dict,
+    timeout: int = DEFAULT_TIMEOUT,
+    opener=urllib.request.urlopen,
+) -> dict | None:
+    """PW-2: latest workflow run for one repo — {conclusion,status,url}.
+
+    ``None`` when the repo has no Actions runs (404/empty), which renders as
+    "—" rather than an error. Any fetch problem returns {"error": …} and the
+    report still renders.
+    """
+    try:
+        api_path = "/".join(parse_github_repo_url(repo["url"]))
+    except ValueError:
+        return None
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": USER_AGENT,
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    token = os.environ.get("GITHUB_TOKEN", "").strip()
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    request = urllib.request.Request(
+        f"{GITHUB_API}/repos/{api_path}/actions/runs?per_page=1",
+        headers=headers,
+    )
+    try:
+        with opener(request, timeout=timeout) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return None
+        return {"error": _http_error_message(exc)}
+    except (urllib.error.URLError, http.client.HTTPException,
+            OSError, ValueError) as exc:
+        return {"error": f"{type(exc).__name__}: {exc}"}
+    runs = payload.get("workflow_runs") if isinstance(payload, dict) else None
+    if not runs:
+        return None
+    run = runs[0]
+    link = safe_github_link(str(run.get("html_url") or ""), repo["url"])
+    return {
+        "status": run.get("status"),
+        "conclusion": run.get("conclusion"),
+        "name": run.get("name"),
+        "url": link,
+    }
+
+
+_CI_BADGE = {
+    "success": ("#2da44e", "passing"),
+    "failure": ("#cf222e", "failing"),
+    "cancelled": ("#bf8700", "cancelled"),
+    "skipped": ("#57606a", "skipped"),
+    "timed_out": ("#cf222e", "timed out"),
+}
+
+
+def _ci_badge(ci: dict | None) -> str:
+    if ci is None:
+        return ""
+    if ci.get("error"):
+        return ' <span class="muted">(CI: fetch error)</span>'
+    conclusion = ci.get("conclusion") or ci.get("status") or "unknown"
+    color, label = _CI_BADGE.get(conclusion, ("#57606a", str(conclusion)))
+    inner = (
+        f'<a href="{html.escape(ci["url"], quote=True)}">{label}</a>'
+        if ci.get("url") else label
+    )
+    name = html.escape(str(ci.get("name") or "CI"))
+    return (f' <small>[<a href="#">{name}</a>: <b style="color:{color}">'
+            f"{inner}</b>]</small>")
+
+
 def collect_report(
     registry_path: Path,
     days: int = DEFAULT_DAYS,
@@ -277,6 +352,7 @@ def collect_report(
     timeout: int = DEFAULT_TIMEOUT,
     now: datetime | None = None,
     opener=urllib.request.urlopen,
+    with_ci: bool = False,
 ) -> dict:
     """Fetch all public-project commits and return the report data."""
     if days <= 0 or max_commits <= 0 or timeout <= 0:
@@ -286,6 +362,8 @@ def collect_report(
     results = []
     for repo in load_public_projects(registry_path):
         result = fetch_commits(repo, since, now, timeout=timeout, opener=opener)
+        if with_ci:
+            result["ci"] = fetch_ci_status(repo, timeout=timeout, opener=opener)
         if len(result["commits"]) > max_commits:
             result["truncated"] = len(result["commits"]) - max_commits
             result["commits"] = result["commits"][:max_commits]
@@ -310,7 +388,7 @@ def render_html(report: dict) -> str:
         name = html.escape(repo["name"])
         # repo urls are validated to https://github.com/<owner>/<repo> at load.
         url = html.escape(repo["url"], quote=True)
-        header = f'<h2><a href="{url}">{name}</a></h2>'
+        header = f'<h2><a href="{url}">{name}</a>{_ci_badge(repo.get("ci"))}</h2>'
         if repo["error"]:
             sections.append(
                 f"{header}\n"
@@ -447,6 +525,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--days", type=int, default=DEFAULT_DAYS)
     parser.add_argument("--max-commits", type=int, default=DEFAULT_MAX_COMMITS)
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT)
+    parser.add_argument("--with-ci", action="store_true",
+                        help="PW-2: include a CI badge per repo (latest "
+                        "Actions run; extra API call per repo)")
     parser.add_argument("--send", metavar="HTML", help="send an existing report file via MailerSend SMTP")
     parser.add_argument("--to", metavar="ADDR", help="email recipient (required with --send)")
     parser.add_argument("--from", dest="sender", default=os.environ.get("REPORT_SENDER", ""),
@@ -466,6 +547,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         report = collect_report(
             Path(args.registry),
+            with_ci=args.with_ci,
             days=args.days,
             max_commits=args.max_commits,
             timeout=args.timeout,

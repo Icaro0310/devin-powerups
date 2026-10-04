@@ -495,3 +495,60 @@ class CliTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class _BytesResponse:
+    def __init__(self, payload):
+        self.payload = payload
+    def read(self):
+        return self.payload
+    def __enter__(self):
+        return self
+    def __exit__(self, *exc):
+        return False
+
+
+class TestCIBadge(unittest.TestCase):
+    def _opener(self, conclusion):
+        def opener(req, timeout=0):
+            if "actions/runs" in req.full_url:
+                body = json.dumps({"workflow_runs": [{
+                    "status": "completed", "conclusion": conclusion,
+                    "name": "tests",
+                    "html_url": "https://github.com/o/devin-x/actions/runs/1",
+                }]}).encode()
+                return _BytesResponse(body)
+            return _BytesResponse(b"[]")
+        return opener
+
+    def test_with_ci_badge(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = registry(tmp, [project("devin-x")])
+            rep = wrr.collect_report(
+                path, opener=self._opener("success"), with_ci=True)
+        self.assertEqual(rep["repos"][0]["ci"]["conclusion"], "success")
+        self.assertIn("passing", wrr.render_html(rep))
+
+    def test_ci_404_renders_no_badge(self):
+        err = urllib.error.HTTPError(
+            "u", 404, "nf", {}, io.BytesIO(b""))
+        def opener(req, timeout=0):
+            if "actions/runs" in req.full_url:
+                raise err
+            return _BytesResponse(b"[]")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = registry(tmp, [project("devin-x")])
+            rep = wrr.collect_report(path, opener=opener, with_ci=True)
+        self.assertIsNone(rep["repos"][0]["ci"])
+        self.assertNotIn("passing", wrr.render_html(rep))
+
+    def test_without_ci_no_extra_calls(self):
+        calls = []
+        def opener(req, timeout=0):
+            calls.append(req.full_url)
+            return _BytesResponse(b"[]")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = registry(tmp, [project("devin-x")])
+            rep = wrr.collect_report(path, opener=opener)
+        self.assertFalse(any("actions" in u for u in calls))
+        self.assertNotIn("ci", rep["repos"][0])
