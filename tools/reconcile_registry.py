@@ -116,6 +116,16 @@ def find_local_clones(roots: list[Path]) -> dict[str, Path]:
     return clones
 
 
+def _is_repository_entry(name: str, entry: dict) -> bool:
+    url_name = str(entry.get("url", "")).rstrip("/").rsplit("/", 1)[-1]
+    return not (
+        entry.get("kind") == "system"
+        and url_name
+        and url_name != name
+        and not entry.get("local_dir")
+    )
+
+
 def reconcile(
     registry_path: Path,
     owner: str,
@@ -148,7 +158,7 @@ def reconcile(
         github = {}
 
     gh_names = set(github)
-    reg_names = set(registry)
+    reg_names = {name for name, entry in registry.items() if _is_repository_entry(name, entry)}
 
     report["github_only"] = sorted(
         (
@@ -186,7 +196,12 @@ def reconcile(
                 "github": release,
                 "detail": "GitHub release exists but registry has no version",
             })
-        elif release_v and reg_version and release_v != reg_version:
+        elif (
+            release_v
+            and reg_version
+            and release_v != reg_version
+            and _norm_version(entry.get("tag", "")) != reg_version
+        ):
             report["stale_fields"].append({
                 "name": name,
                 "field": "version",
