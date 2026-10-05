@@ -2,6 +2,8 @@
 
 This file contains Linux-specific installation and path details. See [README.md](README.md) for features, shared usage, limitations, and the safety model.
 
+Linux is an extended runtime: local execution plus optional delegated workloads when the project supports them.
+
 ## Prerequisites
 
 - A supported Linux distribution and Bash.

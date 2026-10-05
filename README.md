@@ -9,7 +9,7 @@
 > Unofficial community tooling for Devin. Not affiliated with, endorsed by, or
 > sponsored by Cognition AI. Devin is a Cognition AI trademark.
 >
-**[Windows](README.windows.md)** · **[Linux](README.linux.md)** · English
+**[Linux](README.linux.md)** · **[Personal Windows](README.windows.md)** · **[Corporate Windows](README.corporate-windows.md)** · English
 
 A public maintainer hub for the Devin community projects. It contains the
 machine-readable catalog, platform-doc and manifest exporters, a starter
@@ -21,7 +21,7 @@ distribution; this hub is not needed at runtime.
 
 | Path | Purpose |
 |---|---|
-| `registry.json` | Catalog of public projects plus clearly marked maintainer-only records. `kind` records the repository's structural role, while `artifact`, `interfaces`, `audiences` and `platforms` classify what each public artifact is and who it serves. The weekly public report filters to `kind=project` and `visibility=public`. |
+| `registry.json` | Catalog of public projects plus clearly marked maintainer-only records. `kind` records the repository's structural role, while `artifact`, `interfaces`, `audiences`, `platforms` and `environments` classify what each public artifact is, who it serves and which runtime guarantees it supports. The weekly public report filters to `kind=project` and `visibility=public`. |
 | `template/` | Starter repository with a shared README, Windows/Linux guides, a planned macOS guide, and CI. |
 | `tools/new-repo.py` | Creates a new `devin-<name>` sibling checkout from the template, initializes Git and registers the repo in `registry.json` (schema-validated before writing). `--dry-run` previews without side effects. It does not create a GitHub repository or push. |
 | `tools/weekly_repo_report.py` | Reads public GitHub commit metadata from the registry and writes a standalone HTML report. Email delivery is optional. |
@@ -29,6 +29,7 @@ distribution; this hub is not needed at runtime.
 | `tools/reconcile_registry.py` | Reconciles the registry against the GitHub account and local clones: missing entries, missing repos, stale version/tag fields. Read-only. |
 | `tools/export_devkit_manifest.py` | Exports the public, profile-based DevKit manifest; rejects private or unknown repositories. |
 | `tools/render_catalog.py` | Renders the profile README catalog and count from the same registry. |
+| `tools/render_compatibility.py` | Renders the Linux / Personal Windows / Corporate Windows compatibility matrix from registry environment metadata. |
 | `tools/migrate_platform_docs.py` | Dry-run by default; creates OS-specific guides and replaces old language navigation only with `--apply`. |
 | `tools/hooks_dispatch.py` | The F5 hook dispatcher: one Devin hook command fans out to handlers registered in `.devin-ecosystem/hooks.json` under the Devin config dir, instead of every repo installing its own hook. Never fails the hook (abort contract: handler exit 42), per-handler + global timeouts, JSONL dispatch log. |
 | `registry.schema.json` | JSON Schema (2020-12) for `registry.json`. |
@@ -78,7 +79,11 @@ written, so a schema violation aborts with zero side effects. `--dry-run`
 prints the files it would create and the registry entry it would append
 without touching anything; `--no-register` scaffolds only. `--kind`,
 `--visibility` and `--wave` override the registry defaults
-(`project`/`public`/`0`). It does not create a GitHub remote. Review the
+(`project`/`public`/`0`). Environment metadata defaults to a local tool that
+supports all three environments; use `--unsupported-environment ENV=reason`,
+`--requires-delegation`, `--requires-devin-vm` or
+`--requires-external-integration NAME` when the new artifact has different
+runtime guarantees. It does not create a GitHub remote. Review the
 generated files and choose the remote/visibility yourself.
 
 `weekly_repo_report.py` uses the GitHub public commits API. `GITHUB_TOKEN` is
@@ -162,9 +167,10 @@ The registry distinguishes public projects from maintainer-only records and
 treats every repository as an artifact. `artifact=tool` marks user-facing
 products (19 first-party `devin-*` entries today); `distribution`,
 `infrastructure`, `suite` and `resource` separate the DevKit, hub, related
-collections and discovery documents from tools. `interfaces`, `audiences` and
-`platforms` provide the metadata generators need for catalogs, installation
-profiles and audience filters. The weekly report filters to public projects
+collections and discovery documents from tools. `interfaces`, `audiences`,
+`platforms` and `environments` provide the metadata generators need for
+catalogs, installation profiles, audience filters and runtime-compatibility
+matrices. The weekly report filters to public projects
 and does not read private repository contents. Personal paths, credentials,
 service addresses and session data do not belong in this public repository.
 
@@ -193,7 +199,13 @@ standalone. What runs locally with zero external services:
   ours. On a locked-down machine, running the generator locally on a schedule
   (cron or Task Scheduler) produces the same HTML report without any email.
 
-## Platform support
+## Environment support
+
+The registry models three execution environments rather than only operating
+systems. Linux and Personal Windows use the extended runtime: local execution
+plus optional delegated workloads when a tool supports them. Corporate
+Windows is explicit and local-only: no VM, QwenPaw, external compute,
+workload delegation or required external integrations.
 
 The Python maintainer scripts work on Windows and Linux. `new-repo.py` invokes
 Git; creating a GitHub remote is a separate, explicit action. The template's

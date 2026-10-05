@@ -47,13 +47,16 @@ def test_catalog_labels_related_artifacts_instead_of_calling_them_tools():
     assert "| **Related Resource** | [`awesome-devin`]" in rendered
 
 
-def test_public_executable_artifacts_declare_platforms():
+def test_public_executable_artifacts_declare_platforms_and_environments():
     registry = json.loads(REGISTRY.read_text(encoding="utf-8"))
     executable = {"tool", "service", "suite", "distribution", "infrastructure"}
+    environments = {"linux", "personal_windows", "corporate_windows"}
 
     for repo in registry["repositories"]:
         if repo["visibility"] == "public" and repo["artifact"] in executable:
             assert repo.get("platforms"), repo["name"]
+            assert set(repo.get("environments", {})) == environments, repo["name"]
+            assert repo["environments"]["corporate_windows"]["runtime"] in {"local-only", "unavailable"}
 
 
 def test_catalog_table_uses_registry_descriptions_and_urls():

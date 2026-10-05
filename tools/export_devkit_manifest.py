@@ -42,6 +42,16 @@ def validate_devkit(registry: dict) -> list[str]:
             errors.append(f"devkit.tools.{name}: missing repository entry")
         elif repo.get("visibility") != "public" or repo.get("kind") != "project":
             errors.append(f"devkit.tools.{name}: must refer to a public project")
+        else:
+            environments = repo.get("environments", {})
+            for environment_name in ("linux", "personal_windows", "corporate_windows"):
+                if environment_name not in environments:
+                    errors.append(f"devkit.tools.{name}: missing environment {environment_name}")
+            corporate = environments.get("corporate_windows", {})
+            if corporate.get("supported") and corporate.get("delegation") not in {"forbidden", "unavailable"}:
+                errors.append(f"devkit.tools.{name}: corporate_windows must forbid delegation")
+            if corporate.get("supported") and corporate.get("external_dependencies"):
+                errors.append(f"devkit.tools.{name}: corporate_windows cannot depend on external integrations")
         if tool["source"] == "github" and not _SHA.fullmatch(tool.get("ref", "")):
             errors.append(f"devkit.tools.{name}.ref: expected a 40-character commit SHA")
         if tool["source"] == "pypi" and tool["manager"] != "uv":
@@ -106,6 +116,7 @@ def build_manifest(registry: dict) -> dict:
             "artifact": repo["artifact"],
             "interfaces": repo["interfaces"],
             "audiences": repo["audiences"],
+            "environments": repo["environments"],
             "manager": tool["manager"],
             "source": tool["source"],
             "package": tool["package"],
@@ -137,6 +148,7 @@ def build_manifest(registry: dict) -> dict:
         "installer": devkit["installer"],
         "supported_platforms": devkit["supported_platforms"],
         "planned_platforms": devkit["planned_platforms"],
+        "environments": registry["environments"],
         "git_required_tools": sorted(git_required),
         "catalog": {
             "tool_count": len(devin_tools),

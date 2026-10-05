@@ -77,6 +77,11 @@ def write_registry(root: Path, repositories=None) -> Path:
                 "version": 6,
                 "generated": "2026-01-01",
                 "owner": "TestOwner",
+                "environments": {
+                    "linux": {"label": "Linux", "runtime": "extended", "delegation": "optional", "local_only": False, "external_compute": True, "devkit": "linux"},
+                    "personal_windows": {"label": "Personal Windows", "runtime": "extended", "delegation": "optional", "local_only": False, "external_compute": True, "devkit": "personal-windows"},
+                    "corporate_windows": {"label": "Corporate Windows", "runtime": "local-only", "delegation": "forbidden", "local_only": True, "external_compute": False, "devkit": "corporate-windows"},
+                },
                 "repositories": repositories,
             },
             indent=2,
@@ -168,10 +173,36 @@ class NewRepoTests(unittest.TestCase):
         self.assertEqual(entry["interfaces"], ["cli"])
         self.assertEqual(entry["audiences"], ["developers"])
         self.assertEqual(entry["platforms"], ["windows", "linux"])
+        self.assertEqual(entry["environments"]["linux"]["runtime"], "extended")
+        self.assertEqual(entry["environments"]["personal_windows"]["delegation"], "optional")
+        self.assertEqual(entry["environments"]["corporate_windows"]["runtime"], "local-only")
+        self.assertFalse(entry["environments"]["corporate_windows"]["external_dependencies"])
         self.assertEqual(entry["visibility"], "public")
         self.assertEqual(entry["status"], "active")
         self.assertEqual(entry["description"], "Alpha tool")
         self.assertEqual(registry["generated"], new_repo.date.today().isoformat())
+
+    def test_environment_flags_are_registered_explicitly(self):
+        rc = new_repo.main(self.argv(
+            "--requires-external-integration", "slack",
+            "--unsupported-environment", "linux=requires a Windows service",
+            "alpha", "Alpha tool",
+        ))
+        self.assertEqual(rc, 0)
+        entry = json.loads(self.registry.read_text(encoding="utf-8"))["repositories"][-1]
+        self.assertFalse(entry["environments"]["linux"]["supported"])
+        self.assertEqual(entry["environments"]["linux"]["reason"], "requires a Windows service")
+        self.assertTrue(entry["environments"]["personal_windows"]["external_dependencies"])
+        self.assertFalse(entry["environments"]["corporate_windows"]["supported"])
+        self.assertEqual(entry["environments"]["corporate_windows"]["reason"], "requires external integration: slack")
+
+    def test_delegation_requirement_marks_corporate_unsupported(self):
+        rc = new_repo.main(self.argv("--requires-delegation", "alpha", "Alpha tool"))
+        self.assertEqual(rc, 0)
+        entry = json.loads(self.registry.read_text(encoding="utf-8"))["repositories"][-1]
+        self.assertEqual(entry["environments"]["linux"]["delegation"], "required")
+        self.assertFalse(entry["environments"]["corporate_windows"]["supported"])
+        self.assertEqual(entry["environments"]["corporate_windows"]["reason"], "requires delegated execution")
 
     def test_registered_document_validates(self):
         self.assertEqual(new_repo.main(self.argv("alpha", "Alpha tool")), 0)

@@ -19,10 +19,14 @@ def repo_path(entry: dict[str, Any], root: Path) -> Path:
 
 
 def language_switch(text: str) -> str:
-    replacement = "**[Windows](README.windows.md)** · **[Linux](README.linux.md)** · English"
-    if "README.windows.md" in text and "README.linux.md" in text:
+    replacement = "**[Linux](README.linux.md)** · **[Personal Windows](README.windows.md)** · **[Corporate Windows](README.corporate-windows.md)**"
+    if "README.corporate-windows.md" in text:
         return text
     lines = text.splitlines()
+    for index, line in enumerate(lines):
+        if "README.windows.md" in line and "README.linux.md" in line:
+            lines[index] = replacement
+            return "\n".join(lines) + ("\n" if text.endswith("\n") else "")
     for index, line in enumerate(lines):
         if "README.pt-BR.md" in line or "Português (BR)" in line:
             lines[index] = replacement
@@ -90,16 +94,54 @@ def _install_line(entry: dict[str, Any], tool: dict[str, Any] | None, platform: 
     return [tool.get("manual_note", "See the main README for manual setup.")]
 
 
-def render_guide(entry: dict[str, Any], tool: dict[str, Any] | None, platform: str) -> str:
+def render_guide(entry: dict[str, Any], tool: dict[str, Any] | None, platform: str, environment: str | None = None) -> str:
     name = entry["name"]
-    lines = [
-        f"# {name} — {platform.title()} guide",
-        "",
-        f"This guide covers {platform.title()} setup only. See [README.md](README.md) for features, shared commands, limitations, and the safety model.",
-        "",
-        "## Prerequisites",
-        "",
-    ]
+    environment = environment or ("linux" if platform == "linux" else "personal_windows")
+    environment_meta = entry.get("environments", {}).get(environment)
+    label = {
+        "linux": "Linux",
+        "personal_windows": "Personal Windows",
+        "corporate_windows": "Corporate Windows",
+    }[environment]
+    lines = [f"# {name} — {label} guide", ""]
+
+    if environment == "corporate_windows":
+        lines.extend([
+            "This guide covers restricted Windows setup only. For unrestricted Windows, see [README.windows.md](README.windows.md); for features, shared commands, limitations, and the safety model, see [README.md](README.md).",
+            "",
+            "Corporate Windows is a local-only environment: no Devin VM, QwenPaw, Slack dependency, external compute, workload delegation or required external integration.",
+            "",
+        ])
+        if environment_meta is None:
+            lines.extend([
+                "This artifact has no `corporate_windows` entry in `registry.json`, so compatibility is not claimed.",
+                "",
+            ])
+            return "\n".join(lines)
+        if not environment_meta.get("supported"):
+            lines.extend([
+                "This artifact is not supported in Corporate Windows.",
+                "",
+                f"Registry reason: {environment_meta.get('reason', 'not declared supported')}",
+                "",
+            ])
+            return "\n".join(lines)
+    elif environment == "personal_windows":
+        lines.extend([
+            "This guide covers unrestricted Windows setup. For restricted machines, see [README.corporate-windows.md](README.corporate-windows.md); for features, shared commands, limitations, and the safety model, see [README.md](README.md).",
+            "",
+            "Personal Windows uses the extended runtime: local execution plus optional Devin VM/QwenPaw delegation when this artifact supports it.",
+            "",
+        ])
+    else:
+        lines.extend([
+            "This guide covers Linux setup only. See [README.md](README.md) for features, shared commands, limitations, and the safety model.",
+            "",
+            "Linux uses the extended runtime: local execution plus optional Devin VM/QwenPaw delegation when this artifact supports it.",
+            "",
+        ])
+
+    lines.extend(["## Prerequisites", ""])
     if tool and tool["manager"] == "npm":
         lines.append("- Node.js 20 or newer and npm.")
         if tool.get("requires_git"):
@@ -127,7 +169,23 @@ def render_guide(entry: dict[str, Any], tool: dict[str, Any] | None, platform: s
             "Session data normally lives under `${XDG_DATA_HOME:-$HOME/.local/share}/devin/cli/`; UI state and ACP stores under `${XDG_CONFIG_HOME:-$HOME/.config}/Devin/User/`.",
             "Use the tool's documented `--data-dir` or `--config-dir` flags for non-default locations.",
         ])
-    lines.extend(["", "## Platform notes", "", "- Windows and Linux are the initial tested platforms.", "- macOS is planned but not claimed as tested."])
+    lines.extend(["", "## Environment notes", ""])
+    if environment == "corporate_windows":
+        lines.extend([
+            "- Keep execution local; do not configure VM, QwenPaw, external compute or workload delegation.",
+            "- Registry-declared external integrations remain optional and are not installed by this guide.",
+        ])
+    elif environment == "personal_windows":
+        lines.extend([
+            "- Delegated runtime is optional; this guide installs local tooling only.",
+            "- Corporate Windows is a separate local-only environment.",
+        ])
+    else:
+        lines.extend([
+            "- Delegated runtime is optional; this guide installs local tooling only.",
+            "- Linux can use additional compute or Linux-compatible delegated tooling when available.",
+        ])
+    lines.append("- macOS is planned but not claimed as tested.")
     if platform == "linux" and name in {"devin-janitor", "devin-office"}:
         lines.extend(["- Optional scheduling uses `systemd --user` or cron; installation does not create jobs automatically."])
     lines.extend(["", "## Troubleshooting", ""])
@@ -184,6 +242,7 @@ def plan_migration(registry: dict[str, Any], root: Path) -> list[dict[str, Any]]
             "legacy": legacy,
             "readme": repo / "README.md",
             "windows": repo / "README.windows.md",
+            "corporate_windows": repo / "README.corporate-windows.md",
             "linux": repo / "README.linux.md",
             "tool": tool,
             "entry": entry,
@@ -196,18 +255,20 @@ def migrate(registry: dict[str, Any], root: Path, apply: bool = False) -> list[d
     report = []
     prepared = []
     for item in plans:
-        report.append({"repo": item["name"], "legacy_removed": item["legacy"].exists(), "windows": str(item["windows"]), "linux": str(item["linux"])})
+        report.append({"repo": item["name"], "legacy_removed": item["legacy"].exists(), "windows": str(item["windows"]), "corporate_windows": str(item["corporate_windows"]), "linux": str(item["linux"])})
         prepared.append({
             **item,
             "readme_content": language_switch(item["readme"].read_text(encoding="utf-8")),
-            "windows_content": render_guide(item["entry"], item["tool"], "windows"),
-            "linux_content": render_guide(item["entry"], item["tool"], "linux"),
+            "windows_content": render_guide(item["entry"], item["tool"], "windows", "personal_windows"),
+            "corporate_windows_content": render_guide(item["entry"], item["tool"], "windows", "corporate_windows"),
+            "linux_content": render_guide(item["entry"], item["tool"], "linux", "linux"),
         })
     if not apply:
         return report
     for item in prepared:
         _atomic_write(item["readme"], item["readme_content"])
         _atomic_write(item["windows"], item["windows_content"])
+        _atomic_write(item["corporate_windows"], item["corporate_windows_content"])
         _atomic_write(item["linux"], item["linux_content"])
         if item["legacy"].exists():
             item["legacy"].unlink()
@@ -221,9 +282,11 @@ def check_platform_docs(registry: dict[str, Any], root: Path) -> list[str]:
             errors.append(f"{item['name']}: legacy README.pt-BR.md still exists")
         if language_switch(item["readme"].read_text(encoding="utf-8")) != item["readme"].read_text(encoding="utf-8"):
             errors.append(f"{item['name']}: README.md needs OS guide links")
-        if not item["windows"].is_file() or item["windows"].read_text(encoding="utf-8") != render_guide(item["entry"], item["tool"], "windows"):
+        if not item["windows"].is_file() or item["windows"].read_text(encoding="utf-8") != render_guide(item["entry"], item["tool"], "windows", "personal_windows"):
             errors.append(f"{item['name']}: README.windows.md is missing or stale")
-        if not item["linux"].is_file() or item["linux"].read_text(encoding="utf-8") != render_guide(item["entry"], item["tool"], "linux"):
+        if not item["corporate_windows"].is_file() or item["corporate_windows"].read_text(encoding="utf-8") != render_guide(item["entry"], item["tool"], "windows", "corporate_windows"):
+            errors.append(f"{item['name']}: README.corporate-windows.md is missing or stale")
+        if not item["linux"].is_file() or item["linux"].read_text(encoding="utf-8") != render_guide(item["entry"], item["tool"], "linux", "linux"):
             errors.append(f"{item['name']}: README.linux.md is missing or stale")
     return errors
 

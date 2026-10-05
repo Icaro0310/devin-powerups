@@ -98,6 +98,10 @@ def build_entry(
     kind: str = "project",
     visibility: str = "public",
     wave: int = 0,
+    unsupported_environments: list[str] | None = None,
+    requires_delegation: bool = False,
+    requires_external_integration: str | None = None,
+    requires_devin_vm: bool = False,
 ) -> dict:
     """Registry entry for a freshly scaffolded ``devin-<name>`` checkout."""
     artifact = {
@@ -118,6 +122,47 @@ def build_entry(
         "distribution": ["developers", "end-users"],
         "system": ["maintainers"],
     }[kind]
+    environments = {
+        "linux": {"supported": True, "runtime": "extended", "delegation": "optional", "external_dependencies": False},
+        "personal_windows": {"supported": True, "runtime": "extended", "delegation": "optional", "external_dependencies": False},
+        "corporate_windows": {"supported": True, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": False},
+    }
+    if requires_delegation:
+        for environment in ("linux", "personal_windows"):
+            environments[environment]["delegation"] = "required"
+        environments["corporate_windows"].update({
+            "supported": False,
+            "runtime": "unavailable",
+            "reason": "requires delegated execution",
+        })
+    if requires_devin_vm:
+        for environment in ("linux", "personal_windows"):
+            environments[environment]["requirements"] = ["devin-vm"]
+        environments["corporate_windows"].update({
+            "supported": False,
+            "runtime": "unavailable",
+            "reason": "requires Devin VM",
+        })
+    if requires_external_integration:
+        for environment in ("linux", "personal_windows"):
+            environments[environment]["external_dependencies"] = True
+        environments["corporate_windows"].update({
+            "supported": False,
+            "runtime": "unavailable",
+            "external_dependencies": True,
+            "reason": f"requires external integration: {requires_external_integration}",
+        })
+    for override in unsupported_environments or []:
+        environment, separator, reason = override.partition("=")
+        environment = environment.strip().replace("-", "_")
+        reason = reason.strip()
+        if not separator or not reason or environment not in environments:
+            raise ValueError("--unsupported-environment must be ENVIRONMENT=reason")
+        environments[environment].update({
+            "supported": False,
+            "runtime": "unavailable",
+            "reason": reason,
+        })
     return {
         "name": f"devin-{name}",
         "url": f"https://github.com/{owner}/devin-{name}",
@@ -126,6 +171,7 @@ def build_entry(
         "interfaces": interfaces,
         "audiences": audiences,
         "platforms": ["windows", "linux"],
+        "environments": environments,
         "visibility": visibility,
         "wave": wave,
         "status": "active",
@@ -219,6 +265,27 @@ def build_parser() -> argparse.ArgumentParser:
         help="registry delivery wave (default: 0 = standalone)",
     )
     parser.add_argument(
+        "--unsupported-environment",
+        action="append",
+        metavar="ENVIRONMENT=reason",
+        help="mark linux, personal-windows or corporate-windows unsupported with an explicit registry reason; repeatable",
+    )
+    parser.add_argument(
+        "--requires-delegation",
+        action="store_true",
+        help="declare that extended environments require delegated execution; Corporate Windows is marked unsupported",
+    )
+    parser.add_argument(
+        "--requires-devin-vm",
+        action="store_true",
+        help="declare a Devin VM requirement; Corporate Windows is marked unsupported",
+    )
+    parser.add_argument(
+        "--requires-external-integration",
+        metavar="NAME",
+        help="declare an external integration requirement; Corporate Windows is marked unsupported",
+    )
+    parser.add_argument(
         "--registry",
         default=str(REGISTRY_PATH),
         help="registry JSON to update (default: this repo's registry.json)",
@@ -281,11 +348,15 @@ def main(argv: list[str] | None = None) -> int:
             print(f"error: {registry_path}: missing 'owner' field",
                   file=sys.stderr)
             return 2
-        entry = build_entry(
-            name, args.description, owner,
-            kind=args.kind, visibility=args.visibility, wave=args.wave,
-        )
         try:
+            entry = build_entry(
+                name, args.description, owner,
+                kind=args.kind, visibility=args.visibility, wave=args.wave,
+                unsupported_environments=args.unsupported_environment,
+                requires_delegation=args.requires_delegation,
+                requires_external_integration=args.requires_external_integration,
+                requires_devin_vm=args.requires_devin_vm,
+            )
             merged = merge_registry(registry_path, entry)
         except ValueError as exc:
             print(f"error: {exc}", file=sys.stderr)

@@ -1,6 +1,6 @@
 {
   "$schema": "https://github.com/Icaro0310/devin-powerups/registry.schema.json",
-  "version": 9,
+  "version": 10,
   "generated": "2026-10-05",
   "owner": "Icaro0310",
   "note": "Public maintainer toolkit: registry, template, scaffolder, and public-project report. Public Devin tools are listed below; the maintainer's private runtime remains kind=system and is excluded from public-project reports. Unrelated personal repositories are not part of this catalog. CI is inline per public project; see README.md.",
@@ -15,6 +15,35 @@
     "PyPI publishing is partial; unlisted packages install from pinned GitHub sources until released.",
     "devin-office is a source-only service, not yet a distributable CLI; macOS support is planned, not claimed."
   ],
+  "environments": {
+    "linux": {
+      "label": "Linux",
+      "runtime": "extended",
+      "delegation": "optional",
+      "local_only": false,
+      "external_compute": true,
+      "devkit": "linux",
+      "description": "Native Linux execution plus optional Devin VM/QwenPaw workload delegation."
+    },
+    "personal_windows": {
+      "label": "Personal Windows",
+      "runtime": "extended",
+      "delegation": "optional",
+      "local_only": false,
+      "external_compute": true,
+      "devkit": "personal-windows",
+      "description": "Windows host execution plus optional Devin VM/QwenPaw workload delegation."
+    },
+    "corporate_windows": {
+      "label": "Corporate Windows",
+      "runtime": "local-only",
+      "delegation": "forbidden",
+      "local_only": true,
+      "external_compute": false,
+      "devkit": "corporate-windows",
+      "description": "Restricted Windows execution that is intentionally self-contained: no VM, QwenPaw, Slack requirement, external delegation, or external compute."
+    }
+  },
   "devkit": {
     "version": 1,
     "installer": "uv",
@@ -64,6 +93,11 @@
       "interfaces": ["cli", "registry", "docs"],
       "audiences": ["maintainers", "developers"],
       "platforms": ["windows", "linux"],
+      "environments": {
+        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": true},
+        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": true},
+        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": true, "reason": "local generators work offline; GitHub-backed maintainer reports require explicit credentials"}
+      },
       "visibility": "public",
       "wave": 0,
       "status": "active",
@@ -77,6 +111,11 @@
       "interfaces": ["cli", "installer"],
       "audiences": ["developers", "end-users"],
       "platforms": ["windows", "linux"],
+      "environments": {
+        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+      },
       "visibility": "public",
       "wave": 0,
       "status": "active",
@@ -93,6 +132,11 @@
       "interfaces": ["cli", "library"],
       "audiences": ["developers", "maintainers"],
       "platforms": ["windows", "linux"],
+      "environments": {
+        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+      },
       "visibility": "public",
       "wave": 0,
       "status": "delivered",
@@ -112,6 +156,11 @@
       "interfaces": ["cli", "library"],
       "audiences": ["security", "developers"],
       "platforms": ["windows", "linux"],
+      "environments": {
+        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+      },
       "visibility": "public",
       "wave": 0,
       "status": "delivered",
@@ -131,6 +180,11 @@
       "interfaces": ["cli"],
       "audiences": ["operations", "end-users"],
       "platforms": ["windows", "linux"],
+      "environments": {
+        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+      },
       "visibility": "public",
       "wave": 1,
       "status": "delivered",
@@ -149,6 +203,11 @@
       "interfaces": ["cli"],
       "audiences": ["operations", "end-users"],
       "platforms": ["windows", "linux"],
+      "environments": {
+        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+      },
       "visibility": "public",
       "wave": 1,
       "status": "delivered",
@@ -167,6 +226,11 @@
       "interfaces": ["cli", "registry"],
       "audiences": ["operations", "maintainers"],
       "platforms": ["windows", "linux"],
+      "environments": {
+        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+      },
       "visibility": "public",
       "wave": 1,
       "status": "delivered",
@@ -185,6 +249,11 @@
       "interfaces": ["cli"],
       "audiences": ["qa", "developers"],
       "platforms": ["windows", "linux"],
+      "environments": {
+        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+      },
       "visibility": "public",
       "wave": 2,
       "status": "delivered",
@@ -203,6 +272,11 @@
       "interfaces": ["cli", "dashboard"],
       "audiences": ["qa", "operations"],
       "platforms": ["windows", "linux"],
+      "environments": {
+        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+      },
       "visibility": "public",
       "wave": 2,
       "status": "delivered",
@@ -221,6 +295,11 @@
       "interfaces": ["cli"],
       "audiences": ["operations", "security"],
       "platforms": ["windows", "linux"],
+      "environments": {
+        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+      },
       "visibility": "public",
       "wave": 2,
       "status": "delivered",
@@ -239,6 +318,11 @@
       "interfaces": ["cli"],
       "audiences": ["developers", "ai-engineers"],
       "platforms": ["windows", "linux"],
+      "environments": {
+        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+      },
       "visibility": "public",
       "wave": 3,
       "status": "delivered",
@@ -257,6 +341,11 @@
       "interfaces": ["cli", "library"],
       "audiences": ["developers", "ai-engineers"],
       "platforms": ["windows", "linux"],
+      "environments": {
+        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+      },
       "visibility": "public",
       "wave": 3,
       "status": "delivered",
@@ -275,6 +364,11 @@
       "interfaces": ["cli", "library"],
       "audiences": ["qa", "ai-engineers"],
       "platforms": ["windows", "linux"],
+      "environments": {
+        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+      },
       "visibility": "public",
       "wave": 3,
       "status": "delivered",
@@ -293,6 +387,11 @@
       "interfaces": ["cli", "library", "mcp", "service"],
       "audiences": ["ai-engineers", "developers"],
       "platforms": ["windows", "linux"],
+      "environments": {
+        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+      },
       "visibility": "public",
       "wave": 4,
       "status": "delivered",
@@ -311,6 +410,11 @@
       "interfaces": ["cli", "automation"],
       "audiences": ["operations", "security"],
       "platforms": ["windows", "linux"],
+      "environments": {
+        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+      },
       "visibility": "public",
       "wave": 5,
       "status": "delivered",
@@ -329,6 +433,11 @@
       "interfaces": ["cli", "bridge"],
       "audiences": ["security", "ai-engineers"],
       "platforms": ["windows", "linux"],
+      "environments": {
+        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false, "requirements": ["node>=20", "devin-cli"]},
+        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false, "requirements": ["node>=20", "devin-cli"]},
+        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false, "requirements": ["node>=20", "devin-cli"]}
+      },
       "visibility": "public",
       "wave": 4,
       "status": "delivered",
@@ -347,6 +456,11 @@
       "interfaces": ["cli", "automation"],
       "audiences": ["operations", "ai-engineers"],
       "platforms": ["windows", "linux"],
+      "environments": {
+        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+      },
       "visibility": "public",
       "wave": 5,
       "status": "delivered",
@@ -397,6 +511,11 @@
       "interfaces": ["service", "dashboard"],
       "audiences": ["operations", "end-users"],
       "platforms": ["windows", "linux"],
+      "environments": {
+        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+      },
       "visibility": "public",
       "wave": 0,
       "status": "active",
@@ -414,6 +533,11 @@
       "interfaces": ["service", "bridge", "docs"],
       "audiences": ["ai-engineers", "operations"],
       "platforms": ["windows", "linux"],
+      "environments": {
+        "linux": {"supported": true, "runtime": "extended", "delegation": "supported", "external_dependencies": true},
+        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "supported", "external_dependencies": true},
+        "corporate_windows": {"supported": false, "runtime": "unavailable", "delegation": "forbidden", "external_dependencies": true, "reason": "requires an optional self-hosted model runtime outside the corporate local-only guarantee"}
+      },
       "visibility": "public",
       "wave": 0,
       "status": "active",
@@ -429,6 +553,11 @@
       "interfaces": ["cli", "library", "mcp", "bridge"],
       "audiences": ["ai-engineers", "qa"],
       "platforms": ["windows", "linux"],
+      "environments": {
+        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+      },
       "visibility": "public",
       "wave": 0,
       "status": "active",
@@ -458,6 +587,11 @@
       "interfaces": ["cli", "library"],
       "audiences": ["qa", "ai-engineers"],
       "platforms": ["windows", "linux"],
+      "environments": {
+        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+      },
       "visibility": "public",
       "wave": 2,
       "status": "active",
@@ -475,6 +609,11 @@
       "interfaces": ["cli"],
       "audiences": ["operations", "maintainers"],
       "platforms": ["windows", "linux"],
+      "environments": {
+        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+      },
       "visibility": "public",
       "wave": 2,
       "status": "active",
@@ -492,6 +631,11 @@
       "interfaces": ["cli", "registry"],
       "audiences": ["maintainers", "ai-engineers"],
       "platforms": ["windows", "linux"],
+      "environments": {
+        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
+        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+      },
       "visibility": "public",
       "wave": 2,
       "status": "active",

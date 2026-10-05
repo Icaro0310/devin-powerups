@@ -4,8 +4,38 @@
   "title": "devin-powerups registry",
   "description": "Machine-readable catalog of the Icaro0310 devin-* ecosystem: public projects plus clearly marked maintainer-only records.",
   "type": "object",
+  "$defs": {
+    "environmentSupport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["supported", "runtime", "delegation", "external_dependencies"],
+      "properties": {
+        "supported": {"type": "boolean"},
+        "runtime": {"enum": ["extended", "local-only", "unavailable"]},
+        "delegation": {"enum": ["optional", "supported", "required", "forbidden", "unavailable"]},
+        "external_dependencies": {"type": "boolean"},
+        "requirements": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "reason": {"type": "string", "minLength": 1}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"supported": {"const": false}},
+            "required": ["supported"]
+          },
+          "then": {
+            "required": ["reason"],
+            "properties": {
+              "runtime": {"const": "unavailable"},
+              "delegation": {"const": "forbidden"}
+            }
+          }
+        }
+      ]
+    }
+  },
   "additionalProperties": false,
-  "required": ["version", "generated", "owner", "repositories"],
+  "required": ["version", "generated", "owner", "environments", "repositories"],
   "properties": {
     "$schema": {
       "type": "string"
@@ -44,6 +74,55 @@
     "known_issues": {
       "type": "array",
       "items": {"type": "string"}
+    },
+    "environments": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["linux", "personal_windows", "corporate_windows"],
+      "properties": {
+        "linux": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["label", "runtime", "delegation", "local_only", "external_compute", "devkit"],
+          "properties": {
+            "label": {"type": "string", "minLength": 1},
+            "runtime": {"enum": ["extended", "local-only", "unavailable"]},
+            "delegation": {"enum": ["optional", "supported", "required", "forbidden", "unavailable"]},
+            "local_only": {"type": "boolean"},
+            "external_compute": {"type": "boolean"},
+            "devkit": {"type": "string", "minLength": 1},
+            "description": {"type": "string", "minLength": 1}
+          }
+        },
+        "personal_windows": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["label", "runtime", "delegation", "local_only", "external_compute", "devkit"],
+          "properties": {
+            "label": {"type": "string", "minLength": 1},
+            "runtime": {"enum": ["extended", "local-only", "unavailable"]},
+            "delegation": {"enum": ["optional", "supported", "required", "forbidden", "unavailable"]},
+            "local_only": {"type": "boolean"},
+            "external_compute": {"type": "boolean"},
+            "devkit": {"type": "string", "minLength": 1},
+            "description": {"type": "string", "minLength": 1}
+          }
+        },
+        "corporate_windows": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["label", "runtime", "delegation", "local_only", "external_compute", "devkit"],
+          "properties": {
+            "label": {"type": "string", "minLength": 1},
+            "runtime": {"enum": ["extended", "local-only", "unavailable"]},
+            "delegation": {"enum": ["optional", "supported", "required", "forbidden", "unavailable"]},
+            "local_only": {"type": "boolean"},
+            "external_compute": {"type": "boolean"},
+            "devkit": {"type": "string", "minLength": 1},
+            "description": {"type": "string", "minLength": 1}
+          }
+        }
+      }
     },
     "devkit": {
       "type": "object",
@@ -168,6 +247,34 @@
             "minItems": 1,
             "description": "Operating systems the artifact is documented and tested for. Omit for platform-agnostic documentation/resources."
           },
+          "environments": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["linux", "personal_windows", "corporate_windows"],
+            "properties": {
+              "linux": {"$ref": "#/$defs/environmentSupport"},
+              "personal_windows": {"$ref": "#/$defs/environmentSupport"},
+              "corporate_windows": {
+                "allOf": [
+                  {"$ref": "#/$defs/environmentSupport"},
+                  {
+                    "if": {
+                      "properties": {"supported": {"const": true}},
+                      "required": ["supported"]
+                    },
+                    "then": {
+                      "properties": {
+                        "runtime": {"const": "local-only"},
+                        "delegation": {"enum": ["forbidden", "unavailable"]},
+                        "external_dependencies": {"const": false}
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "description": "Runtime capability per supported environment (linux, personal_windows, corporate_windows)."
+          },
           "visibility": {
             "enum": ["public", "private"]
           },
@@ -224,7 +331,19 @@
             "minLength": 1,
             "description": "Directory holding tests for non-standard layouts."
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "visibility": {"const": "public"},
+                "artifact": {"enum": ["tool", "service", "suite", "distribution", "infrastructure"]}
+              },
+              "required": ["visibility", "artifact"]
+            },
+            "then": {"required": ["platforms", "environments"]}
+          }
+        ]
       }
     }
   }

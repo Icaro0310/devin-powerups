@@ -11,6 +11,11 @@ def _registry() -> dict:
             {
                 "name": "devin-alpha", "url": "https://github.com/TestOwner/devin-alpha",
                 "kind": "project", "visibility": "public", "local_dir": "devin-alpha",
+                "environments": {
+                    "linux": {"supported": True, "runtime": "extended", "delegation": "optional", "external_dependencies": False},
+                    "personal_windows": {"supported": True, "runtime": "extended", "delegation": "optional", "external_dependencies": False},
+                    "corporate_windows": {"supported": True, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": False},
+                },
             },
             {
                 "name": "devin-private", "url": "https://github.com/TestOwner/devin-private",
@@ -66,12 +71,15 @@ def test_apply_creates_os_guides_and_removes_legacy_translation(tmp_path: Path):
     assert not (repo / "README.pt-BR.md").exists()
     assert "README.windows.md" in (repo / "README.md").read_text(encoding="utf-8")
     windows = (repo / "README.windows.md").read_text(encoding="utf-8")
+    corporate = (repo / "README.corporate-windows.md").read_text(encoding="utf-8")
     linux = (repo / "README.linux.md").read_text(encoding="utf-8")
     assert "uv tool install" in windows and "powershell" in windows
     assert "https://github.com/TestOwner/devin-alpha/archive/" in windows
     assert "Git on `PATH` for a Git dependency" in windows
     assert "## Troubleshooting" in windows and "reopen PowerShell" in windows
     assert "%APPDATA%" in windows
+    assert "Personal Windows" in windows and "extended runtime" in windows
+    assert "Corporate Windows" in corporate and "local-only environment" in corporate
     assert "uv tool install" in linux and "XDG_DATA_HOME" in linux
     assert "## Troubleshooting" in linux and "uv` tools directory" in linux
     assert "https://github.com/TestOwner/devin-alpha/archive/" in linux
@@ -81,6 +89,8 @@ def test_apply_creates_os_guides_and_removes_legacy_translation(tmp_path: Path):
     assert migration.check_platform_docs(_registry(), tmp_path) == []
     (repo / "README.windows.md").write_text("stale\n", encoding="utf-8")
     assert any("README.windows.md is missing or stale" in item for item in migration.check_platform_docs(_registry(), tmp_path))
+    (repo / "README.corporate-windows.md").write_text("stale\n", encoding="utf-8")
+    assert any("README.corporate-windows.md is missing or stale" in item for item in migration.check_platform_docs(_registry(), tmp_path))
 
 
 def test_bridge_archive_guides_need_node_but_not_git():
@@ -102,3 +112,21 @@ def test_office_guides_use_native_python_commands():
 
     assert "py -3 daemon.py --port 8788" in windows
     assert "python3 daemon.py --port 8788" in linux
+
+
+def test_corporate_guide_uses_explicit_unsupported_reason():
+    entry = {
+        "name": "qwenpaw-suite",
+        "environments": {
+            "corporate_windows": {
+                "supported": False,
+                "runtime": "unavailable",
+                "reason": "requires an external model runtime",
+            }
+        },
+    }
+
+    guide = migration.render_guide(entry, None, "windows", "corporate_windows")
+
+    assert "not supported in Corporate Windows" in guide
+    assert "requires an external model runtime" in guide

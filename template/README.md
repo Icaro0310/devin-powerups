@@ -3,7 +3,7 @@
 > **Unofficial community project.** Not affiliated with, endorsed by, or
 > sponsored by Cognition AI. "Devin" is a trademark of Cognition AI.
 
-**[Windows](README.windows.md)** · **[Linux](README.linux.md)**
+**[Linux](README.linux.md)** · **[Personal Windows](README.windows.md)** · **[Corporate Windows](README.corporate-windows.md)**
 
 One-line description of what this tool does.
 
@@ -25,12 +25,13 @@ One-line description of what this tool does.
 
 ## Install
 
-Choose the operating-system guide for setup and install commands:
+Choose the environment guide for setup and install commands:
 
-- [Windows](README.windows.md)
 - [Linux](README.linux.md)
+- [Personal Windows](README.windows.md)
+- [Corporate Windows](README.corporate-windows.md)
 
-Both guides install this CLI in an isolated environment. The shared command
+The guides install this CLI in an isolated environment. The shared command
 surface and examples remain in this README.
 
 ## Usage
@@ -47,10 +48,11 @@ devin-{{name}} --help
      UI config (XDG_CONFIG_HOME), plus overrides. If something genuinely
      cannot run on Linux, say so in Limitations instead of hiding it. -->
 
-The CI matrix covers **Windows and Linux**. Record tested behavior and
-OS-specific Devin paths in [README.windows.md](README.windows.md) and
-[README.linux.md](README.linux.md). macOS is planned but is not claimed as
-tested.
+The CI matrix covers **Windows and Linux**. The registry distinguishes
+Personal Windows extended runtime from Corporate Windows local-only runtime;
+record tested behavior and OS-specific Devin paths in the environment guides.
+Do not claim a restricted-environment capability that the registry does not
+declare. macOS is planned but is not claimed as tested.
 
 ## Limitations
 

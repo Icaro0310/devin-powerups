@@ -93,6 +93,8 @@ def test_manifest_carries_artifact_interfaces_audiences_and_platforms():
     assert "ai-engineers" in tools["devin-bridge"]["audiences"]
     assert tools["devin-qa-pack"]["audiences"] == ["qa", "developers"]
     assert tools["devin-qa-pack"]["platforms"] == ["windows", "linux"]
+    assert tools["devin-qa-pack"]["environments"]["corporate_windows"]["runtime"] == "local-only"
+    assert tools["devin-bridge"]["environments"]["corporate_windows"]["delegation"] == "forbidden"
     assert tools["poordjaevin"]["artifact"] == "tool"
 
 

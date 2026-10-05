@@ -1,8 +1,8 @@
-# Personal Windows guide
+# Corporate Windows guide
 
-This file contains unrestricted Windows installation and path details. For restricted machines, see [README.corporate-windows.md](README.corporate-windows.md); for features, shared usage, limitations, and the safety model, see [README.md](README.md).
+This file contains restricted Windows installation and path details. For unrestricted Windows, see [README.windows.md](README.windows.md); for features, shared usage, limitations, and the safety model, see [README.md](README.md).
 
-Personal Windows is an extended runtime: local execution plus optional delegated workloads when the project supports them.
+Corporate Windows is a local-only runtime: no Devin VM, QwenPaw, Slack dependency, external compute, workload delegation or required external integration. Do not document support here unless the registry marks `corporate_windows.supported` as true.
 
 ## Prerequisites
 
@@ -35,4 +35,5 @@ Session data normally lives under `%APPDATA%\devin\cli\`; UI state and ACP datab
 ## Troubleshooting
 
 - A GitHub install requires Git for Windows; installing Python alone is not enough.
+- Do not enable delegation, external integrations or VM-backed behavior in this environment.
 - For smoke tests, use the synthetic quick start in [README.md](README.md), not live Devin databases or credentials.
