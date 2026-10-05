@@ -32,10 +32,8 @@ def render_profile_catalog(registry: dict) -> str:
     categories = registry["devkit"]["tools"]
     category_labels = {"qa": "QA", "evaluation": "Evaluation", "security": "Security", "memory": "Memory", "operations": "Operations", "governance": "Governance", "foundation": "Foundation"}
     entry_count = len(tools) + len(hubs) + len(distributions) + len(related)
-    distribution_label = "distribution" if len(distributions) == 1 else "distributions"
-    hub_label = "maintainer hub" if len(hubs) == 1 else "maintainer hubs"
     lines = [
-        f"<summary><b>Full catalog — {len(tools)} Devin tools + {len(distributions)} {distribution_label} + {len(hubs)} {hub_label} + {len(related)} related artifacts ({entry_count} entries)</b></summary>",
+        f"<summary><b>The ecosystem — {len(tools)} first-party tools · {len(distributions)} distribution layer · {len(hubs)} registry hub · {len(related)} related artifacts ({entry_count} entries)</b></summary>",
         "",
         "<br/>",
         "",
