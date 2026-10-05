@@ -21,7 +21,7 @@ distribution; this hub is not needed at runtime.
 
 | Path | Purpose |
 |---|---|
-| `registry.json` | Catalog of public projects plus clearly marked maintainer-only records. The weekly public report filters to `kind=project` and `visibility=public`. |
+| `registry.json` | Catalog of public projects plus clearly marked maintainer-only records. `kind` records the repository's structural role, while `artifact`, `interfaces`, `audiences` and `platforms` classify what each public artifact is and who it serves. The weekly public report filters to `kind=project` and `visibility=public`. |
 | `template/` | Starter repository with a shared README, Windows/Linux guides, a planned macOS guide, and CI. |
 | `tools/new-repo.py` | Creates a new `devin-<name>` sibling checkout from the template, initializes Git and registers the repo in `registry.json` (schema-validated before writing). `--dry-run` previews without side effects. It does not create a GitHub repository or push. |
 | `tools/weekly_repo_report.py` | Reads public GitHub commit metadata from the registry and writes a standalone HTML report. Email delivery is optional. |
@@ -158,10 +158,15 @@ stored in this repository. A fork configures its own secrets/variables.
 
 ## Registry and privacy
 
-The registry distinguishes public projects from maintainer-only records. The
-weekly report filters to public projects and does not read private repository
-contents. Personal paths, credentials, service addresses and session data do
-not belong in this public repository.
+The registry distinguishes public projects from maintainer-only records and
+treats every repository as an artifact. `artifact=tool` marks user-facing
+products (19 first-party `devin-*` entries today); `distribution`,
+`infrastructure`, `suite` and `resource` separate the DevKit, hub, related
+collections and discovery documents from tools. `interfaces`, `audiences` and
+`platforms` provide the metadata generators need for catalogs, installation
+profiles and audience filters. The weekly report filters to public projects
+and does not read private repository contents. Personal paths, credentials,
+service addresses and session data do not belong in this public repository.
 
 ## Works with Devin alone (Devin-only mode)
 

@@ -124,6 +124,9 @@
           "name",
           "url",
           "kind",
+          "artifact",
+          "interfaces",
+          "audiences",
           "visibility",
           "wave",
           "status",
@@ -141,7 +144,29 @@
           },
           "kind": {
             "enum": ["project", "infra", "distribution", "system"],
-            "description": "project = public tool; infra = maintainer hub/meta; distribution = installable ecosystem layer; system = private maintainer runtime."
+            "description": "Structural role: project = repository catalog entry; infra = maintainer hub/meta; distribution = installable ecosystem layer; system = private maintainer runtime."
+          },
+          "artifact": {
+            "enum": ["tool", "service", "suite", "resource", "distribution", "infrastructure", "system"],
+            "description": "User-facing artifact classification. A repository is an artifact; artifact=tool means an installable or source-runnable user-facing product, service means a long-running app, suite means a multi-component collection, resource means documentation/discovery, distribution/infrastructure mean packaging or maintainer layers, and system means a private runtime/component."
+          },
+          "interfaces": {
+            "type": "array",
+            "items": {"enum": ["cli", "library", "service", "dashboard", "mcp", "bridge", "installer", "registry", "docs", "automation"]},
+            "minItems": 1,
+            "description": "Public or maintainer-facing interfaces exposed by the artifact."
+          },
+          "audiences": {
+            "type": "array",
+            "items": {"enum": ["qa", "developers", "security", "operations", "ai-engineers", "maintainers", "end-users"]},
+            "minItems": 1,
+            "description": "Primary audiences the artifact serves."
+          },
+          "platforms": {
+            "type": "array",
+            "items": {"enum": ["windows", "linux", "macos"]},
+            "minItems": 1,
+            "description": "Operating systems the artifact is documented and tested for. Omit for platform-agnostic documentation/resources."
           },
           "visibility": {
             "enum": ["public", "private"]

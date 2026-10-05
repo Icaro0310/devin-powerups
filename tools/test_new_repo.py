@@ -59,6 +59,10 @@ def write_registry(root: Path, repositories=None) -> Path:
                 "name": "devin-powerups",
                 "url": "https://github.com/TestOwner/devin-powerups",
                 "kind": "infra",
+                "artifact": "infrastructure",
+                "interfaces": ["cli", "registry"],
+                "audiences": ["maintainers"],
+                "platforms": ["windows", "linux"],
                 "visibility": "private",
                 "wave": 0,
                 "status": "active",
@@ -160,6 +164,10 @@ class NewRepoTests(unittest.TestCase):
             entry["url"], "https://github.com/TestOwner/devin-alpha"
         )
         self.assertEqual(entry["kind"], "project")
+        self.assertEqual(entry["artifact"], "tool")
+        self.assertEqual(entry["interfaces"], ["cli"])
+        self.assertEqual(entry["audiences"], ["developers"])
+        self.assertEqual(entry["platforms"], ["windows", "linux"])
         self.assertEqual(entry["visibility"], "public")
         self.assertEqual(entry["status"], "active")
         self.assertEqual(entry["description"], "Alpha tool")
@@ -204,6 +212,10 @@ class NewRepoTests(unittest.TestCase):
                     "name": "devin-alpha",
                     "url": "https://github.com/TestOwner/devin-alpha",
                     "kind": "project",
+                    "artifact": "tool",
+                    "interfaces": ["cli"],
+                    "audiences": ["developers"],
+                    "platforms": ["windows", "linux"],
                     "visibility": "public",
                     "wave": 1,
                     "status": "delivered",
@@ -225,6 +237,10 @@ class NewRepoTests(unittest.TestCase):
                     "name": "devin-broken",
                     "url": "https://github.com/TestOwner/devin-broken",
                     "kind": "project",
+                    "artifact": "tool",
+                    "interfaces": ["cli"],
+                    "audiences": ["developers"],
+                    "platforms": ["windows", "linux"],
                     "visibility": "pub",
                     "wave": 0,
                     "status": "active",
@@ -272,6 +288,9 @@ class NewRepoTests(unittest.TestCase):
             "repositories"
         ][-1]
         self.assertEqual(entry["kind"], "system")
+        self.assertEqual(entry["artifact"], "system")
+        self.assertEqual(entry["interfaces"], ["automation"])
+        self.assertEqual(entry["audiences"], ["maintainers"])
         self.assertEqual(entry["visibility"], "private")
         self.assertEqual(entry["wave"], 3)
 

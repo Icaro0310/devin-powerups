@@ -100,10 +100,32 @@ def build_entry(
     wave: int = 0,
 ) -> dict:
     """Registry entry for a freshly scaffolded ``devin-<name>`` checkout."""
+    artifact = {
+        "project": "tool",
+        "infra": "infrastructure",
+        "distribution": "distribution",
+        "system": "system",
+    }[kind]
+    interfaces = {
+        "project": ["cli"],
+        "infra": ["cli", "registry"],
+        "distribution": ["cli", "installer"],
+        "system": ["automation"],
+    }[kind]
+    audiences = {
+        "project": ["developers"],
+        "infra": ["maintainers"],
+        "distribution": ["developers", "end-users"],
+        "system": ["maintainers"],
+    }[kind]
     return {
         "name": f"devin-{name}",
         "url": f"https://github.com/{owner}/devin-{name}",
         "kind": kind,
+        "artifact": artifact,
+        "interfaces": interfaces,
+        "audiences": audiences,
+        "platforms": ["windows", "linux"],
         "visibility": visibility,
         "wave": wave,
         "status": "active",

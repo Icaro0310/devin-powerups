@@ -82,6 +82,20 @@ def test_profiles_only_reference_known_tools():
         assert set(profile.get("manual", [])) <= tools
 
 
+def test_manifest_carries_artifact_interfaces_audiences_and_platforms():
+    manifest = exporter.build_manifest(load_registry())
+    tools = {tool["id"]: tool for tool in manifest["tools"]}
+
+    assert tools["devin-office"]["artifact"] == "tool"
+    assert tools["devin-office"]["interfaces"] == ["service", "dashboard"]
+    assert tools["devin-bridge"]["artifact"] == "tool"
+    assert "bridge" in tools["devin-bridge"]["interfaces"]
+    assert "ai-engineers" in tools["devin-bridge"]["audiences"]
+    assert tools["devin-qa-pack"]["audiences"] == ["qa", "developers"]
+    assert tools["devin-qa-pack"]["platforms"] == ["windows", "linux"]
+    assert tools["poordjaevin"]["artifact"] == "tool"
+
+
 def test_unknown_profile_tool_is_rejected():
     registry = copy.deepcopy(load_registry())
     registry["devkit"]["profiles"]["qa"]["tools"].append("private-tool")

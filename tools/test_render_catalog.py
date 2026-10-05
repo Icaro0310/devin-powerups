@@ -29,13 +29,31 @@ def test_profile_catalog_is_public_and_has_explicit_totals():
     registry = json.loads(REGISTRY.read_text(encoding="utf-8"))
     rendered = render_catalog.render_profile_catalog(registry)
 
-    assert "19 Devin tools + 1 distribution + 1 maintainer hub + 3 related projects (24 entries)" in rendered
+    assert "19 Devin tools + 1 distribution + 1 maintainer hub + 3 related artifacts (24 entries)" in rendered
     assert "devin-devkit" in rendered
     assert "devin-dashboard" not in rendered
     assert "personal-agent-system" not in rendered
     assert "devin-learning" not in rendered
     assert "devin-powerups" in rendered
     assert "devin-office" in rendered
+
+
+def test_catalog_labels_related_artifacts_instead_of_calling_them_tools():
+    registry = json.loads(REGISTRY.read_text(encoding="utf-8"))
+    rendered = render_catalog.render_profile_catalog(registry)
+
+    assert "| **Related Tool** | [`poordjaevin`]" in rendered
+    assert "| **Related Suite** | [`qwenpaw-suite`]" in rendered
+    assert "| **Related Resource** | [`awesome-devin`]" in rendered
+
+
+def test_public_executable_artifacts_declare_platforms():
+    registry = json.loads(REGISTRY.read_text(encoding="utf-8"))
+    executable = {"tool", "service", "suite", "distribution", "infrastructure"}
+
+    for repo in registry["repositories"]:
+        if repo["visibility"] == "public" and repo["artifact"] in executable:
+            assert repo.get("platforms"), repo["name"]
 
 
 def test_catalog_table_uses_registry_descriptions_and_urls():
