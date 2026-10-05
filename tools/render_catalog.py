@@ -64,10 +64,19 @@ def render_profile_catalog(registry: dict) -> str:
     return "\n".join(lines)
 
 
+def patch_profile_catalog(text: str, rendered: str) -> str:
+    begin = "<!-- DEVIN-CATALOG:BEGIN -->"
+    end = "<!-- DEVIN-CATALOG:END -->"
+    start = text.index(begin) + len(begin)
+    stop = text.index(end)
+    return text[:start] + "\n" + rendered.rstrip() + "\n" + text[stop:]
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Render the public profile catalog from registry.json.")
     parser.add_argument("--registry", type=Path, default=REGISTRY)
     parser.add_argument("--out", type=Path)
+    parser.add_argument("--patch", type=Path)
     parser.add_argument("--check", type=Path)
     args = parser.parse_args(argv)
 
@@ -88,6 +97,16 @@ def main(argv: list[str] | None = None) -> int:
             print(f"stale catalog: {args.check}", file=sys.stderr)
             return 1
         print(f"ok: catalog in {args.check} matches registry.json")
+        return 0
+
+    if args.patch:
+        try:
+            current = args.patch.read_text(encoding="utf-8")
+            args.patch.write_text(patch_profile_catalog(current, rendered), encoding="utf-8")
+        except (OSError, ValueError) as exc:
+            print(f"error: cannot patch {args.patch}: {exc}", file=sys.stderr)
+            return 1
+        print(f"ok: catalog in {args.patch} matches registry.json")
         return 0
 
     if args.out:

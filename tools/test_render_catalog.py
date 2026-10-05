@@ -66,3 +66,16 @@ def test_catalog_table_uses_registry_descriptions_and_urls():
 
     assert f"[`devin-qa-pack`]({repo['url']})" in rendered
     assert repo["description"].replace("|", "\\|") in rendered
+
+
+def test_patch_profile_catalog_only_replaces_marked_block():
+    registry = json.loads(REGISTRY.read_text(encoding="utf-8"))
+    rendered = render_catalog.render_profile_catalog(registry)
+    current = "before\n<!-- DEVIN-CATALOG:BEGIN -->\nstale\n<!-- DEVIN-CATALOG:END -->\nafter\n"
+
+    patched = render_catalog.patch_profile_catalog(current, rendered)
+
+    assert patched.startswith("before\n")
+    assert patched.endswith("after\n")
+    assert "stale" not in patched
+    assert rendered in patched

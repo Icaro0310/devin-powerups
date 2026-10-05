@@ -20,23 +20,39 @@ def repo_path(entry: dict[str, Any], root: Path) -> Path:
 
 def language_switch(text: str) -> str:
     replacement = "**[Linux](README.linux.md)** · **[Personal Windows](README.windows.md)** · **[Corporate Windows](README.corporate-windows.md)**"
-    if "README.corporate-windows.md" in text:
-        return text
+    ecosystem = "Part of the [awesome-devin](https://github.com/Icaro0310/awesome-devin) ecosystem: the curated hub for the devin-* tools."
     lines = text.splitlines()
-    for index, line in enumerate(lines):
-        if "README.windows.md" in line and "README.linux.md" in line:
-            lines[index] = replacement
-            return "\n".join(lines) + ("\n" if text.endswith("\n") else "")
-    for index, line in enumerate(lines):
-        if "README.pt-BR.md" in line or "Português (BR)" in line:
-            lines[index] = replacement
-            return "\n".join(lines) + ("\n" if text.endswith("\n") else "")
-    for index, line in enumerate(lines):
-        if line.startswith("# "):
-            lines.insert(index + 1, "")
-            lines.insert(index + 2, replacement)
-            return "\n".join(lines) + ("\n" if text.endswith("\n") else "")
-    return replacement + "\n\n" + text
+
+    nav_index = next((
+        index for index, line in enumerate(lines)
+        if "README.linux.md" in line and "README.windows.md" in line and "README.corporate-windows.md" in line
+    ), None)
+    if nav_index is None:
+        for index, line in enumerate(lines):
+            if "README.windows.md" in line and "README.linux.md" in line:
+                lines[index] = replacement
+                nav_index = index
+                break
+    if nav_index is None:
+        for index, line in enumerate(lines):
+            if "README.pt-BR.md" in line or "Português (BR)" in line:
+                lines[index] = replacement
+                nav_index = index
+                break
+    if nav_index is None:
+        for index, line in enumerate(lines):
+            if line.startswith("# "):
+                lines[index + 1:index + 1] = ["", replacement]
+                nav_index = index + 2
+                break
+    if nav_index is None:
+        lines[0:0] = [replacement, ""]
+        nav_index = 0
+
+    nearby = lines[max(0, nav_index - 2):nav_index + 4]
+    if not any("awesome-devin" in line for line in nearby):
+        lines[nav_index + 1:nav_index + 1] = ["", ecosystem]
+    return "\n".join(lines) + ("\n" if text.endswith("\n") else "")
 
 
 def _install_spec(entry: dict[str, Any], tool: dict[str, Any]) -> str:

@@ -69,7 +69,9 @@ def test_apply_creates_os_guides_and_removes_legacy_translation(tmp_path: Path):
     migration.migrate(_registry(), tmp_path, apply=True)
 
     assert not (repo / "README.pt-BR.md").exists()
-    assert "README.windows.md" in (repo / "README.md").read_text(encoding="utf-8")
+    readme = (repo / "README.md").read_text(encoding="utf-8")
+    assert "README.windows.md" in readme
+    assert "awesome-devin" in readme
     windows = (repo / "README.windows.md").read_text(encoding="utf-8")
     corporate = (repo / "README.corporate-windows.md").read_text(encoding="utf-8")
     linux = (repo / "README.linux.md").read_text(encoding="utf-8")
@@ -86,6 +88,7 @@ def test_apply_creates_os_guides_and_removes_legacy_translation(tmp_path: Path):
     migration.migrate(_registry(), tmp_path, apply=True)
     readme = (repo / "README.md").read_text(encoding="utf-8")
     assert readme.count("README.windows.md") == 1
+    assert readme.count("Part of the [awesome-devin]") == 1
     assert migration.check_platform_docs(_registry(), tmp_path) == []
     (repo / "README.windows.md").write_text("stale\n", encoding="utf-8")
     assert any("README.windows.md is missing or stale" in item for item in migration.check_platform_docs(_registry(), tmp_path))

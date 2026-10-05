@@ -122,7 +122,7 @@
       "version": "0.1.0",
       "stack": "python",
       "local_dir": "devin-devkit",
-      "description": "Profile-based Windows/Linux installer for the public Devin tools; reads the registry manifest and installs isolated CLIs with uv, plus the Node bridge with npm."
+      "description": "Profile-based installer for the public Devin tools across Linux, Personal Windows and Corporate Windows; reads the registry manifest and installs isolated CLIs with uv, plus the Node bridge with npm."
     },
     {
       "name": "devin-internals-spec",
@@ -262,7 +262,7 @@
       "stack": "python",
       "ci": "inline",
       "tests": 45,
-      "description": "QA pack: verifies session deliverable claims against tool-call ground truth."
+      "description": "Flagship QA audit: verifies session deliverable claims against tool-call ground truth and reports PASS/PARTIAL/UNVERIFIED."
     },
     {
       "name": "devin-metrics",
@@ -285,7 +285,7 @@
       "stack": "python",
       "ci": "inline",
       "tests": 70,
-      "description": "Local-only usage metrics: cost, tokens, sessions per project/model/day; zero telemetry. Includes an optional dashboard subpackage and command."
+      "description": "Local-only session observability: activity, context size, and token peaks per project/model/day; zero telemetry. Devin does not persist cost fields, so cost is not claimed. Includes an optional dashboard subpackage and command."
     },
     {
       "name": "devin-backup",
