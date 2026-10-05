@@ -43,6 +43,9 @@ def write_template(root: Path) -> Path:
     (template / "README.md").write_text(
         "# devin-{{name}}\nmodule: devin_{{module}}\n", encoding="utf-8"
     )
+    (template / "README.windows.md").write_text("Windows: {{name}}\n", encoding="utf-8")
+    (template / "README.linux.md").write_text("Linux: {{name}}\n", encoding="utf-8")
+    (template / "README.macos.md").write_text("macOS: planned\n", encoding="utf-8")
     (template / "tests" / "test_smoke.py").write_text(
         "def test_ok():\n    assert True\n", encoding="utf-8"
     )
@@ -146,6 +149,9 @@ class NewRepoTests(unittest.TestCase):
             "devin_alpha",
             (dest / "README.md").read_text(encoding="utf-8"),
         )
+        self.assertTrue((dest / "README.windows.md").is_file())
+        self.assertTrue((dest / "README.linux.md").is_file())
+        self.assertTrue((dest / "README.macos.md").is_file())
 
         registry = json.loads(self.registry.read_text(encoding="utf-8"))
         entry = registry["repositories"][-1]

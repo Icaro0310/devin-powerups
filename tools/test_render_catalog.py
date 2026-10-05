@@ -1,0 +1,47 @@
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+TOOLS = Path(__file__).resolve().parent
+sys.path.insert(0, str(TOOLS))
+
+import render_catalog
+
+
+REGISTRY = TOOLS.parent / "registry.json"
+
+
+def test_catalog_counts_match_registry_and_separate_tools_from_hub():
+    registry = json.loads(REGISTRY.read_text(encoding="utf-8"))
+    tools, hubs, distributions, related = render_catalog.catalog_sections(registry)
+
+    assert len(tools) == 19
+    assert [item["name"] for item in hubs] == ["devin-powerups"]
+    assert [item["name"] for item in distributions] == ["devin-devkit"]
+    assert {item["name"] for item in related} == {
+        "poordjaevin", "qwenpaw-suite", "awesome-devin"
+    }
+
+
+def test_profile_catalog_is_public_and_has_explicit_totals():
+    registry = json.loads(REGISTRY.read_text(encoding="utf-8"))
+    rendered = render_catalog.render_profile_catalog(registry)
+
+    assert "19 Devin tools + 1 distribution + 1 maintainer hub + 3 related projects (24 entries)" in rendered
+    assert "devin-devkit" in rendered
+    assert "devin-dashboard" not in rendered
+    assert "personal-agent-system" not in rendered
+    assert "devin-learning" not in rendered
+    assert "devin-powerups" in rendered
+    assert "devin-office" in rendered
+
+
+def test_catalog_table_uses_registry_descriptions_and_urls():
+    registry = json.loads(REGISTRY.read_text(encoding="utf-8"))
+    rendered = render_catalog.render_profile_catalog(registry)
+    repo = next(r for r in registry["repositories"] if r["name"] == "devin-qa-pack")
+
+    assert f"[`devin-qa-pack`]({repo['url']})" in rendered
+    assert repo["description"].replace("|", "\\|") in rendered

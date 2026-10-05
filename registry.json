@@ -1,7 +1,7 @@
 {
   "$schema": "https://github.com/Icaro0310/devin-powerups/registry.schema.json",
-  "version": 6,
-  "generated": "2026-10-04",
+  "version": 8,
+  "generated": "2026-10-05",
   "owner": "Icaro0310",
   "note": "Public maintainer toolkit: registry, template, scaffolder, and public-project report. Public Devin tools are listed below; the maintainer's private runtime remains kind=system and is excluded from public-project reports. Unrelated personal repositories are not part of this catalog. CI is inline per public project; see README.md.",
   "ci": {
@@ -12,8 +12,49 @@
     "status_doc": "README.md#ci-status"
   },
   "known_issues": [
-    "Package publishing (PyPI/npm) and follow-on M2/M3 integrations remain open."
+    "PyPI publishing is partial; unlisted packages install from pinned GitHub sources until released.",
+    "devin-office is a source-only service, not yet a distributable CLI; macOS support is planned, not claimed."
   ],
+  "devkit": {
+    "version": 1,
+    "installer": "uv",
+    "supported_platforms": ["windows", "linux"],
+    "planned_platforms": ["macos"],
+    "git_required_tools": [],
+    "tools": {
+      "devin-internals-spec": {"manager":"uv","source":"pypi","package":"devin-internals-spec","version":"0.3.0","commands":["devin-inspect"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"published","category":"foundation"},
+      "devin-redact": {"manager":"uv","source":"pypi","package":"devin-redact","version":"0.2.0","commands":["devin-redact"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"published","category":"security"},
+      "devin-history": {"manager":"uv","source":"github","package":"devin-history","version":"0.1.0","commands":["devin-history"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"source","category":"operations","ref":"d1a3176875e23a8f7cdfb8cad87af19653271b96"},
+      "devin-doctor": {"manager":"uv","source":"github","package":"devin-doctor","version":"0.1.0","commands":["devin-doctor"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"source","category":"qa","ref":"49953466354f0251ef8542a32029f162de0fc66a"},
+      "devin-pm": {"manager":"uv","source":"github","package":"devin-pm","version":"0.1.0","commands":["devin-pm"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"source","category":"operations","ref":"aae411c4e97dad718636eab282bb1ba4bb074b3b"},
+      "devin-qa-pack": {"manager":"uv","source":"github","package":"devin-qa-pack","version":"0.1.0","commands":["devin-qa-pack"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"source","category":"qa","ref":"cfc5960aa625faf32eae3b52d07e3ab19124d55c"},
+      "devin-metrics": {"manager":"uv","source":"github","package":"devin-metrics","version":"0.2.0","commands":["devin-metrics","devin-dashboard"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"source","category":"evaluation","ref":"824d1ffa01d343db64b240113c39d9c256d6d444"},
+      "devin-backup": {"manager":"uv","source":"github","package":"devin-backup","version":"0.1.0","commands":["devin-backup"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"source","category":"operations","ref":"aee6a37b7c67b3c2a9bf2ad25b3dc16229e3aebe"},
+      "devin-search": {"manager":"uv","source":"github","package":"devin-search","version":"0.1.0","commands":["devin-search"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"source","category":"memory","ref":"288bbe41215be208626f64541f5864e360a9e359"},
+      "devin-graph": {"manager":"uv","source":"github","package":"devin-graph","version":"0.1.0","commands":["devin-graph"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"source","category":"memory","ref":"11c90b606f4e38f586b7ae3388c4c7e04a90907b"},
+      "devin-evals": {"manager":"uv","source":"github","package":"devin-evals","version":"0.1.0","commands":["devin-evals"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"source","category":"evaluation","ref":"1db5ce398a0dd5b2fcd068c86f88f1818d9000ac"},
+      "devin-memory": {"manager":"uv","source":"pypi","package":"devin-memory","version":"0.3.0","commands":["devin-memory","devin-learning","devin-memory-mcp"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"published","category":"memory","extras":["mcp"]},
+      "devin-janitor": {"manager":"uv","source":"github","package":"devin-janitor","version":"0.1.0","commands":["devin-janitor"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"source","category":"security","ref":"6492b3593b9f9bb623473b92ca05f852c8595718"},
+      "devin-bridge": {"manager":"npm","source":"github","package":"@icaro0310/devin-bridge","version":"0.1.0","commands":["devin-bridge"],"runtime":"node>=20","platforms":["windows","linux"],"status":"source","category":"security","ref":"4ad4f8a6b07160a6a266c1724e1bc87a564b4b39"},
+      "devin-orchestrator": {"manager":"uv","source":"github","package":"devin-fanout","version":"0.2.0","commands":["devin-orchestrator"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"source","category":"operations","ref":"a4617c7cfdb1679b8c4bb3b098b7e566175166e4"},
+      "devin-office": {"manager":"manual","source":"manual","package":"devin-office","version":"0.1.0","commands":["python daemon.py"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"manual","category":"operations","manual_note":"Source-only dashboard service; no distributable package metadata yet."},
+      "devin-dream": {"manager":"uv","source":"github","package":"devin-dream","version":"0.1.0","commands":["devin-dream"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"source","category":"evaluation","ref":"c7d5fa6eb670a7e462b2032179b5eb1c04613266"},
+      "devin-switch": {"manager":"uv","source":"github","package":"devin-switch","version":"0.1.0","commands":["devin-switch"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"source","category":"governance","ref":"c8f34207d39b92036cd4106e6d08aee3a08679fd"},
+      "devin-skill-catalog": {"manager":"uv","source":"github","package":"devin-skill-catalog","version":"0.1.0","commands":["devin-skill-catalog"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"source","category":"governance","ref":"351642104cc4c9dc60ef3bd304f027a52e509276"},
+      "poordjaevin": {"manager":"uv","source":"github","package":"poordjaevin","version":"0.1.0","commands":["poordjaevin"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"source","category":"memory","ref":"648be6e479a06c99494d3cbc1592f20d6d116bb0"}
+    },
+    "profiles": {
+      "qa": {"label":"QA","description":"Verify session claims and local Devin state with deterministic evidence.","tools":["devin-internals-spec","devin-qa-pack","devin-evals","devin-metrics","devin-doctor"]},
+      "evaluation": {"label":"Evaluation","description":"Measure changes with synthetic fixtures, rubrics, and local metrics.","tools":["devin-internals-spec","devin-evals","devin-metrics","devin-dream"]},
+      "security": {"label":"Security","description":"Reduce risk around secrets, policy-gated actions, and noisy sessions.","tools":["devin-redact","devin-bridge","devin-janitor"]},
+      "memory": {"label":"Memory","description":"Search, connect, and preserve agent knowledge with optional ACP integrations.","tools":["devin-memory","devin-graph","devin-search","poordjaevin"]},
+      "operations": {"label":"Operations","description":"Inspect, back up, export, and maintain Devin data and projects.","tools":["devin-backup","devin-history","devin-doctor","devin-metrics","devin-janitor","devin-pm","devin-orchestrator","devin-switch","devin-skill-catalog"],"manual":["devin-office"]},
+      "agent": {"label":"Agent","description":"Convenience alias for the memory and decision tools.","tools":["devin-memory","devin-graph","devin-search","poordjaevin"],"alias_of":"memory"},
+      "safety": {"label":"Safety","description":"Convenience alias for security tooling.","tools":["devin-redact","devin-bridge","devin-janitor"],"alias_of":"security"},
+      "full": {"label":"Full","description":"All installable public tools; source-only services are listed separately.","tools":["devin-internals-spec","devin-redact","devin-history","devin-doctor","devin-pm","devin-qa-pack","devin-metrics","devin-backup","devin-search","devin-graph","devin-evals","devin-memory","devin-janitor","devin-bridge","devin-orchestrator","devin-dream","devin-switch","devin-skill-catalog","poordjaevin"],"manual":["devin-office"]},
+      "all": {"label":"All","description":"Alias for the full installable profile.","tools":["devin-internals-spec","devin-redact","devin-history","devin-doctor","devin-pm","devin-qa-pack","devin-metrics","devin-backup","devin-search","devin-graph","devin-evals","devin-memory","devin-janitor","devin-bridge","devin-orchestrator","devin-dream","devin-switch","devin-skill-catalog","poordjaevin"],"manual":["devin-office"],"alias_of":"full"}
+    }
+  },
   "repositories": [
     {
       "name": "devin-powerups",
@@ -22,7 +63,19 @@
       "visibility": "public",
       "wave": 0,
       "status": "active",
-      "description": "Maintainer hub: index, roadmap, repo template, scaffolder. Formerly devin-ci + devin-repo-template, fused here. Reusable workflows superseded by inline per-repo CI."
+      "description": "Public maintainer hub: registry, roadmap, project template, scaffolder, release checks, and community catalog generators."
+    },
+    {
+      "name": "devin-devkit",
+      "url": "https://github.com/Icaro0310/devin-devkit",
+      "kind": "distribution",
+      "visibility": "public",
+      "wave": 0,
+      "status": "active",
+      "version": "0.1.0",
+      "stack": "python",
+      "local_dir": "devin-devkit",
+      "description": "Profile-based Windows/Linux installer for the public Devin tools; reads the registry manifest and installs isolated CLIs with uv, plus the Node bridge with npm."
     },
     {
       "name": "devin-internals-spec",
@@ -31,13 +84,13 @@
       "visibility": "public",
       "wave": 0,
       "status": "delivered",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "session": "parallel-food",
       "stack": "python",
       "ci": "inline",
-      "tests": 33,
+      "tests": 52,
       "description": "Documented internals of Devin Desktop/CLI stores + schema-version detection + fixtures + devin-inspect CLI.",
-      "tag": "v0.2.0"
+      "tag": "v0.3.0"
     },
     {
       "name": "devin-redact",
@@ -52,7 +105,7 @@
       "ci": "inline",
       "tests": 23,
       "tag": "v0.2.0",
-      "description": "Secret/PII redaction that understands Devin tool-call semantics, in-place in SQLite, with verify gate. Tag v0.2.0 pushed (devin-memory depends on it via git dependency)."
+      "description": "Secret/PII redaction that understands Devin tool-call semantics, in-place in SQLite, with a verification gate."
     },
     {
       "name": "devin-history",
@@ -66,7 +119,7 @@
       "stack": "python",
       "ci": "inline",
       "tests": 44,
-      "description": "Export and audit Devin session history â€” markdown notes, JSON, CSV, Obsidian-ready."
+      "description": "Export and audit Devin session history — markdown notes, JSON, CSV, Obsidian-ready."
     },
     {
       "name": "devin-doctor",
@@ -80,7 +133,7 @@
       "stack": "python",
       "ci": "inline",
       "tests": 53,
-      "description": "Diagnose a Devin Desktop installation: stores, schema, locks, config, disk â€” with fix suggestions."
+      "description": "Diagnose a Devin Desktop installation: stores, schema, locks, config, disk — with fix suggestions."
     },
     {
       "name": "devin-pm",
@@ -117,13 +170,12 @@
       "visibility": "public",
       "wave": 2,
       "status": "delivered",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "session": "young-quasar",
       "stack": "python",
       "ci": "inline",
-      "tests": 58,
-      "description": "Local-only usage metrics: cost, tokens, sessions per project/model/day â€” zero telemetry. Absorbed devin-dashboard (devin_metrics.dashboard subpackage + 'dashboard' subcommand, devin-dashboard script alias).",
-      "note": "absorbed devin-dashboard (repo deleted)"
+      "tests": 70,
+      "description": "Local-only usage metrics: cost, tokens, sessions per project/model/day; zero telemetry. Includes an optional dashboard subpackage and command."
     },
     {
       "name": "devin-backup",
@@ -165,7 +217,7 @@
       "stack": "python",
       "ci": "inline",
       "tests": 57,
-      "description": "Knowledge graph: sessions, projects, files touched, tools used â€” queryable edges."
+      "description": "Knowledge graph: sessions, projects, files touched, tools used — queryable edges."
     },
     {
       "name": "devin-evals",
@@ -188,13 +240,12 @@
       "visibility": "public",
       "wave": 4,
       "status": "delivered",
-      "version": "0.1.0",
+      "version": "0.3.0",
       "session": "goldenrod-gadget",
       "stack": "python",
       "ci": "inline",
-      "tests": 108,
-      "description": "Anti-poisoning memory store: provenance, versioning, quarantine gate. Absorbed devin-learning (devin_memory.learning subpackage, devin-learning script alias, devin-redact dep).",
-      "note": "absorbed devin-learning (repo deleted)"
+      "tests": 161,
+      "description": "Anti-poisoning memory store: provenance, versioning, quarantine gate, and session-learning utilities."
     },
     {
       "name": "devin-janitor",
@@ -231,12 +282,12 @@
       "visibility": "public",
       "wave": 5,
       "status": "delivered",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "stack": "python",
       "ci": "inline",
-      "tests": 18,
+      "tests": 29,
       "description": "Background-worker fan-out policy: deterministic planner enforcing worker caps (max 3), no nesting, read-only profiles for review, collect-before-report. Skill + always-on rule.",
-      "note": "absorbed devin-subagent-orchestrator draft (never published)"
+      "note": "PyPI distribution is devin-fanout because devin-orchestrator is occupied; console command remains devin-orchestrator. Absorbed devin-subagent-orchestrator draft (never published)."
     },
     {
       "name": "personal-agent-system",
@@ -271,7 +322,7 @@
       "status": "active",
       "stack": "python",
       "local_dir": "../devin-office",
-      "description": "Local-first Devin session and subagent dashboard with standalone and optional private-hub modes.",
+      "description": "Local-first Devin session and subagent dashboard with standalone and optional split modes.",
       "version": "0.1.0",
       "tag": "v0.1.0"
     },
@@ -284,7 +335,7 @@
       "status": "active",
       "stack": "python",
       "local_dir": "../qwenpaw-suite",
-      "description": "QwenPaw suite (OPTIONAL add-on, not required by the devin-* tools): bridge/ (Flask :5000 → local model server), orchestrator/ healthcheck, sync/ docs GitHub↔local. Absorbeu qwenpaw-sync/-bridge/-orchestrator standalone."
+      "description": "Optional QwenPaw add-on for self-hosted model operators. Includes the local-model bridge, health checks, and GitHub/local documentation sync."
     },
     {
       "name": "poordjaevin",
@@ -294,7 +345,7 @@
       "wave": 0,
       "status": "active",
       "stack": "python",
-      "local_dir": "../personal-agent-system/vendor/poordjaevin",
+      "local_dir": "../poordjaevin",
       "description": "Djævin: fork of poordjaevin adding a Devin ACP backend (uses the model Devin already runs, no extra download); local NLI backend stays as fully-offline fallback.",
       "version": "0.1.0",
       "tag": "v0.1.0"
@@ -315,6 +366,10 @@
       "visibility": "public",
       "wave": 2,
       "status": "active",
+      "version": "0.1.0",
+      "stack": "python",
+      "ci": "inline",
+      "tests": 14,
       "description": "Synthetic Devin sessions with known verdicts — labeled defects (D01-D09), adversarial inject mode, and fleet generation. Regression/adversarial test data for the catalog."
     },
     {
@@ -324,6 +379,10 @@
       "visibility": "public",
       "wave": 2,
       "status": "active",
+      "version": "0.1.0",
+      "stack": "python",
+      "ci": "inline",
+      "tests": 70,
       "description": "Switch between Devin configuration profiles (hooks, MCP, models) with snapshot, sha256 verify, atomic write, journal and rollback. Dry-run by default; secrets never printed."
     },
     {
@@ -333,6 +392,10 @@
       "visibility": "public",
       "wave": 2,
       "status": "active",
+      "version": "0.1.0",
+      "stack": "python",
+      "ci": "inline",
+      "tests": 68,
       "description": "Lifecycle + quality gates for .devin skills/rules: scan, lint, diff, G1/G2 gates, quarantined→approved→active lifecycle, sha256-verified export/import bundles (imports land quarantined)."
     },
     {

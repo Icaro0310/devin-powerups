@@ -3,7 +3,7 @@
 > **Unofficial community project.** Not affiliated with, endorsed by, or
 > sponsored by Cognition AI. "Devin" is a trademark of Cognition AI.
 
-**[Português (BR)](README.pt-BR.md)** · English
+**[Windows](README.windows.md)** · **[Linux](README.linux.md)**
 
 One-line description of what this tool does.
 
@@ -25,16 +25,13 @@ One-line description of what this tool does.
 
 ## Install
 
-Requires Python ≥ 3.10 and `pipx`. On Windows (PowerShell), install `pipx`
-with `py -m pip install --user pipx`, then run `py -m pipx ensurepath` and
-reopen the terminal. On Debian/Ubuntu Linux, run
-`sudo apt install pipx python3-venv` and `pipx ensurepath`; reopen the terminal.
+Choose the operating-system guide for setup and install commands:
 
-After this project has a public GitHub repository, install it with:
+- [Windows](README.windows.md)
+- [Linux](README.linux.md)
 
-```bash
-pipx install "devin-{{name}} @ git+https://github.com/Icaro0310/devin-{{name}}.git"
-```
+Both guides install this CLI in an isolated environment. The shared command
+surface and examples remain in this README.
 
 ## Usage
 
@@ -50,9 +47,10 @@ devin-{{name}} --help
      UI config (XDG_CONFIG_HOME), plus overrides. If something genuinely
      cannot run on Linux, say so in Limitations instead of hiding it. -->
 
-Tested on **Windows and Linux** (`windows-latest` + `ubuntu-latest` in CI).
-On Linux, Devin session data defaults to `~/.local/share/devin`; UI config
-is under `~/.config/Devin`. Document any paths or overrides this tool uses.
+The CI matrix covers **Windows and Linux**. Record tested behavior and
+OS-specific Devin paths in [README.windows.md](README.windows.md) and
+[README.linux.md](README.linux.md). macOS is planned but is not claimed as
+tested.
 
 ## Limitations
 

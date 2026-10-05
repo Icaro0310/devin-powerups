@@ -9,23 +9,27 @@
 > Unofficial community tooling for Devin. Not affiliated with, endorsed by, or
 > sponsored by Cognition AI. Devin is a Cognition AI trademark.
 >
-> **[Português (BR)](README.pt-BR.md)** · English
+**[Windows](README.windows.md)** · **[Linux](README.linux.md)** · English
 
-A public maintainer toolkit for the Devin community projects. It contains a
-machine-readable catalog, a starter template, a local scaffolder and a weekly
-activity-report generator. End users install the individual tools from their
-own repositories; they do not need this hub at runtime.
+A public maintainer hub for the Devin community projects. It contains the
+machine-readable catalog, platform-doc and manifest exporters, a starter
+template, a local scaffolder, and the weekly report generator. End users can
+install tools individually or choose profiles through the separate `devin-devkit`
+distribution; this hub is not needed at runtime.
 
 ## What's included
 
 | Path | Purpose |
 |---|---|
 | `registry.json` | Catalog of public projects plus clearly marked maintainer-only records. The weekly public report filters to `kind=project` and `visibility=public`. |
-| `template/` | Bilingual starter repository with Windows/Linux documentation and CI. |
+| `template/` | Starter repository with a shared README, Windows/Linux guides, a planned macOS guide, and CI. |
 | `tools/new-repo.py` | Creates a new `devin-<name>` sibling checkout from the template, initializes Git and registers the repo in `registry.json` (schema-validated before writing). `--dry-run` previews without side effects. It does not create a GitHub repository or push. |
 | `tools/weekly_repo_report.py` | Reads public GitHub commit metadata from the registry and writes a standalone HTML report. Email delivery is optional. |
 | `tools/validate_registry.py` | Validates `registry.json` against `registry.schema.json` — dependency-free, exits non-zero on violations. |
 | `tools/reconcile_registry.py` | Reconciles the registry against the GitHub account and local clones: missing entries, missing repos, stale version/tag fields. Read-only. |
+| `tools/export_devkit_manifest.py` | Exports the public, profile-based DevKit manifest; rejects private or unknown repositories. |
+| `tools/render_catalog.py` | Renders the profile README catalog and count from the same registry. |
+| `tools/migrate_platform_docs.py` | Dry-run by default; creates OS-specific guides and replaces old language navigation only with `--apply`. |
 | `tools/hooks_dispatch.py` | The F5 hook dispatcher: one Devin hook command fans out to handlers registered in `.devin-ecosystem/hooks.json` under the Devin config dir, instead of every repo installing its own hook. Never fails the hook (abort contract: handler exit 42), per-handler + global timeouts, JSONL dispatch log. |
 | `registry.schema.json` | JSON Schema (2020-12) for `registry.json`. |
 | `capability-profile.schema.json` + `docs/capability-profile.md` | The F10 contract: `corporate` (fail-closed default) vs `personal` machine profiles, capability keys, and how extras declare `requires:`. |
@@ -200,10 +204,10 @@ and how their Devin-specific capability improves the base tool.
 ## When to use this
 
 - You maintain the Icaro0310 Devin ecosystem (or fork the pattern) and need
-  the registry, scaffolder, weekly report or shared `pypi-publish.yml`
-  workflow.
-- You are starting a new `devin-*` project and want the bilingual template
-  with docs, CI and conventions already in place (`tools/new-repo.py`).
+  the registry, catalog/DevKit exporters, platform-doc migration, scaffolder,
+  weekly report or shared `pypi-publish.yml` workflow.
+- You are starting a new `devin-*` project and want a common README plus
+  Windows/Linux guides, CI and conventions (`tools/new-repo.py`).
 - You want a public activity report that reads only public GitHub commit
   metadata — no private repo contents, no session data.
 - You want one token-based PyPI publish workflow reused across every Python
@@ -211,9 +215,9 @@ and how their Devin-specific capability improves the base tool.
 
 ## When NOT to use this
 
-- You are an end user of a specific `devin-*` tool — install that tool's
-  own repository; this hub is maintainer infrastructure and is not needed
-  at runtime.
+- You are an end user looking to run the tools — use the `devin-devkit`
+  distribution or install an individual CLI; this repository is the registry
+  source, not a runtime dependency.
 - You are looking for the private scout/ideation engine — it is
   deliberately not published in this repository.
 - You want email reports out of the box — delivery needs *your* SMTP
@@ -223,15 +227,15 @@ and how their Devin-specific capability improves the base tool.
 ## FAQ
 
 **What is devin-powerups?** The public maintainer hub for the Devin
-community ecosystem. It holds the machine-readable `registry.json` catalog,
-the bilingual starter template, the `new-repo.py` scaffolder, the
-`weekly_repo_report.py` report generator, and the reusable
-`pypi-publish.yml` GitHub Actions workflow the Python repos share.
+community ecosystem. It holds the machine-readable `registry.json` source of
+truth, catalog and DevKit manifest exporters, the OS-guide migration utility,
+the project template, the `new-repo.py` scaffolder, the weekly report
+generator, and the reusable `pypi-publish.yml` workflow.
 
-**Do I need this repo to use the ecosystem tools?** No. Every project in
-`registry.json` installs and runs standalone from its own repository. This
-hub exists for the maintainer's workflow — scaffolding, cataloging and
-reporting — not for end users.
+**Do I need this repo to use the ecosystem tools?** No. Install a tool from
+its own repository or use the separate `devin-devkit` profiles. The DevKit
+ships a registry-derived manifest, so the maintainer hub is not required at
+runtime.
 
 **Does the weekly report expose private data?** No. It filters the registry
 to `kind=project` and `visibility=public`, then reads only the public
