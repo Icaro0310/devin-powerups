@@ -16,11 +16,14 @@ on:
     - cron: "41 5 * * 0"   # Sundays 05:41 UTC
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   drift:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           path: workspace/devin-ecosystem/devin-powerups
 
