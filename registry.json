@@ -1,6 +1,6 @@
 {
   "$schema": "https://github.com/Icaro0310/devin-powerups/registry.schema.json",
-  "version": 13,
+  "version": 14,
   "generated": "2026-10-06",
   "owner": "Icaro0310",
   "note": "Public maintainer toolkit: registry, template, scaffolder, and public-project report. Public Devin tools are listed below; the maintainer's private runtime remains kind=system and is excluded from public-project reports. Unrelated personal repositories are not part of this catalog. CI is inline per public project; see README.md.",
@@ -280,7 +280,7 @@
       },
       "devin-bridge": {
         "manager": "npm",
-        "source": "github",
+        "source": "npm",
         "package": "@icaro0310/devin-bridge",
         "version": "0.1.0",
         "commands": [
@@ -291,9 +291,8 @@
           "windows",
           "linux"
         ],
-        "status": "source",
-        "category": "security",
-        "ref": "3b68cfb005f1559a6014377fc33791e7ade714d7"
+        "status": "published",
+        "category": "security"
       },
       "devin-orchestrator": {
         "manager": "uv",
