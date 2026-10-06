@@ -65,6 +65,8 @@ def _install_spec(entry: dict[str, Any], tool: dict[str, Any]) -> str:
         return tool["package"] + suffix
     if tool["source"] == "github":
         return f"{entry['url']}/archive/refs/heads/main.tar.gz"
+    if tool["source"] == "npm":
+        return tool["package"]
     raise ValueError(f"{entry['name']}: no install specification for source {tool['source']!r}")
 
 

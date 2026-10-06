@@ -94,6 +94,8 @@ def _install_spec(tool: dict, repo: dict) -> str | None:
         extras = tool.get("extras", [])
         suffix = f"[{','.join(extras)}]" if extras else ""
         return f"{tool['package']}{suffix}=={tool['version']}"
+    if source == "npm":
+        return f"{tool['package']}@{tool['version']}"
     return f"{repo['url']}/archive/{tool['ref']}.tar.gz"
 
 
