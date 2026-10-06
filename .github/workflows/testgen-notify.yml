@@ -18,6 +18,9 @@ on:
         required: true
         type: string
 
+permissions:
+  contents: read
+
 jobs:
   email:
     runs-on: ubuntu-latest
@@ -46,7 +49,7 @@ jobs:
 
       - name: Send testgen report via MailerSend SMTP
         if: steps.mail.outputs.ready == 'true'
-        uses: dawidd6/action-send-mail@v3
+        uses: dawidd6/action-send-mail@4226df7daafa6fc901a43789c49bf7ab309066e7 # v3
         with:
           server_address: ${{ secrets.MAILERSEND_SMTP_HOST }}
           server_port: ${{ secrets.MAILERSEND_SMTP_PORT }}
