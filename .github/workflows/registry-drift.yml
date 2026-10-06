@@ -45,6 +45,7 @@ jobs:
               subprocess.run(["git", "clone", "--depth", "1", url, str(target)], check=True)
           PY
           git clone --depth 1 https://github.com/Icaro0310/Icaro0310 workspace/Icaro0310
+          git clone --depth 1 https://github.com/Icaro0310/Icaro0310.github.io workspace/site
 
       - name: Validate registry schema
         working-directory: workspace/devin-ecosystem/devin-powerups
@@ -61,3 +62,21 @@ jobs:
       - name: DevKit compatibility matrix matches the registry
         working-directory: workspace/devin-ecosystem/devin-powerups
         run: python3 tools/render_compatibility.py --check "$(pwd)/../devin-devkit/COMPATIBILITY.md"
+
+      - name: Site links every public registry repo
+        working-directory: workspace/devin-ecosystem/devin-powerups
+        run: |
+          python3 - <<'PY'
+          import json, sys
+          from pathlib import Path
+          reg = json.loads(Path("registry.json").read_text())
+          site = Path("../../site/index.html").read_text()
+          missing = [
+              e["name"] for e in reg["repositories"]
+              if e.get("visibility") == "public"
+              and f"github.com/Icaro0310/{e['name']}" not in site
+          ]
+          if missing:
+              sys.exit(f"error: site does not link: {missing}")
+          print("ok: site links every public registry repo")
+          PY
