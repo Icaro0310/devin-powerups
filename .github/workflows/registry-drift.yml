@@ -1,0 +1,63 @@
+name: registry-drift
+
+# Enforces that generated documentation stays in sync with registry.json:
+# platform guides (README.linux/windows/corporate-windows), the profile
+# catalog block and the DevKit compatibility matrix. Fails loudly when a
+# repo's docs drift from what the registry renders.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - registry.json
+      - registry.schema.json
+      - tools/**
+  schedule:
+    - cron: "41 5 * * 0"   # Sundays 05:41 UTC
+  workflow_dispatch:
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: workspace/devin-ecosystem/devin-powerups
+
+      - name: Clone public registry repos into the expected layout
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          root = Path("workspace/devin-ecosystem")
+          reg = json.loads((root / "devin-powerups/registry.json").read_text())
+          for entry in reg["repositories"]:
+              if entry.get("visibility") != "public":
+                  continue
+              name = entry["name"]
+              local_dir = entry.get("local_dir") or name
+              target = (root / local_dir).resolve()
+              if target.is_dir():
+                  continue
+              url = entry.get("url", f"https://github.com/Icaro0310/{name}")
+              subprocess.run(["git", "clone", "--depth", "1", url, str(target)], check=True)
+          PY
+          git clone --depth 1 https://github.com/Icaro0310/Icaro0310 workspace/Icaro0310
+
+      - name: Validate registry schema
+        working-directory: workspace/devin-ecosystem/devin-powerups
+        run: python3 tools/validate_registry.py
+
+      - name: Platform guides match the registry
+        working-directory: workspace/devin-ecosystem/devin-powerups
+        run: python3 tools/migrate_platform_docs.py --check --root "$(pwd)/.."
+
+      - name: Profile catalog matches the registry
+        working-directory: workspace/devin-ecosystem/devin-powerups
+        run: python3 tools/render_catalog.py --check "$(pwd)/../../Icaro0310/README.md"
+
+      - name: DevKit compatibility matrix matches the registry
+        working-directory: workspace/devin-ecosystem/devin-powerups
+        run: python3 tools/render_compatibility.py --check "$(pwd)/../devin-devkit/COMPATIBILITY.md"
