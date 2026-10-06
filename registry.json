@@ -1,6 +1,6 @@
 {
   "$schema": "https://github.com/Icaro0310/devin-powerups/registry.schema.json",
-  "version": 11,
+  "version": 12,
   "generated": "2026-10-06",
   "owner": "Icaro0310",
   "note": "Public maintainer toolkit: registry, template, scaffolder, and public-project report. Public Devin tools are listed below; the maintainer's private runtime remains kind=system and is excluded from public-project reports. Unrelated personal repositories are not part of this catalog. CI is inline per public project; see README.md.",
@@ -103,7 +103,7 @@
         ],
         "status": "source",
         "category": "operations",
-        "ref": "b4ee9f0548f46742d22c7dd4dedd692e17c12af8"
+        "ref": "9dbd174a189234a727553112ed68fcf6584fb4ec"
       },
       "devin-doctor": {
         "manager": "uv",
@@ -120,7 +120,7 @@
         ],
         "status": "source",
         "category": "qa",
-        "ref": "db5501fa3b07ec407540ec6a58d52a287e34f8be"
+        "ref": "a47f0dcc6bb618b78898ac7a6b075118ac203858"
       },
       "devin-pm": {
         "manager": "uv",
@@ -137,7 +137,7 @@
         ],
         "status": "source",
         "category": "operations",
-        "ref": "24276de3c363fbe32325f12e59fa2e27ff566037"
+        "ref": "e2acfff95332d1189c64a1dd416148b8a12005c4"
       },
       "devin-qa-pack": {
         "manager": "uv",
@@ -154,7 +154,7 @@
         ],
         "status": "source",
         "category": "qa",
-        "ref": "10784b79b4ddd14d4a09429f3232acaa9ce5f872"
+        "ref": "0f67a267e25164e1379fc6f2b0009ea52afbc0a4"
       },
       "devin-metrics": {
         "manager": "uv",
@@ -172,7 +172,7 @@
         ],
         "status": "source",
         "category": "evaluation",
-        "ref": "984ee4187bc4a4eba990fe0a4196215941ab7737"
+        "ref": "15c9ce9e337f213fd9d269694523e0b6ece199fe"
       },
       "devin-backup": {
         "manager": "uv",
@@ -189,7 +189,7 @@
         ],
         "status": "source",
         "category": "operations",
-        "ref": "7084e3989193f3df47a6d401bb99351ce84ae52c"
+        "ref": "c16e23e66e1b8509ea68f5ccd5c42df9665f201b"
       },
       "devin-search": {
         "manager": "uv",
@@ -206,7 +206,7 @@
         ],
         "status": "source",
         "category": "memory",
-        "ref": "3b48820742c1bb6d6023d74ed285870571f1752c"
+        "ref": "96b49eba2f0ba3758dd63579e64d64cd5bfe289b"
       },
       "devin-graph": {
         "manager": "uv",
@@ -223,7 +223,7 @@
         ],
         "status": "source",
         "category": "memory",
-        "ref": "18fc0423c9818f9af61088c2ca51b3676c017cdd"
+        "ref": "ebb8fc12e97dc6b1db28778c329da70767d4b502"
       },
       "devin-evals": {
         "manager": "uv",
@@ -240,7 +240,7 @@
         ],
         "status": "source",
         "category": "evaluation",
-        "ref": "fe1d50a2ad824d151e7df5da35b73513b6912d44"
+        "ref": "54e200bd92fdfcc5aceb6569599922ca68223a24"
       },
       "devin-memory": {
         "manager": "uv",
@@ -278,7 +278,7 @@
         ],
         "status": "source",
         "category": "security",
-        "ref": "21d34489d63c2afdeb73d90f023e5771bef5fe04"
+        "ref": "f9aee000205b8e5c29cfb407f177217be38790e3"
       },
       "devin-bridge": {
         "manager": "npm",
@@ -295,7 +295,7 @@
         ],
         "status": "source",
         "category": "security",
-        "ref": "f491d051f06dea143f3ac054894b8aba048650bb"
+        "ref": "3b68cfb005f1559a6014377fc33791e7ade714d7"
       },
       "devin-orchestrator": {
         "manager": "uv",
@@ -312,7 +312,7 @@
         ],
         "status": "source",
         "category": "operations",
-        "ref": "750b13d34d5140a86d89229d4c17542680d93cd7"
+        "ref": "a396b3f027424d69ba03468fd3448c84cf4fe3cf"
       },
       "devin-office": {
         "manager": "manual",
@@ -346,7 +346,7 @@
         ],
         "status": "source",
         "category": "evaluation",
-        "ref": "4f0e6e0761d61fda33d89a4c98086bff53d9519c"
+        "ref": "f1dfebceee3129f78a7e3c60dad3275960e17886"
       },
       "devin-switch": {
         "manager": "uv",
@@ -363,7 +363,7 @@
         ],
         "status": "source",
         "category": "governance",
-        "ref": "16036f7d0c8004b7918a39a1b1ca4f70635127c3"
+        "ref": "cbae07fd0215b3c57235b2b02833a004721bec6f"
       },
       "devin-skill-catalog": {
         "manager": "uv",
@@ -380,7 +380,7 @@
         ],
         "status": "source",
         "category": "governance",
-        "ref": "5cf8aae18324ab09b3d945ef84cf01c8b7d4bf3d"
+        "ref": "cffb914365109fa93822c9abb1ced8bfaad01398"
       },
       "poordjaevin": {
         "manager": "uv",
@@ -397,7 +397,7 @@
         ],
         "status": "source",
         "category": "memory",
-        "ref": "6159f33872b9407be993199ce2231e98c0c3a5c7"
+        "ref": "95f12c51ccbf6f3dd822c8919cf8f24752bac31a"
       }
     },
     "profiles": {
