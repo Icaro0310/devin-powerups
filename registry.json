@@ -1,6 +1,6 @@
 {
   "$schema": "https://github.com/Icaro0310/devin-powerups/registry.schema.json",
-  "version": 12,
+  "version": 13,
   "generated": "2026-10-06",
   "owner": "Icaro0310",
   "note": "Public maintainer toolkit: registry, template, scaffolder, and public-project report. Public Devin tools are listed below; the maintainer's private runtime remains kind=system and is excluded from public-project reports. Unrelated personal repositories are not part of this catalog. CI is inline per public project; see README.md.",
@@ -107,7 +107,7 @@
       },
       "devin-doctor": {
         "manager": "uv",
-        "source": "github",
+        "source": "pypi",
         "package": "devin-doctor",
         "version": "0.1.0",
         "commands": [
@@ -118,9 +118,8 @@
           "windows",
           "linux"
         ],
-        "status": "source",
-        "category": "qa",
-        "ref": "a47f0dcc6bb618b78898ac7a6b075118ac203858"
+        "status": "published",
+        "category": "qa"
       },
       "devin-pm": {
         "manager": "uv",
@@ -141,7 +140,7 @@
       },
       "devin-qa-pack": {
         "manager": "uv",
-        "source": "github",
+        "source": "pypi",
         "package": "devin-qa-pack",
         "version": "0.1.0",
         "commands": [
@@ -152,9 +151,8 @@
           "windows",
           "linux"
         ],
-        "status": "source",
-        "category": "qa",
-        "ref": "0f67a267e25164e1379fc6f2b0009ea52afbc0a4"
+        "status": "published",
+        "category": "qa"
       },
       "devin-metrics": {
         "manager": "uv",
@@ -299,7 +297,7 @@
       },
       "devin-orchestrator": {
         "manager": "uv",
-        "source": "github",
+        "source": "pypi",
         "package": "devin-fanout",
         "version": "0.2.0",
         "commands": [
@@ -310,9 +308,8 @@
           "windows",
           "linux"
         ],
-        "status": "source",
-        "category": "operations",
-        "ref": "a396b3f027424d69ba03468fd3448c84cf4fe3cf"
+        "status": "published",
+        "category": "operations"
       },
       "devin-office": {
         "manager": "manual",
@@ -384,7 +381,7 @@
       },
       "poordjaevin": {
         "manager": "uv",
-        "source": "github",
+        "source": "pypi",
         "package": "poordjaevin",
         "version": "0.1.1",
         "commands": [
@@ -395,9 +392,8 @@
           "windows",
           "linux"
         ],
-        "status": "source",
-        "category": "memory",
-        "ref": "95f12c51ccbf6f3dd822c8919cf8f24752bac31a"
+        "status": "published",
+        "category": "memory"
       }
     },
     "profiles": {
