@@ -1,7 +1,7 @@
 {
   "$schema": "https://github.com/Icaro0310/devin-powerups/registry.schema.json",
-  "version": 10,
-  "generated": "2026-10-05",
+  "version": 11,
+  "generated": "2026-10-06",
   "owner": "Icaro0310",
   "note": "Public maintainer toolkit: registry, template, scaffolder, and public-project report. Public Devin tools are listed below; the maintainer's private runtime remains kind=system and is excluded from public-project reports. Unrelated personal repositories are not part of this catalog. CI is inline per public project; see README.md.",
   "ci": {
@@ -47,41 +47,496 @@
   "devkit": {
     "version": 1,
     "installer": "uv",
-    "supported_platforms": ["windows", "linux"],
-    "planned_platforms": ["macos"],
+    "supported_platforms": [
+      "windows",
+      "linux"
+    ],
+    "planned_platforms": [
+      "macos"
+    ],
     "git_required_tools": [],
     "tools": {
-      "devin-internals-spec": {"manager":"uv","source":"pypi","package":"devin-internals-spec","version":"0.3.0","commands":["devin-inspect"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"published","category":"foundation"},
-      "devin-redact": {"manager":"uv","source":"pypi","package":"devin-redact","version":"0.2.0","commands":["devin-redact"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"published","category":"security"},
-      "devin-history": {"manager":"uv","source":"github","package":"devin-history","version":"0.1.0","commands":["devin-history"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"source","category":"operations","ref":"964e84694662fc4e6276573892013aabbf0d599b"},
-      "devin-doctor": {"manager":"uv","source":"github","package":"devin-doctor","version":"0.1.0","commands":["devin-doctor"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"source","category":"qa","ref":"a2388c2b43d2bbf57099558e37c73d23c8075a0c"},
-      "devin-pm": {"manager":"uv","source":"github","package":"devin-pm","version":"0.1.0","commands":["devin-pm"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"source","category":"operations","ref":"2617dcd19d7ecc4a1974222030b47e3cd0ad808f"},
-      "devin-qa-pack": {"manager":"uv","source":"github","package":"devin-qa-pack","version":"0.1.0","commands":["devin-qa-pack"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"source","category":"qa","ref":"f6947f373085b44bbaaddcab9ee7934d043ccf57"},
-      "devin-metrics": {"manager":"uv","source":"github","package":"devin-metrics","version":"0.2.0","commands":["devin-metrics","devin-dashboard"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"source","category":"evaluation","ref":"ec43d50044046dc8af9598ac3c93baaeb5a5a83f"},
-      "devin-backup": {"manager":"uv","source":"github","package":"devin-backup","version":"0.1.0","commands":["devin-backup"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"source","category":"operations","ref":"59ec50d7d52523d1c616f45d087700a6dc25a3f2"},
-      "devin-search": {"manager":"uv","source":"github","package":"devin-search","version":"0.1.0","commands":["devin-search"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"source","category":"memory","ref":"202cc214d3b6c04cc1e77dc62f6fec8c36f303fc"},
-      "devin-graph": {"manager":"uv","source":"github","package":"devin-graph","version":"0.1.0","commands":["devin-graph"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"source","category":"memory","ref":"85e876ad4735f38b0388934445acb0e6cee1f6a4"},
-      "devin-evals": {"manager":"uv","source":"github","package":"devin-evals","version":"0.1.0","commands":["devin-evals"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"source","category":"evaluation","ref":"7d14c086d865a2a37e58fa9e137ddfc32bceaef7"},
-      "devin-memory": {"manager":"uv","source":"pypi","package":"devin-memory","version":"0.3.0","commands":["devin-memory","devin-learning","devin-memory-mcp"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"published","category":"memory","extras":["mcp"]},
-      "devin-janitor": {"manager":"uv","source":"github","package":"devin-janitor","version":"0.1.0","commands":["devin-janitor"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"source","category":"security","ref":"053d648f120f0ead8cfe10abac74bc7e2bb12358"},
-      "devin-bridge": {"manager":"npm","source":"github","package":"@icaro0310/devin-bridge","version":"0.1.0","commands":["devin-bridge"],"runtime":"node>=20","platforms":["windows","linux"],"status":"source","category":"security","ref":"c1615bc7a63166f126dabbcb7064d7e32e42edc0"},
-      "devin-orchestrator": {"manager":"uv","source":"github","package":"devin-fanout","version":"0.2.0","commands":["devin-orchestrator"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"source","category":"operations","ref":"e2682735eef1281cf99c165abd26e5a2fb225404"},
-      "devin-office": {"manager":"manual","source":"manual","package":"devin-office","version":"0.1.0","commands":["python daemon.py"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"manual","category":"operations","manual_note":"Source-only dashboard service; no distributable package metadata yet."},
-      "devin-dream": {"manager":"uv","source":"github","package":"devin-dream","version":"0.1.0","commands":["devin-dream"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"source","category":"evaluation","ref":"8c454d0948c18c3357a19cc9b07bde7107eefb0a"},
-      "devin-switch": {"manager":"uv","source":"github","package":"devin-switch","version":"0.1.0","commands":["devin-switch"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"source","category":"governance","ref":"3eeaf127464a48ae3732b389e3e53064deb89634"},
-      "devin-skill-catalog": {"manager":"uv","source":"github","package":"devin-skill-catalog","version":"0.1.0","commands":["devin-skill-catalog"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"source","category":"governance","ref":"42b0cab1e4d39019714cfbf1901c198b76c5f4cf"},
-      "poordjaevin": {"manager":"uv","source":"github","package":"poordjaevin","version":"0.1.0","commands":["poordjaevin"],"runtime":"python>=3.10","platforms":["windows","linux"],"status":"source","category":"memory","ref":"d3ddec983f6623793e399e5ff24cf491c46626c9"}
+      "devin-internals-spec": {
+        "manager": "uv",
+        "source": "pypi",
+        "package": "devin-internals-spec",
+        "version": "0.3.0",
+        "commands": [
+          "devin-inspect"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "published",
+        "category": "foundation"
+      },
+      "devin-redact": {
+        "manager": "uv",
+        "source": "pypi",
+        "package": "devin-redact",
+        "version": "0.2.0",
+        "commands": [
+          "devin-redact"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "published",
+        "category": "security"
+      },
+      "devin-history": {
+        "manager": "uv",
+        "source": "github",
+        "package": "devin-history",
+        "version": "0.1.0",
+        "commands": [
+          "devin-history"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "source",
+        "category": "operations",
+        "ref": "b4ee9f0548f46742d22c7dd4dedd692e17c12af8"
+      },
+      "devin-doctor": {
+        "manager": "uv",
+        "source": "github",
+        "package": "devin-doctor",
+        "version": "0.1.0",
+        "commands": [
+          "devin-doctor"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "source",
+        "category": "qa",
+        "ref": "db5501fa3b07ec407540ec6a58d52a287e34f8be"
+      },
+      "devin-pm": {
+        "manager": "uv",
+        "source": "github",
+        "package": "devin-pm",
+        "version": "0.1.0",
+        "commands": [
+          "devin-pm"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "source",
+        "category": "operations",
+        "ref": "24276de3c363fbe32325f12e59fa2e27ff566037"
+      },
+      "devin-qa-pack": {
+        "manager": "uv",
+        "source": "github",
+        "package": "devin-qa-pack",
+        "version": "0.1.0",
+        "commands": [
+          "devin-qa-pack"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "source",
+        "category": "qa",
+        "ref": "10784b79b4ddd14d4a09429f3232acaa9ce5f872"
+      },
+      "devin-metrics": {
+        "manager": "uv",
+        "source": "github",
+        "package": "devin-metrics",
+        "version": "0.2.0",
+        "commands": [
+          "devin-metrics",
+          "devin-dashboard"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "source",
+        "category": "evaluation",
+        "ref": "984ee4187bc4a4eba990fe0a4196215941ab7737"
+      },
+      "devin-backup": {
+        "manager": "uv",
+        "source": "github",
+        "package": "devin-backup",
+        "version": "0.1.0",
+        "commands": [
+          "devin-backup"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "source",
+        "category": "operations",
+        "ref": "7084e3989193f3df47a6d401bb99351ce84ae52c"
+      },
+      "devin-search": {
+        "manager": "uv",
+        "source": "github",
+        "package": "devin-search",
+        "version": "0.1.0",
+        "commands": [
+          "devin-search"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "source",
+        "category": "memory",
+        "ref": "3b48820742c1bb6d6023d74ed285870571f1752c"
+      },
+      "devin-graph": {
+        "manager": "uv",
+        "source": "github",
+        "package": "devin-graph",
+        "version": "0.1.0",
+        "commands": [
+          "devin-graph"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "source",
+        "category": "memory",
+        "ref": "18fc0423c9818f9af61088c2ca51b3676c017cdd"
+      },
+      "devin-evals": {
+        "manager": "uv",
+        "source": "github",
+        "package": "devin-evals",
+        "version": "0.1.0",
+        "commands": [
+          "devin-evals"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "source",
+        "category": "evaluation",
+        "ref": "fe1d50a2ad824d151e7df5da35b73513b6912d44"
+      },
+      "devin-memory": {
+        "manager": "uv",
+        "source": "pypi",
+        "package": "devin-memory",
+        "version": "0.3.0",
+        "commands": [
+          "devin-memory",
+          "devin-learning",
+          "devin-memory-mcp"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "published",
+        "category": "memory",
+        "extras": [
+          "mcp"
+        ]
+      },
+      "devin-janitor": {
+        "manager": "uv",
+        "source": "github",
+        "package": "devin-janitor",
+        "version": "0.1.0",
+        "commands": [
+          "devin-janitor"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "source",
+        "category": "security",
+        "ref": "21d34489d63c2afdeb73d90f023e5771bef5fe04"
+      },
+      "devin-bridge": {
+        "manager": "npm",
+        "source": "github",
+        "package": "@icaro0310/devin-bridge",
+        "version": "0.1.0",
+        "commands": [
+          "devin-bridge"
+        ],
+        "runtime": "node>=20",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "source",
+        "category": "security",
+        "ref": "f491d051f06dea143f3ac054894b8aba048650bb"
+      },
+      "devin-orchestrator": {
+        "manager": "uv",
+        "source": "github",
+        "package": "devin-fanout",
+        "version": "0.2.0",
+        "commands": [
+          "devin-orchestrator"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "source",
+        "category": "operations",
+        "ref": "750b13d34d5140a86d89229d4c17542680d93cd7"
+      },
+      "devin-office": {
+        "manager": "manual",
+        "source": "manual",
+        "package": "devin-office",
+        "version": "0.1.0",
+        "commands": [
+          "python daemon.py"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "manual",
+        "category": "operations",
+        "manual_note": "Source-only dashboard service; no distributable package metadata yet."
+      },
+      "devin-dream": {
+        "manager": "uv",
+        "source": "github",
+        "package": "devin-dream",
+        "version": "0.1.0",
+        "commands": [
+          "devin-dream"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "source",
+        "category": "evaluation",
+        "ref": "4f0e6e0761d61fda33d89a4c98086bff53d9519c"
+      },
+      "devin-switch": {
+        "manager": "uv",
+        "source": "github",
+        "package": "devin-switch",
+        "version": "0.1.0",
+        "commands": [
+          "devin-switch"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "source",
+        "category": "governance",
+        "ref": "16036f7d0c8004b7918a39a1b1ca4f70635127c3"
+      },
+      "devin-skill-catalog": {
+        "manager": "uv",
+        "source": "github",
+        "package": "devin-skill-catalog",
+        "version": "0.1.0",
+        "commands": [
+          "devin-skill-catalog"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "source",
+        "category": "governance",
+        "ref": "5cf8aae18324ab09b3d945ef84cf01c8b7d4bf3d"
+      },
+      "poordjaevin": {
+        "manager": "uv",
+        "source": "github",
+        "package": "poordjaevin",
+        "version": "0.1.1",
+        "commands": [
+          "poordjaevin"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "source",
+        "category": "memory",
+        "ref": "6159f33872b9407be993199ce2231e98c0c3a5c7"
+      }
     },
     "profiles": {
-      "qa": {"label":"QA","description":"Verify session claims and local Devin state with deterministic evidence.","tools":["devin-internals-spec","devin-qa-pack","devin-evals","devin-metrics","devin-doctor"]},
-      "evaluation": {"label":"Evaluation","description":"Measure changes with synthetic fixtures, rubrics, and local metrics.","tools":["devin-internals-spec","devin-evals","devin-metrics","devin-dream"]},
-      "security": {"label":"Security","description":"Reduce risk around secrets, policy-gated actions, and noisy sessions.","tools":["devin-redact","devin-bridge","devin-janitor"]},
-      "memory": {"label":"Memory","description":"Search, connect, and preserve agent knowledge with optional ACP integrations.","tools":["devin-memory","devin-graph","devin-search","poordjaevin"]},
-      "operations": {"label":"Operations","description":"Inspect, back up, export, and maintain Devin data and projects.","tools":["devin-backup","devin-history","devin-doctor","devin-metrics","devin-janitor","devin-pm","devin-orchestrator","devin-switch","devin-skill-catalog"],"manual":["devin-office"]},
-      "agent": {"label":"Agent","description":"Convenience alias for the memory and decision tools.","tools":["devin-memory","devin-graph","devin-search","poordjaevin"],"alias_of":"memory"},
-      "safety": {"label":"Safety","description":"Convenience alias for security tooling.","tools":["devin-redact","devin-bridge","devin-janitor"],"alias_of":"security"},
-      "full": {"label":"Full","description":"All installable public tools; source-only services are listed separately.","tools":["devin-internals-spec","devin-redact","devin-history","devin-doctor","devin-pm","devin-qa-pack","devin-metrics","devin-backup","devin-search","devin-graph","devin-evals","devin-memory","devin-janitor","devin-bridge","devin-orchestrator","devin-dream","devin-switch","devin-skill-catalog","poordjaevin"],"manual":["devin-office"]},
-      "all": {"label":"All","description":"Alias for the full installable profile.","tools":["devin-internals-spec","devin-redact","devin-history","devin-doctor","devin-pm","devin-qa-pack","devin-metrics","devin-backup","devin-search","devin-graph","devin-evals","devin-memory","devin-janitor","devin-bridge","devin-orchestrator","devin-dream","devin-switch","devin-skill-catalog","poordjaevin"],"manual":["devin-office"],"alias_of":"full"}
+      "qa": {
+        "label": "QA",
+        "description": "Verify session claims and local Devin state with deterministic evidence.",
+        "tools": [
+          "devin-internals-spec",
+          "devin-qa-pack",
+          "devin-evals",
+          "devin-metrics",
+          "devin-doctor"
+        ]
+      },
+      "evaluation": {
+        "label": "Evaluation",
+        "description": "Measure changes with synthetic fixtures, rubrics, and local metrics.",
+        "tools": [
+          "devin-internals-spec",
+          "devin-evals",
+          "devin-metrics",
+          "devin-dream"
+        ]
+      },
+      "security": {
+        "label": "Security",
+        "description": "Reduce risk around secrets, policy-gated actions, and noisy sessions.",
+        "tools": [
+          "devin-redact",
+          "devin-bridge",
+          "devin-janitor"
+        ]
+      },
+      "memory": {
+        "label": "Memory",
+        "description": "Search, connect, and preserve agent knowledge with optional ACP integrations.",
+        "tools": [
+          "devin-memory",
+          "devin-graph",
+          "devin-search",
+          "poordjaevin"
+        ]
+      },
+      "operations": {
+        "label": "Operations",
+        "description": "Inspect, back up, export, and maintain Devin data and projects.",
+        "tools": [
+          "devin-backup",
+          "devin-history",
+          "devin-doctor",
+          "devin-metrics",
+          "devin-janitor",
+          "devin-pm",
+          "devin-orchestrator",
+          "devin-switch",
+          "devin-skill-catalog"
+        ],
+        "manual": [
+          "devin-office"
+        ]
+      },
+      "agent": {
+        "label": "Agent",
+        "description": "Convenience alias for the memory and decision tools.",
+        "tools": [
+          "devin-memory",
+          "devin-graph",
+          "devin-search",
+          "poordjaevin"
+        ],
+        "alias_of": "memory"
+      },
+      "safety": {
+        "label": "Safety",
+        "description": "Convenience alias for security tooling.",
+        "tools": [
+          "devin-redact",
+          "devin-bridge",
+          "devin-janitor"
+        ],
+        "alias_of": "security"
+      },
+      "full": {
+        "label": "Full",
+        "description": "All installable public tools; source-only services are listed separately.",
+        "tools": [
+          "devin-internals-spec",
+          "devin-redact",
+          "devin-history",
+          "devin-doctor",
+          "devin-pm",
+          "devin-qa-pack",
+          "devin-metrics",
+          "devin-backup",
+          "devin-search",
+          "devin-graph",
+          "devin-evals",
+          "devin-memory",
+          "devin-janitor",
+          "devin-bridge",
+          "devin-orchestrator",
+          "devin-dream",
+          "devin-switch",
+          "devin-skill-catalog",
+          "poordjaevin"
+        ],
+        "manual": [
+          "devin-office"
+        ]
+      },
+      "all": {
+        "label": "All",
+        "description": "Alias for the full installable profile.",
+        "tools": [
+          "devin-internals-spec",
+          "devin-redact",
+          "devin-history",
+          "devin-doctor",
+          "devin-pm",
+          "devin-qa-pack",
+          "devin-metrics",
+          "devin-backup",
+          "devin-search",
+          "devin-graph",
+          "devin-evals",
+          "devin-memory",
+          "devin-janitor",
+          "devin-bridge",
+          "devin-orchestrator",
+          "devin-dream",
+          "devin-switch",
+          "devin-skill-catalog",
+          "poordjaevin"
+        ],
+        "manual": [
+          "devin-office"
+        ],
+        "alias_of": "full"
+      }
     }
   },
   "repositories": [
@@ -90,13 +545,39 @@
       "url": "https://github.com/Icaro0310/devin-powerups",
       "kind": "infra",
       "artifact": "infrastructure",
-      "interfaces": ["cli", "registry", "docs"],
-      "audiences": ["maintainers", "developers"],
-      "platforms": ["windows", "linux"],
+      "interfaces": [
+        "cli",
+        "registry",
+        "docs"
+      ],
+      "audiences": [
+        "maintainers",
+        "developers"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
       "environments": {
-        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": true},
-        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": true},
-        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": true, "reason": "local generators work offline; GitHub-backed maintainer reports require explicit credentials"}
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": true
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": true
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": true,
+          "reason": "local generators work offline; GitHub-backed maintainer reports require explicit credentials"
+        }
       },
       "visibility": "public",
       "wave": 0,
@@ -108,13 +589,37 @@
       "url": "https://github.com/Icaro0310/devin-devkit",
       "kind": "distribution",
       "artifact": "distribution",
-      "interfaces": ["cli", "installer"],
-      "audiences": ["developers", "end-users"],
-      "platforms": ["windows", "linux"],
+      "interfaces": [
+        "cli",
+        "installer"
+      ],
+      "audiences": [
+        "developers",
+        "end-users"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
       "environments": {
-        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
       },
       "visibility": "public",
       "wave": 0,
@@ -129,13 +634,37 @@
       "url": "https://github.com/Icaro0310/devin-internals-spec",
       "kind": "project",
       "artifact": "tool",
-      "interfaces": ["cli", "library"],
-      "audiences": ["developers", "maintainers"],
-      "platforms": ["windows", "linux"],
+      "interfaces": [
+        "cli",
+        "library"
+      ],
+      "audiences": [
+        "developers",
+        "maintainers"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
       "environments": {
-        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
       },
       "visibility": "public",
       "wave": 0,
@@ -153,13 +682,37 @@
       "url": "https://github.com/Icaro0310/devin-redact",
       "kind": "project",
       "artifact": "tool",
-      "interfaces": ["cli", "library"],
-      "audiences": ["security", "developers"],
-      "platforms": ["windows", "linux"],
+      "interfaces": [
+        "cli",
+        "library"
+      ],
+      "audiences": [
+        "security",
+        "developers"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
       "environments": {
-        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
       },
       "visibility": "public",
       "wave": 0,
@@ -177,13 +730,36 @@
       "url": "https://github.com/Icaro0310/devin-history",
       "kind": "project",
       "artifact": "tool",
-      "interfaces": ["cli"],
-      "audiences": ["operations", "end-users"],
-      "platforms": ["windows", "linux"],
+      "interfaces": [
+        "cli"
+      ],
+      "audiences": [
+        "operations",
+        "end-users"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
       "environments": {
-        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
       },
       "visibility": "public",
       "wave": 1,
@@ -200,13 +776,36 @@
       "url": "https://github.com/Icaro0310/devin-doctor",
       "kind": "project",
       "artifact": "tool",
-      "interfaces": ["cli"],
-      "audiences": ["operations", "end-users"],
-      "platforms": ["windows", "linux"],
+      "interfaces": [
+        "cli"
+      ],
+      "audiences": [
+        "operations",
+        "end-users"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
       "environments": {
-        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
       },
       "visibility": "public",
       "wave": 1,
@@ -223,13 +822,37 @@
       "url": "https://github.com/Icaro0310/devin-pm",
       "kind": "project",
       "artifact": "tool",
-      "interfaces": ["cli", "registry"],
-      "audiences": ["operations", "maintainers"],
-      "platforms": ["windows", "linux"],
+      "interfaces": [
+        "cli",
+        "registry"
+      ],
+      "audiences": [
+        "operations",
+        "maintainers"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
       "environments": {
-        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
       },
       "visibility": "public",
       "wave": 1,
@@ -246,13 +869,36 @@
       "url": "https://github.com/Icaro0310/devin-qa-pack",
       "kind": "project",
       "artifact": "tool",
-      "interfaces": ["cli"],
-      "audiences": ["qa", "developers"],
-      "platforms": ["windows", "linux"],
+      "interfaces": [
+        "cli"
+      ],
+      "audiences": [
+        "qa",
+        "developers"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
       "environments": {
-        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
       },
       "visibility": "public",
       "wave": 2,
@@ -269,13 +915,37 @@
       "url": "https://github.com/Icaro0310/devin-metrics",
       "kind": "project",
       "artifact": "tool",
-      "interfaces": ["cli", "dashboard"],
-      "audiences": ["qa", "operations"],
-      "platforms": ["windows", "linux"],
+      "interfaces": [
+        "cli",
+        "dashboard"
+      ],
+      "audiences": [
+        "qa",
+        "operations"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
       "environments": {
-        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
       },
       "visibility": "public",
       "wave": 2,
@@ -292,13 +962,36 @@
       "url": "https://github.com/Icaro0310/devin-backup",
       "kind": "project",
       "artifact": "tool",
-      "interfaces": ["cli"],
-      "audiences": ["operations", "security"],
-      "platforms": ["windows", "linux"],
+      "interfaces": [
+        "cli"
+      ],
+      "audiences": [
+        "operations",
+        "security"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
       "environments": {
-        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
       },
       "visibility": "public",
       "wave": 2,
@@ -315,13 +1008,36 @@
       "url": "https://github.com/Icaro0310/devin-search",
       "kind": "project",
       "artifact": "tool",
-      "interfaces": ["cli"],
-      "audiences": ["developers", "ai-engineers"],
-      "platforms": ["windows", "linux"],
+      "interfaces": [
+        "cli"
+      ],
+      "audiences": [
+        "developers",
+        "ai-engineers"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
       "environments": {
-        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
       },
       "visibility": "public",
       "wave": 3,
@@ -338,13 +1054,37 @@
       "url": "https://github.com/Icaro0310/devin-graph",
       "kind": "project",
       "artifact": "tool",
-      "interfaces": ["cli", "library"],
-      "audiences": ["developers", "ai-engineers"],
-      "platforms": ["windows", "linux"],
+      "interfaces": [
+        "cli",
+        "library"
+      ],
+      "audiences": [
+        "developers",
+        "ai-engineers"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
       "environments": {
-        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
       },
       "visibility": "public",
       "wave": 3,
@@ -361,13 +1101,37 @@
       "url": "https://github.com/Icaro0310/devin-evals",
       "kind": "project",
       "artifact": "tool",
-      "interfaces": ["cli", "library"],
-      "audiences": ["qa", "ai-engineers"],
-      "platforms": ["windows", "linux"],
+      "interfaces": [
+        "cli",
+        "library"
+      ],
+      "audiences": [
+        "qa",
+        "ai-engineers"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
       "environments": {
-        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
       },
       "visibility": "public",
       "wave": 3,
@@ -384,13 +1148,39 @@
       "url": "https://github.com/Icaro0310/devin-memory",
       "kind": "project",
       "artifact": "tool",
-      "interfaces": ["cli", "library", "mcp", "service"],
-      "audiences": ["ai-engineers", "developers"],
-      "platforms": ["windows", "linux"],
+      "interfaces": [
+        "cli",
+        "library",
+        "mcp",
+        "service"
+      ],
+      "audiences": [
+        "ai-engineers",
+        "developers"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
       "environments": {
-        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
       },
       "visibility": "public",
       "wave": 4,
@@ -407,13 +1197,37 @@
       "url": "https://github.com/Icaro0310/devin-janitor",
       "kind": "project",
       "artifact": "tool",
-      "interfaces": ["cli", "automation"],
-      "audiences": ["operations", "security"],
-      "platforms": ["windows", "linux"],
+      "interfaces": [
+        "cli",
+        "automation"
+      ],
+      "audiences": [
+        "operations",
+        "security"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
       "environments": {
-        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
       },
       "visibility": "public",
       "wave": 5,
@@ -430,13 +1244,49 @@
       "url": "https://github.com/Icaro0310/devin-bridge",
       "kind": "project",
       "artifact": "tool",
-      "interfaces": ["cli", "bridge"],
-      "audiences": ["security", "ai-engineers"],
-      "platforms": ["windows", "linux"],
+      "interfaces": [
+        "cli",
+        "bridge"
+      ],
+      "audiences": [
+        "security",
+        "ai-engineers"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
       "environments": {
-        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false, "requirements": ["node>=20", "devin-cli"]},
-        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false, "requirements": ["node>=20", "devin-cli"]},
-        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false, "requirements": ["node>=20", "devin-cli"]}
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false,
+          "requirements": [
+            "node>=20",
+            "devin-cli"
+          ]
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false,
+          "requirements": [
+            "node>=20",
+            "devin-cli"
+          ]
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false,
+          "requirements": [
+            "node>=20",
+            "devin-cli"
+          ]
+        }
       },
       "visibility": "public",
       "wave": 4,
@@ -453,13 +1303,37 @@
       "url": "https://github.com/Icaro0310/devin-orchestrator",
       "kind": "project",
       "artifact": "tool",
-      "interfaces": ["cli", "automation"],
-      "audiences": ["operations", "ai-engineers"],
-      "platforms": ["windows", "linux"],
+      "interfaces": [
+        "cli",
+        "automation"
+      ],
+      "audiences": [
+        "operations",
+        "ai-engineers"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
       "environments": {
-        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
       },
       "visibility": "public",
       "wave": 5,
@@ -476,9 +1350,16 @@
       "url": "https://github.com/Icaro0310/personal-agent-system",
       "kind": "system",
       "artifact": "system",
-      "interfaces": ["service", "automation"],
-      "audiences": ["maintainers"],
-      "platforms": ["linux"],
+      "interfaces": [
+        "service",
+        "automation"
+      ],
+      "audiences": [
+        "maintainers"
+      ],
+      "platforms": [
+        "linux"
+      ],
       "visibility": "private",
       "wave": 0,
       "status": "active",
@@ -493,9 +1374,16 @@
       "url": "https://github.com/Icaro0310/devin-dashboard",
       "kind": "project",
       "artifact": "service",
-      "interfaces": ["service", "dashboard"],
-      "audiences": ["maintainers"],
-      "platforms": ["linux"],
+      "interfaces": [
+        "service",
+        "dashboard"
+      ],
+      "audiences": [
+        "maintainers"
+      ],
+      "platforms": [
+        "linux"
+      ],
       "visibility": "private",
       "wave": 0,
       "status": "active",
@@ -508,13 +1396,37 @@
       "url": "https://github.com/Icaro0310/devin-office",
       "kind": "project",
       "artifact": "tool",
-      "interfaces": ["service", "dashboard"],
-      "audiences": ["operations", "end-users"],
-      "platforms": ["windows", "linux"],
+      "interfaces": [
+        "service",
+        "dashboard"
+      ],
+      "audiences": [
+        "operations",
+        "end-users"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
       "environments": {
-        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
       },
       "visibility": "public",
       "wave": 0,
@@ -530,13 +1442,39 @@
       "url": "https://github.com/Icaro0310/qwenpaw-suite",
       "kind": "project",
       "artifact": "suite",
-      "interfaces": ["service", "bridge", "docs"],
-      "audiences": ["ai-engineers", "operations"],
-      "platforms": ["windows", "linux"],
+      "interfaces": [
+        "service",
+        "bridge",
+        "docs"
+      ],
+      "audiences": [
+        "ai-engineers",
+        "operations"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
       "environments": {
-        "linux": {"supported": true, "runtime": "extended", "delegation": "supported", "external_dependencies": true},
-        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "supported", "external_dependencies": true},
-        "corporate_windows": {"supported": false, "runtime": "unavailable", "delegation": "forbidden", "external_dependencies": true, "reason": "requires an optional self-hosted model runtime outside the corporate local-only guarantee"}
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "supported",
+          "external_dependencies": true
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "supported",
+          "external_dependencies": true
+        },
+        "corporate_windows": {
+          "supported": false,
+          "runtime": "unavailable",
+          "delegation": "forbidden",
+          "external_dependencies": true,
+          "reason": "requires an optional self-hosted model runtime outside the corporate local-only guarantee"
+        }
       },
       "visibility": "public",
       "wave": 0,
@@ -550,13 +1488,39 @@
       "url": "https://github.com/Icaro0310/poordjaevin",
       "kind": "project",
       "artifact": "tool",
-      "interfaces": ["cli", "library", "mcp", "bridge"],
-      "audiences": ["ai-engineers", "qa"],
-      "platforms": ["windows", "linux"],
+      "interfaces": [
+        "cli",
+        "library",
+        "mcp",
+        "bridge"
+      ],
+      "audiences": [
+        "ai-engineers",
+        "qa"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
       "environments": {
-        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
       },
       "visibility": "public",
       "wave": 0,
@@ -572,8 +1536,13 @@
       "url": "https://github.com/Icaro0310/awesome-devin",
       "kind": "project",
       "artifact": "resource",
-      "interfaces": ["docs"],
-      "audiences": ["developers", "end-users"],
+      "interfaces": [
+        "docs"
+      ],
+      "audiences": [
+        "developers",
+        "end-users"
+      ],
       "visibility": "public",
       "wave": 99,
       "status": "active",
@@ -584,13 +1553,37 @@
       "url": "https://github.com/Icaro0310/devin-dream",
       "kind": "project",
       "artifact": "tool",
-      "interfaces": ["cli", "library"],
-      "audiences": ["qa", "ai-engineers"],
-      "platforms": ["windows", "linux"],
+      "interfaces": [
+        "cli",
+        "library"
+      ],
+      "audiences": [
+        "qa",
+        "ai-engineers"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
       "environments": {
-        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
       },
       "visibility": "public",
       "wave": 2,
@@ -606,13 +1599,36 @@
       "url": "https://github.com/Icaro0310/devin-switch",
       "kind": "project",
       "artifact": "tool",
-      "interfaces": ["cli"],
-      "audiences": ["operations", "maintainers"],
-      "platforms": ["windows", "linux"],
+      "interfaces": [
+        "cli"
+      ],
+      "audiences": [
+        "operations",
+        "maintainers"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
       "environments": {
-        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
       },
       "visibility": "public",
       "wave": 2,
@@ -628,13 +1644,37 @@
       "url": "https://github.com/Icaro0310/devin-skill-catalog",
       "kind": "project",
       "artifact": "tool",
-      "interfaces": ["cli", "registry"],
-      "audiences": ["maintainers", "ai-engineers"],
-      "platforms": ["windows", "linux"],
+      "interfaces": [
+        "cli",
+        "registry"
+      ],
+      "audiences": [
+        "maintainers",
+        "ai-engineers"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
       "environments": {
-        "linux": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "personal_windows": {"supported": true, "runtime": "extended", "delegation": "optional", "external_dependencies": false},
-        "corporate_windows": {"supported": true, "runtime": "local-only", "delegation": "forbidden", "external_dependencies": false}
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
       },
       "visibility": "public",
       "wave": 2,
@@ -650,8 +1690,12 @@
       "url": "https://github.com/Icaro0310/devin-powerups",
       "kind": "system",
       "artifact": "system",
-      "interfaces": ["automation"],
-      "audiences": ["maintainers"],
+      "interfaces": [
+        "automation"
+      ],
+      "audiences": [
+        "maintainers"
+      ],
       "visibility": "private",
       "wave": 0,
       "status": "delivered",

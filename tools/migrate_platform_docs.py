@@ -56,12 +56,15 @@ def language_switch(text: str) -> str:
 
 
 def _install_spec(entry: dict[str, Any], tool: dict[str, Any]) -> str:
+    # Guides intentionally render *unpinned* specs so install instructions
+    # always fetch latest upstream; pinned, reproducible specs live in the
+    # devkit manifest (install_spec) where `devin-devkit update` manages them.
     if tool["source"] == "pypi":
         extras = tool.get("extras", [])
         suffix = f"[{','.join(extras)}]" if extras else ""
-        return f"{tool['package']}{suffix}=={tool['version']}"
+        return tool["package"] + suffix
     if tool["source"] == "github":
-        return f"{entry['url']}/archive/{tool['ref']}.tar.gz"
+        return f"{entry['url']}/archive/refs/heads/main.tar.gz"
     raise ValueError(f"{entry['name']}: no install specification for source {tool['source']!r}")
 
 

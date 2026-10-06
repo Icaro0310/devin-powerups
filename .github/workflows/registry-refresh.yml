@@ -1,0 +1,46 @@
+name: registry-refresh (weekly)
+
+# Moves devkit tool pins forward to upstream: GitHub-source tools get the
+# default-branch HEAD SHA, PyPI-source tools get the newest released
+# version. When anything moves, registry version + generated are bumped and
+# committed; the manifest-sync workflow in devin-devkit re-exports the
+# public manifest on the next day, so 'devin-devkit update' always sees a
+# fresh registry.
+
+on:
+  schedule:
+    - cron: "33 7 * * 1"   # Mondays 07:33 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Refresh devkit pins from GitHub and PyPI
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 tools/refresh_devkit_refs.py
+
+      - name: Validate refreshed registry
+        run: python3 tools/validate_registry.py
+
+      - name: Commit refreshed registry
+        run: |
+          if git diff --quiet registry.json; then
+            echo "no changes"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add registry.json
+          git commit -m "chore: refresh devkit tool pins"
+          git push
