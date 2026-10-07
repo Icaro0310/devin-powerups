@@ -24,6 +24,6 @@ devin-powerups solves the maintenance side of running a 20+ repo ecosystem: keep
 
 ## Related
 
-- [devin-ecosystem](https://icaro0310.github.io/): the 20+ tool ecosystem this hub maintains
+- [devin-ecosystem](https://icaro0310.github.io/): the tool ecosystem this hub maintains
 - [awesome-devin](https://github.com/Icaro0310/awesome-devin): human-readable catalog of the ecosystem
 - [devin-internals-spec](https://github.com/Icaro0310/devin-internals-spec): shared spec package many registry projects depend on
