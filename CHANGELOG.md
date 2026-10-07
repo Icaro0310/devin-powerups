@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Reusable workflows for cross-repo consolidation (P3b): `labeler.yml`, `scorecard.yml` and the new `codeql.yml` (with `language` input) now accept `workflow_call`, and the new `secrets-scan.yml` carries the shared secret-shaped-string scan. Callers pin the `@v1` major tag; `.github/workflows/VARIANTS.md` documents the tagging convention, caller templates, migration gates and the intentionally non-consolidated `ci.yml` variants (`devin-bridge`, `devin-evals`, `devin-memory`, `devin-qa-pack`).
 - Registry v17 classifies every entry with `track`, `role`, `nature`, `mode`, `maturity`, `public`, `official_overlap` and `overlap_note`, and marks `devin-powerups` as the control plane (`is_control_plane`). The structural `kind` is unchanged. Rules in `registry.schema.json` reject contradictory combinations and name the broken rule.
 - `tools/test_validate_registry.py` and `tools/test_registry_classification.py` check every validator keyword, the vocabulary, the consistency rules, the approved track membership and agreement with the `jsonschema` reference implementation (skipped when it is not installed).
 - `tools/new-repo.py` accepts `--track`, `--role`, `--nature`, `--mode` and `--maturity` and registers new entries with the least-claiming classification.

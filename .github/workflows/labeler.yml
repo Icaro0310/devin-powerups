@@ -2,10 +2,13 @@ name: pr-labeler
 
 # Auto-labels pull requests by which paths they touch. Runs on
 # pull_request_target so labels also apply to PRs from forks.
+# Reusable: other repos call this workflow with `uses:` (see
+# .github/workflows/VARIANTS.md). It never checks out PR code.
 
 on:
   pull_request_target:
     types: [opened, synchronize, reopened]
+  workflow_call:
 
 permissions:
   contents: read
