@@ -91,7 +91,7 @@ def fetch_github_repos(owner: str) -> dict[str, dict]:
     """Return {name: repo} for every repo of ``owner`` (public and private)."""
     repos = _run_gh(
         ["repo", "list", owner, "--limit", "100", "--json",
-         "name,visibility,description,latestRelease,url"]
+         "name,visibility,description,latestRelease,url,isArchived"]
     )
     return {repo["name"]: repo for repo in repos if isinstance(repo, dict)}
 
@@ -171,7 +171,7 @@ def reconcile(
                 "ecosystem_shaped": name.startswith("devin-"),
             }
             for name in gh_names - reg_names
-            if not github[name].get("archived")
+            if not github[name].get("isArchived")
         ),
         key=lambda item: item["name"],
     )

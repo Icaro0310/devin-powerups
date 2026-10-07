@@ -65,7 +65,7 @@ def test_archived_repo_is_not_reported_as_github_only(tmp_path: Path, monkeypatc
     }), encoding="utf-8")
     monkeypatch.setattr(reconcile_module, "fetch_github_repos", lambda owner: {
         "devin-evals": {"visibility": "public", "latestRelease": None},
-        "devin-dream": {"visibility": "public", "archived": True, "latestRelease": None},
+        "devin-dream": {"visibility": "public", "isArchived": True, "latestRelease": None},
         "devin-stray": {"visibility": "public", "latestRelease": None},
     })
     monkeypatch.setattr(reconcile_module, "fetch_github_tags", lambda owner, name: [])
