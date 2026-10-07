@@ -66,6 +66,8 @@ def write_registry(root: Path, repositories=None) -> Path:
                 "visibility": "private",
                 "wave": 0,
                 "status": "active",
+                "public": False,
+                "maturity": "usable",
                 "description": "Synthetic hub entry.",
             }
         ]
@@ -308,6 +310,62 @@ class NewRepoTests(unittest.TestCase):
             rc = new_repo.main(self.argv("alpha", "Alpha tool"))
         self.assertEqual(rc, 1)
         self.assertEqual(self.registry.read_bytes(), before)
+
+    # -- classification ---------------------------------------------------
+
+    def last_entry(self):
+        return json.loads(self.registry.read_text(encoding="utf-8"))["repositories"][-1]
+
+    def test_new_public_entry_gets_the_least_claiming_classification(self):
+        self.assertEqual(new_repo.main(self.argv("alpha", "Alpha tool")), 0)
+        entry = self.last_entry()
+        expected = {
+            "public": True, "nature": "product", "track": "related", "role": "module",
+            "mode": "read", "maturity": "experimental", "official_overlap": "none", "overlap_note": None,
+        }
+        for key, value in expected.items():
+            self.assertEqual(entry[key], value, key)
+        self.assertNotIn("is_control_plane", entry)
+
+    def test_classification_flags_override_the_defaults(self):
+        rc = new_repo.main(self.argv(
+            "--track", "guard", "--mode", "mixed", "--maturity", "usable", "alpha", "Alpha tool"))
+        self.assertEqual(rc, 0)
+        entry = self.last_entry()
+        self.assertEqual((entry["track"], entry["mode"], entry["maturity"]), ("guard", "mixed", "usable"))
+        self.assertEqual((entry["role"], entry["nature"]), ("module", "product"))
+
+    def test_contradictory_classification_fails_before_anything_is_created(self):
+        before = self.registry.read_bytes()
+        rc = new_repo.main(self.argv("--track", "navigation", "alpha", "Alpha tool"))
+        self.assertEqual(rc, 1)
+        self.assertFalse(self.dest().exists())
+        self.assertEqual(self.registry.read_bytes(), before)
+
+    def test_infra_entry_defaults_to_the_platform_foundation(self):
+        self.assertEqual(new_repo.main(self.argv("--kind", "infra", "hub", "Hub")), 0)
+        entry = self.last_entry()
+        self.assertEqual((entry["track"], entry["role"], entry["nature"]), ("platform", "foundation", "infrastructure"))
+
+    def test_private_entries_are_not_classified(self):
+        self.assertEqual(new_repo.main(self.argv("--visibility", "private", "alpha", "Alpha tool")), 0)
+        entry = self.last_entry()
+        self.assertIs(entry["public"], False)
+        self.assertEqual(entry["maturity"], "experimental")
+        for key in ("track", "role", "nature", "mode", "official_overlap", "overlap_note"):
+            self.assertNotIn(key, entry)
+
+    def test_classification_flags_on_a_private_entry_are_rejected(self):
+        before = self.registry.read_bytes()
+        rc = new_repo.main(self.argv("--visibility", "private", "--track", "guard", "alpha", "Alpha tool"))
+        self.assertEqual(rc, 2)
+        self.assertFalse(self.dest().exists())
+        self.assertEqual(self.registry.read_bytes(), before)
+
+    def test_a_public_system_entry_is_rejected(self):
+        rc = new_repo.main(self.argv("--kind", "system", "alpha", "Alpha runtime"))
+        self.assertEqual(rc, 2)
+        self.assertFalse(self.dest().exists())
 
     def test_private_system_entry(self):
         rc = new_repo.main(
