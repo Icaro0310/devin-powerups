@@ -77,6 +77,24 @@ def test_booleans_reject_other_types(field):
         assert errors_for(classified(**{field: bad})), (field, bad)
 
 
+# --- what an entry must declare ----------------------------------------------
+
+
+@pytest.mark.parametrize("field", ["public", "maturity", "nature", "track", "role", "mode", "official_overlap", "overlap_note"])
+def test_public_entries_cannot_omit_a_classification_field(field):
+    candidate = classified()
+    del candidate[field]
+    assert any(f"'{field}'" in e for e in errors_for(candidate)), field
+
+
+@pytest.mark.parametrize("field", ["public", "maturity"])
+def test_private_entries_need_only_public_and_maturity(field):
+    private = entry("personal-agent-system", public=False, maturity="usable")
+    assert errors_for(private) == []
+    del private[field]
+    assert any(f"'{field}'" in e for e in errors_for(private))
+
+
 # --- public mirrors visibility ------------------------------------------------
 
 

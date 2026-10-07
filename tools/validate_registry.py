@@ -15,7 +15,7 @@ written into the schema can never go unenforced. (An earlier version ignored
 unknown keywords, which hid a real violation behind an ``if``/``then`` rule.)
 
 On top of the schema, ``semantic_errors`` checks the rules JSON Schema cannot
-express across entries.
+express across entries: unique names and exactly one control-plane entry.
 
 Usage:
     python tools/validate_registry.py [registry.json] [--schema registry.schema.json]
@@ -226,6 +226,9 @@ def semantic_errors(registry: dict) -> list[str]:
     names = [entry.get("name") for entry in registry.get("repositories", [])]
     for name in sorted({n for n in names if names.count(n) > 1}, key=str):
         errors.append(f"$.repositories: duplicate name {name!r}")
+    planes = [e.get("name") for e in registry.get("repositories", []) if e.get("is_control_plane") is True]
+    if len(planes) != 1:
+        errors.append(f"$.repositories: exactly one entry must set is_control_plane=true, found {len(planes)} {planes}")
     return errors
 
 

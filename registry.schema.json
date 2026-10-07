@@ -207,8 +207,10 @@
           "interfaces",
           "audiences",
           "visibility",
+          "public",
           "wave",
           "status",
+          "maturity",
           "description"
         ],
         "properties": {
@@ -380,6 +382,11 @@
               "required": ["visibility", "artifact"]
             },
             "then": {"required": ["platforms", "environments"]}
+          },
+          {
+            "description": "public entries are fully classified",
+            "if": {"properties": {"visibility": {"const": "public"}}, "required": ["visibility"]},
+            "then": {"required": ["nature", "track", "role", "mode", "official_overlap", "overlap_note"]}
           },
           {
             "description": "public mirrors visibility",

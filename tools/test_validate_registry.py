@@ -134,9 +134,17 @@ def test_main_exits_1_on_validation_errors_and_2_on_unreadable_input(tmp_path):
 
 def test_duplicate_names_are_a_semantic_error():
     twin = entry("devin-redact")
-    assert vr.semantic_errors(doc(twin, copy.deepcopy(twin))) == [
+    assert vr.semantic_errors(doc(entry("devin-powerups"), twin, copy.deepcopy(twin))) == [
         "$.repositories: duplicate name 'devin-redact'"
     ]
+
+
+def test_exactly_one_control_plane_is_required():
+    plane = entry("devin-powerups")
+    assert vr.semantic_errors(doc(plane)) == []
+    assert any("found 0" in e for e in vr.semantic_errors(doc(entry("devin-redact"))))
+    second = {**entry("devin-devkit"), "is_control_plane": True}
+    assert any("found 2" in e for e in vr.semantic_errors(doc(plane, second)))
 
 
 # --- rules the old validator silently skipped --------------------------------
