@@ -160,6 +160,9 @@ def reconcile(
     gh_names = set(github)
     reg_names = {name for name, entry in registry.items() if _is_repository_entry(name, entry)}
 
+    # Archived GitHub repos are deliberately retired (e.g. absorbed into
+    # another repo), not drift — never report them as missing from the
+    # registry.
     report["github_only"] = sorted(
         (
             {
@@ -168,6 +171,7 @@ def reconcile(
                 "ecosystem_shaped": name.startswith("devin-"),
             }
             for name in gh_names - reg_names
+            if not github[name].get("archived")
         ),
         key=lambda item: item["name"],
     )

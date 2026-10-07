@@ -236,7 +236,7 @@
         ],
         "status": "source",
         "category": "evaluation",
-        "ref": "54e200bd92fdfcc5aceb6569599922ca68223a24"
+        "ref": "6b48c92cb60855ede0986cb47d0ea649f1db71c0"
       },
       "devin-memory": {
         "manager": "uv",
