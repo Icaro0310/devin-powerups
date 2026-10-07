@@ -17,4 +17,4 @@ Aplique estas licoes quando trabalhar em tarefas relacionadas.
 
 ## Changelog
 
-- v2 (2026-10-04): 1 nova(s) licao(oes)
+- v3 (2026-10-07): 0 nova(s) licao(oes)
