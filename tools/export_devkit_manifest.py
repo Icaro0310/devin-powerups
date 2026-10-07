@@ -26,7 +26,7 @@ def _repository_index(registry: dict) -> dict[str, dict]:
 
 def validate_devkit(registry: dict) -> list[str]:
     schema = json.loads((HUB / "registry.schema.json").read_text(encoding="utf-8"))
-    errors = validate_registry.validate(registry, schema)
+    errors = validate_registry.registry_errors(registry, schema)
     if errors:
         return errors
 

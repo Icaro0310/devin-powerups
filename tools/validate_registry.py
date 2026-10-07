@@ -16,6 +16,10 @@ unknown keywords, which hid a real violation behind an ``if``/``then`` rule.)
 
 On top of the schema, ``semantic_errors`` checks the rules JSON Schema cannot
 express across entries: unique names and exactly one control-plane entry.
+``registry_errors`` combines both layers (schema first, cross-entry rules only
+on a structurally valid document); consumers such as ``new-repo.py`` and
+``export_devkit_manifest.py`` validate through it, not through ``validate``
+alone.
 
 Usage:
     python tools/validate_registry.py [registry.json] [--schema registry.schema.json]
@@ -99,22 +103,60 @@ def check_schema(schema, root: dict | None = None, path: str = "#") -> list[str]
     problems: list[str] = []
     for key, value in schema.items():
         if key in ANNOTATIONS:
-            if key == "$defs" and isinstance(value, dict):
-                for name, sub in value.items():
-                    problems.extend(check_schema(sub, root, f"{path}/$defs/{name}"))
+            if key == "$defs":
+                if isinstance(value, dict):
+                    for name, sub in value.items():
+                        problems.extend(check_schema(sub, root, f"{path}/$defs/{name}"))
+                else:
+                    problems.append(f"{path}: '$defs' must be an object")
             continue
         if key not in SUPPORTED:
             problems.append(f"{path}: unsupported schema keyword {key!r}")
+        elif key == "type":
+            names = value if isinstance(value, list) else [value]
+            if not names or not all(
+                isinstance(name, str) and name in _TYPE_CHECKS for name in names
+            ):
+                problems.append(f"{path}: malformed or unsupported 'type' {value!r}")
         elif key == "properties":
-            for name, sub in value.items():
-                problems.extend(check_schema(sub, root, f"{path}/properties/{name}"))
+            if isinstance(value, dict):
+                for name, sub in value.items():
+                    problems.extend(check_schema(sub, root, f"{path}/properties/{name}"))
+            else:
+                problems.append(f"{path}: 'properties' must be an object")
         elif key in ("items", "not", "if", "then", "else"):
             problems.extend(check_schema(value, root, f"{path}/{key}"))
-        elif key == "additionalProperties" and isinstance(value, dict):
-            problems.extend(check_schema(value, root, f"{path}/{key}"))
+        elif key == "additionalProperties":
+            if isinstance(value, dict):
+                problems.extend(check_schema(value, root, f"{path}/{key}"))
+            elif not isinstance(value, bool):
+                problems.append(f"{path}: 'additionalProperties' must be a schema or boolean")
         elif key in ("allOf", "anyOf"):
-            for index, sub in enumerate(value):
-                problems.extend(check_schema(sub, root, f"{path}/{key}/{index}"))
+            if isinstance(value, list):
+                for index, sub in enumerate(value):
+                    problems.extend(check_schema(sub, root, f"{path}/{key}/{index}"))
+            else:
+                problems.append(f"{path}: {key!r} must be an array of schemas")
+        elif key == "enum":
+            if not isinstance(value, list) or not value:
+                problems.append(f"{path}: 'enum' must be a non-empty array")
+        elif key == "required":
+            if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+                problems.append(f"{path}: 'required' must be an array of strings")
+        elif key in ("minItems", "minProperties", "minLength"):
+            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                problems.append(f"{path}: {key!r} must be a non-negative integer")
+        elif key == "minimum":
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                problems.append(f"{path}: 'minimum' must be a number")
+        elif key == "pattern":
+            if not isinstance(value, str):
+                problems.append(f"{path}: 'pattern' must be a string")
+            else:
+                try:
+                    re.compile(value)
+                except re.error:
+                    problems.append(f"{path}: 'pattern' is not a valid regex {value!r}")
         elif key == "$ref":
             if not (isinstance(value, str) and value.startswith("#/")):
                 problems.append(f"{path}: only local '#/...' $ref is supported, got {value!r}")
@@ -149,7 +191,11 @@ def validate(instance, schema: dict, path: str = "$", root: dict | None = None) 
     expected = schema.get("type")
     if expected is not None:
         types = expected if isinstance(expected, list) else [expected]
-        if not any(_TYPE_CHECKS.get(t, lambda v: True)(instance) for t in types):
+        unknown = [t for t in types if t not in _TYPE_CHECKS]
+        if unknown:
+            errors.append(f"{path}: unsupported schema type {unknown[0]!r}")
+            return errors
+        if not any(_TYPE_CHECKS[t](instance) for t in types):
             errors.append(
                 f"{path}: expected type {'/'.join(types)}, got {_type_name(instance)}"
             )
@@ -223,13 +269,27 @@ def validate(instance, schema: dict, path: str = "$", root: dict | None = None) 
 def semantic_errors(registry: dict) -> list[str]:
     """Cross-entry rules that JSON Schema cannot express."""
     errors: list[str] = []
-    names = [entry.get("name") for entry in registry.get("repositories", [])]
+    repositories = registry.get("repositories") if isinstance(registry, dict) else None
+    entries = [item for item in repositories or [] if isinstance(item, dict)]
+    names = [entry.get("name") for entry in entries]
     for name in sorted({n for n in names if names.count(n) > 1}, key=str):
         errors.append(f"$.repositories: duplicate name {name!r}")
-    planes = [e.get("name") for e in registry.get("repositories", []) if e.get("is_control_plane") is True]
+    planes = [e.get("name") for e in entries if e.get("is_control_plane") is True]
     if len(planes) != 1:
         errors.append(f"$.repositories: exactly one entry must set is_control_plane=true, found {len(planes)} {planes}")
     return errors
+
+
+def registry_errors(registry: dict, schema: dict) -> list[str]:
+    """JSON Schema plus cross-entry rules for a whole registry document.
+
+    The cross-entry checks run only on a structurally valid document, so a
+    malformed registry produces schema errors instead of crashing them.
+    Embedded callers (``new-repo.py``, ``export_devkit_manifest.py``) validate
+    through this entry point; the CLI exit-code mapping stays in ``main``.
+    """
+    errors = validate(registry, schema)
+    return errors if errors else semantic_errors(registry)
 
 
 def _load_json(path: Path):
@@ -263,7 +323,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  {problem}", file=sys.stderr)
         return 2
 
-    errors = validate(registry, schema) + semantic_errors(registry)
+    errors = registry_errors(registry, schema)
     if errors:
         print(f"{args.registry}: {len(errors)} validation error(s):", file=sys.stderr)
         for error in errors:

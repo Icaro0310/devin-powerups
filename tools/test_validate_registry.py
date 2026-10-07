@@ -147,6 +147,58 @@ def test_exactly_one_control_plane_is_required():
     assert any("found 2" in e for e in vr.semantic_errors(doc(plane, second)))
 
 
+def test_registry_errors_combines_schema_and_cross_entry_checks():
+    # structurally invalid document: only schema errors, no crash
+    errors = vr.registry_errors({**REGISTRY, "repositories": None}, SCHEMA)
+    assert errors and all("is_control_plane" not in e for e in errors)
+    # schema-valid document missing the control plane: cross-entry error surfaces
+    planeless = doc(*REGISTRY["repositories"])
+    next(e for e in planeless["repositories"] if e["name"] == "devin-powerups")[
+        "is_control_plane"
+    ] = False
+    assert any("is_control_plane" in e for e in vr.registry_errors(planeless, SCHEMA))
+
+
+def test_semantic_checks_tolerate_malformed_documents():
+    assert isinstance(vr.semantic_errors({"repositories": None}), list)
+    assert isinstance(vr.semantic_errors({"repositories": ["x", {}]}), list)
+    assert isinstance(vr.semantic_errors([]), list)
+
+
+def test_main_reports_malformed_repositories_without_a_traceback(tmp_path):
+    bad = tmp_path / "registry.json"
+    for bad_value in (None, ["x"], [{"name": 1}]):
+        bad.write_text(json.dumps({**REGISTRY, "repositories": bad_value}), encoding="utf-8")
+        assert vr.main([str(bad)]) == 1
+
+
+def test_unknown_type_names_fail_closed():
+    assert vr.check_schema({"type": "madeup"})
+    assert vr.check_schema({"type": ["string", "madeup"]})
+    assert vr.check_schema({"type": []})
+    assert vr.validate("anything", {"type": "madeup"}) == [
+        "$: unsupported schema type 'madeup'"
+    ]
+
+
+@pytest.mark.parametrize("schema", [
+    {"properties": ["a"]},
+    {"$defs": []},
+    {"allOf": {"type": "object"}},
+    {"additionalProperties": 0},
+    {"enum": "x"},
+    {"enum": []},
+    {"required": "name"},
+    {"minItems": -1},
+    {"minLength": "2"},
+    {"minimum": True},
+    {"pattern": "["},
+    {"pattern": 3},
+])
+def test_malformed_keyword_operands_are_schema_problems(schema):
+    assert vr.check_schema(schema)
+
+
 # --- rules the old validator silently skipped --------------------------------
 
 

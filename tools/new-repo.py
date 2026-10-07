@@ -410,7 +410,7 @@ def main(argv: list[str] | None = None) -> int:
         except ValueError as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 2
-        errors = _load_validator(Path(__file__).resolve().parent).validate(
+        errors = _load_validator(Path(__file__).resolve().parent).registry_errors(
             merged, schema
         )
         if errors:
@@ -458,8 +458,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"registered devin-{name} in {registry_path}")
 
     print(f"created {dest}")
+    visibility_flag = "--private" if args.visibility == "private" else "--public"
     print(f"next: cd {dest} && git add -A && git commit -m init && "
-          f"gh repo create Icaro0310/devin-{name} --public --source=. --push")
+          f"gh repo create Icaro0310/devin-{name} {visibility_flag} --source=. --push")
     return 0
 
 

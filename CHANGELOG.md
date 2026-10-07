@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- `tools/validate_registry.py` enforces the whole schema vocabulary (`$ref`, `allOf`, `if`/`then`/`else`, `const`, `anyOf`, `not`), rejects a schema that uses a keyword it cannot check, and requires exactly one control plane. The old validator silently skipped those keywords.
+- `tools/validate_registry.py` enforces the whole schema vocabulary (`$ref`, `allOf`, `if`/`then`/`else`, `const`, `anyOf`, `not`), rejects a schema that uses a keyword it cannot check or malformed keyword operands, and requires exactly one control plane. The old validator silently skipped those keywords. `registry_errors` is now the single validation entry point (schema first, cross-entry rules on valid documents only) used by `new-repo.py` and `export_devkit_manifest.py`.
 - `tools/new-repo.py --kind system` now requires `--visibility private`.
 - The starter template now uses one shared README with separate Windows and Linux guides; macOS is marked planned/unverified.
 - Package metadata in 11 Python projects now references the published `devin-internals-spec` version range instead of a direct Git URL, making the distributions eligible for PyPI upload.

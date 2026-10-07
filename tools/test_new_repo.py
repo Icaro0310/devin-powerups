@@ -12,6 +12,7 @@ Run:
 """
 
 import importlib.util
+import io
 import json
 import tempfile
 import unittest
@@ -68,6 +69,10 @@ def write_registry(root: Path, repositories=None) -> Path:
                 "status": "active",
                 "public": False,
                 "maturity": "usable",
+                "is_control_plane": True,
+                "track": "platform",
+                "role": "foundation",
+                "nature": "infrastructure",
                 "description": "Synthetic hub entry.",
             }
         ]
@@ -102,10 +107,14 @@ class NewRepoTests(unittest.TestCase):
         self.ecosystem.mkdir()
         self.template = write_template(root)
         self.registry = write_registry(root)
+        self._stdout = io.StringIO()
+        self._stderr = io.StringIO()
         self._patches = [
             mock.patch.object(new_repo, "ECOSYSTEM", self.ecosystem),
             mock.patch.object(new_repo, "TEMPLATE", self.template),
             mock.patch.object(new_repo, "_git_init", lambda dest: None),
+            mock.patch("sys.stdout", self._stdout),
+            mock.patch("sys.stderr", self._stderr),
         ]
         for patch in self._patches:
             patch.start()
@@ -217,7 +226,26 @@ class NewRepoTests(unittest.TestCase):
 
         schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
         merged = json.loads(self.registry.read_text(encoding="utf-8"))
-        self.assertEqual(validate_registry.validate(merged, schema), [])
+        self.assertEqual(validate_registry.registry_errors(merged, schema), [])
+
+    def test_missing_control_plane_fails_before_scaffold(self):
+        # cross-entry rules also gate the scaffolder: a registry with no
+        # control plane cannot be extended
+        registry = json.loads(self.registry.read_text(encoding="utf-8"))
+        del registry["repositories"][0]["is_control_plane"]
+        self.registry.write_text(json.dumps(registry), encoding="utf-8")
+        rc = new_repo.main(self.argv("alpha", "Alpha tool"))
+        self.assertEqual(rc, 1)
+        self.assertFalse(self.dest().exists())
+        self.assertIn("is_control_plane", self._stderr.getvalue())
+
+    def test_private_scaffold_suggests_private_repo_creation(self):
+        rc = new_repo.main(self.argv(
+            "--visibility", "private", "--kind", "system", "alpha", "Alpha tool"
+        ))
+        self.assertEqual(rc, 0)
+        self.assertIn("--private --source=.", self._stdout.getvalue())
+        self.assertNotIn("--public", self._stdout.getvalue())
 
     def test_devin_prefix_in_name_is_stripped(self):
         rc = new_repo.main(self.argv("devin-beta", "Beta tool"))
