@@ -25,6 +25,7 @@ VOCABULARY = {
     "mode": ["read", "write", "mixed"],
     "maturity": ["experimental", "usable", "stable"],
     "official_overlap": ["none", "partial", "high"],
+    "distribution_status": ["published", "source_only", "pending"],
 }
 
 BASE = {
@@ -80,7 +81,7 @@ def test_booleans_reject_other_types(field):
 # --- what an entry must declare ----------------------------------------------
 
 
-@pytest.mark.parametrize("field", ["public", "maturity", "nature", "track", "role", "mode", "official_overlap", "overlap_note"])
+@pytest.mark.parametrize("field", ["public", "maturity", "nature", "track", "role", "mode", "official_overlap", "overlap_note", "distribution_status"])
 def test_public_entries_cannot_omit_a_classification_field(field):
     candidate = classified()
     del candidate[field]
@@ -275,3 +276,21 @@ def test_mode_matches_documented_mutating_commands():
     assert mixed == {"devin-powerups", "devin-devkit", "devin-redact", "devin-backup", "devin-janitor", "devin-switch",
                      "devin-skill-catalog", "devin-memory", "devin-bridge", "devin-office", "qwenpaw-suite"}
     assert not [e for e in PUBLIC_ENTRIES if e["mode"] == "write"]
+
+
+def test_distribution_status_is_declared_on_public_products_and_fixtures():
+    for e in PUBLIC_ENTRIES:
+        if e["nature"] in ("product", "fixture"):
+            assert e.get("distribution_status") in VOCABULARY["distribution_status"], e["name"]
+    assert {e["name"] for e in PUBLIC_ENTRIES if e.get("distribution_status") == "source_only"} == {
+        "devin-backup", "devin-dream", "devin-evals", "devin-graph", "devin-janitor",
+        "devin-metrics", "devin-search", "devin-skill-catalog", "devin-switch",
+        "devin-office", "qwenpaw-suite"}
+
+
+def test_distribution_status_agrees_with_devkit_tool_status():
+    document = copy.deepcopy(REGISTRY)
+    doctor = next(e for e in document["repositories"] if e["name"] == "devin-doctor")
+    doctor["distribution_status"] = "source_only"
+    errors = vr.semantic_errors(document)
+    assert any("distribution_status" in e and "devin-doctor" in e for e in errors), errors

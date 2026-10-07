@@ -191,6 +191,8 @@ def build_entry(
             "public": True, "nature": merged["nature"], "track": merged["track"], "role": merged["role"],
             "mode": merged["mode"], "maturity": maturity, "official_overlap": "none", "overlap_note": None,
         }
+        if merged["nature"] in ("product", "fixture"):
+            classification["distribution_status"] = "source_only"
     else:
         if any(chosen.values()):
             raise ValueError("--track/--role/--nature/--mode apply to public entries only")
