@@ -186,3 +186,74 @@ def test_every_combination_agrees_with_the_jsonschema_reference():
         valid += ours
     assert 0 < valid < 7 * 6 * 5 * 3
     assert set(VALID_COMBOS) <= {c for c in itertools.product(*axes) if not combo_errors(c)}
+
+
+# --- the committed registry ------------------------------------------------------
+
+# Approved classification (execution plan P0.2, 2026-10-07; devin-pm and
+# devin-memory placed by the maintainer the same day). Changing a track is a
+# governance decision: update this table in the same pull request.
+APPROVED_TRACKS = {
+    "observe": ["devin-internals-spec", "devin-doctor", "devin-history", "devin-search", "devin-graph", "devin-office"],
+    "assure": ["devin-qa-pack", "devin-evals", "devin-metrics", "poordjaevin", "devin-dream"],
+    "guard": ["devin-bridge", "devin-orchestrator", "devin-switch", "devin-redact", "devin-backup", "devin-janitor", "devin-memory"],
+    "platform": ["devin-devkit", "devin-powerups", "devin-skill-catalog"],
+    "navigation": ["awesome-devin"],
+    "related": ["qwenpaw-suite", "devin-pm"],
+}
+BY_NAME = {e["name"]: e for e in REGISTRY["repositories"]}
+PUBLIC_ENTRIES = [e for e in REGISTRY["repositories"] if e["visibility"] == "public"]
+
+
+def test_every_public_entry_is_classified_in_exactly_the_approved_track():
+    expected = {name: track for track, names in APPROVED_TRACKS.items() for name in names}
+    assert len(expected) == len(PUBLIC_ENTRIES) == 24
+    assert {e["name"]: e["track"] for e in PUBLIC_ENTRIES} == expected
+
+
+def test_public_entries_carry_the_full_classification():
+    required = ["public", "nature", "track", "role", "mode", "maturity", "official_overlap", "overlap_note"]
+    for e in PUBLIC_ENTRIES:
+        assert all(key in e for key in required), e["name"]
+        assert e["public"] is True
+
+
+def test_private_entries_are_marked_not_public_and_have_a_maturity():
+    private = [e for e in REGISTRY["repositories"] if e["visibility"] == "private"]
+    assert {e["name"] for e in private} == {"personal-agent-system", "devin-dashboard", "devin-learning"}
+    for e in private:
+        assert e["public"] is False and e["maturity"] in VOCABULARY["maturity"]
+
+
+def test_devin_powerups_is_the_only_control_plane():
+    assert [e["name"] for e in REGISTRY["repositories"] if e.get("is_control_plane")] == ["devin-powerups"]
+    plane = BY_NAME["devin-powerups"]
+    assert (plane["track"], plane["role"], plane["nature"], plane["maturity"], plane["public"]) == (
+        "platform", "foundation", "infrastructure", "stable", True)
+    assert all("is_control_plane" not in e for e in REGISTRY["repositories"] if e["name"] != "devin-powerups")
+
+
+def test_official_overlap_is_declared_only_where_the_repository_documents_it():
+    partial = {e["name"] for e in PUBLIC_ENTRIES if e["official_overlap"] == "partial"}
+    assert partial == {"devin-memory", "devin-dream", "devin-skill-catalog"}
+    assert not [e for e in PUBLIC_ENTRIES if e["official_overlap"] == "high"]
+    for e in PUBLIC_ENTRIES:
+        if e["official_overlap"] == "none":
+            assert e["overlap_note"] is None, e["name"]
+        else:
+            assert "official" in e["overlap_note"].lower(), e["name"]
+
+
+def test_flagship_fixture_and_surface_are_unique():
+    roles = [e["role"] for e in PUBLIC_ENTRIES]
+    assert roles.count("flagship") == 1 and BY_NAME["devin-qa-pack"]["role"] == "flagship"
+    assert [e["name"] for e in PUBLIC_ENTRIES if e["nature"] == "fixture"] == ["devin-dream"]
+    assert [e["name"] for e in PUBLIC_ENTRIES if e["nature"] == "surface"] == ["awesome-devin"]
+
+
+def test_mode_matches_documented_mutating_commands():
+    mixed = {e["name"] for e in PUBLIC_ENTRIES if e["mode"] == "mixed"}
+    # explicit, guarded mutations: --apply / --yes / restore / redact / swap / promote / install / control endpoints
+    assert mixed == {"devin-powerups", "devin-devkit", "devin-redact", "devin-backup", "devin-janitor", "devin-switch",
+                     "devin-skill-catalog", "devin-memory", "devin-bridge", "devin-office", "qwenpaw-suite"}
+    assert not [e for e in PUBLIC_ENTRIES if e["mode"] == "write"]
