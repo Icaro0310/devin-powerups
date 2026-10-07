@@ -312,6 +312,10 @@
             "enum": ["experimental", "usable", "stable"],
             "description": "experimental = interfaces and behavior may change without notice and unattended use is not advised; usable = documented, tested in CI and installable through a supported path, interfaces may still change before 1.0; stable = a compatibility commitment designated by the maintainer."
           },
+          "distribution_status": {
+            "enum": ["published", "source_only", "pending"],
+            "description": "How the artifact is distributed: published = a versioned package-registry release exists (PyPI, npm) and docs may prescribe it as the canonical install; source_only = install is git checkout only, no release verification or immutable version; pending = publication planned but not done. Required on public products and fixtures."
+          },
           "is_control_plane": {
             "type": "boolean",
             "default": false,
@@ -387,6 +391,11 @@
             "description": "public entries are fully classified",
             "if": {"properties": {"visibility": {"const": "public"}}, "required": ["visibility"]},
             "then": {"required": ["nature", "track", "role", "mode", "official_overlap", "overlap_note"]}
+          },
+          {
+            "description": "public products and fixtures declare distribution status",
+            "if": {"properties": {"visibility": {"const": "public"}, "nature": {"enum": ["product", "fixture"]}}, "required": ["visibility", "nature"]},
+            "then": {"required": ["distribution_status"]}
           },
           {
             "description": "public mirrors visibility",

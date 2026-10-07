@@ -277,6 +277,22 @@ def semantic_errors(registry: dict) -> list[str]:
     planes = [e.get("name") for e in entries if e.get("is_control_plane") is True]
     if len(planes) != 1:
         errors.append(f"$.repositories: exactly one entry must set is_control_plane=true, found {len(planes)} {planes}")
+    if not isinstance(registry, dict):
+        return errors
+    by_name = {e.get("name"): e for e in entries}
+    devkit = registry.get("devkit")
+    tools = devkit.get("tools") if isinstance(devkit, dict) else None
+    status_map = {"published": "published", "source": "source_only", "manual": "source_only"}
+    for name, tool in (tools or {}).items():
+        entry = by_name.get(name)
+        if not entry or not isinstance(tool, dict):
+            continue
+        expected = status_map.get(tool.get("status"))
+        actual = entry.get("distribution_status")
+        if expected and actual and actual != expected:
+            errors.append(
+                f"$.repositories[{name}]: distribution_status {actual!r} disagrees with devkit.tools status {tool.get('status')!r}"
+            )
     return errors
 
 

@@ -66,6 +66,10 @@ jobs:
         working-directory: workspace/devin-ecosystem/devin-powerups
         run: python3 tools/render_compatibility.py --check "$(pwd)/../devin-devkit/COMPATIBILITY.md"
 
+      - name: Distribution banners match the registry
+        working-directory: workspace/devin-ecosystem/devin-powerups
+        run: python3 tools/check_dist_status.py --root "$(pwd)/.."
+
       - name: Site links every public registry repo
         working-directory: workspace/devin-ecosystem/devin-powerups
         run: |

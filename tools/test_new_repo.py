@@ -413,6 +413,12 @@ class NewRepoTests(unittest.TestCase):
         self.assertEqual(entry["visibility"], "private")
         self.assertEqual(entry["wave"], 3)
 
+    def test_real_template_readme_carries_dist_status_banner(self):
+        text = (new_repo.HUB / "template" / "README.md").read_text(encoding="utf-8")
+        self.assertIn("DIST-STATUS:BEGIN", text)
+        self.assertIn("DIST-STATUS:END", text)
+        self.assertIn("github.com/Icaro0310/devin-{{name}}.git", text)
+
 
 if __name__ == "__main__":
     unittest.main()
