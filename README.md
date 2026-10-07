@@ -31,11 +31,11 @@ distribution; this hub is not needed at runtime.
 
 | Path | Purpose |
 |---|---|
-| `registry.json` | Catalog of public projects plus clearly marked maintainer-only records. `kind` records the repository's structural role, while `artifact`, `interfaces`, `audiences`, `platforms` and `environments` classify what each public artifact is, who it serves and which runtime guarantees it supports. The weekly public report filters to `kind=project` and `visibility=public`. |
+| `registry.json` | Catalog of public projects plus clearly marked maintainer-only records. `kind` records the repository's structural role, while `artifact`, `interfaces`, `audiences`, `platforms` and `environments` classify what each public artifact is, who it serves and which runtime guarantees it supports. `track`, `role`, `nature`, `mode`, `maturity` and `official_overlap` carry the editorial classification (see [Classification](#classification)). The weekly public report filters to `kind=project` and `visibility=public`. |
 | `template/` | Starter repository with a shared README, Windows/Linux guides, a planned macOS guide, and CI. |
 | `tools/new-repo.py` | Creates a new `devin-<name>` sibling checkout from the template, initializes Git and registers the repo in `registry.json` (schema-validated before writing). `--dry-run` previews without side effects. It does not create a GitHub repository or push. |
 | `tools/weekly_repo_report.py` | Reads public GitHub commit metadata from the registry and writes a standalone HTML report. Email delivery is optional. |
-| `tools/validate_registry.py` | Validates `registry.json` against `registry.schema.json` — dependency-free, exits non-zero on violations. |
+| `tools/validate_registry.py` | Validates `registry.json` against `registry.schema.json` and the cross-entry rules (dependency-free). Exits 1 on violations and 2 when the schema uses a keyword the validator cannot enforce. |
 | `tools/reconcile_registry.py` | Reconciles the registry against the GitHub account and local clones: missing entries, missing repos, stale version/tag fields. Read-only. |
 | `tools/export_devkit_manifest.py` | Exports the public, profile-based DevKit manifest; rejects private or unknown repositories. |
 | `tools/render_catalog.py` | Renders the profile README catalog and count from the same registry. |
@@ -184,6 +184,35 @@ catalogs, installation profiles, audience filters and runtime-compatibility
 matrices. The weekly report filters to public projects
 and does not read private repository contents. Personal paths, credentials,
 service addresses and session data do not belong in this public repository.
+
+### Classification
+
+Each entry also carries an editorial classification that `registry.schema.json`
+validates. It is a navigation and governance layer: it does not change package
+boundaries, DevKit profile names or install commands, and the structural `kind`
+(`project`, `infra`, `distribution`, `system`) that existing tooling reads is
+unchanged.
+
+| Field | Values | Meaning |
+|---|---|---|
+| `track` | `observe`, `assure`, `guard`, `platform`; supporting layers `navigation`, `foundation`, `related` | Primary public placement: what happened, whether the result can be verified and judged, how execution is controlled and data protected, how the ecosystem is installed and governed. The supporting layers are not product tracks. |
+| `role` | `flagship`, `module`, `foundation`, `installer`, `catalog`, `surface` | Function inside the track. |
+| `nature` | `product`, `infrastructure`, `distribution`, `surface`, `fixture` | What the entry is. |
+| `mode` | `read`, `write`, `mixed` | Mutation behavior. `mixed` is read-only analysis plus explicit, guarded mutating commands. |
+| `maturity` | `experimental`, `usable`, `stable` | `stable` is designated by the maintainer; `usable` means documented, CI green and installable. |
+| `public` | boolean | Mirrors `visibility`. |
+| `is_control_plane` | boolean, default `false` | True for the one entry that holds the registry and its governance rules: this hub. |
+| `official_overlap`, `overlap_note` | `none`, `partial`, `high`; text or `null` | Editorial note on overlap with an official Devin feature. It does not imply incompatibility or competition. |
+
+`devin-devkit` distributes the tools, `devin-powerups` is the semantic control
+plane and the source of truth for this metadata, and `devin-skill-catalog` is
+catalog and governance functionality. Contradictory combinations (a `surface`
+outside `navigation`, an `installer` that is not a distribution, and so on)
+fail validation, and the error names the broken rule.
+
+Private entries only need `public: false` and a `maturity`. A new public entry
+scaffolded with `tools/new-repo.py` gets the least-claiming placement; refine it
+with `--track`, `--role`, `--nature`, `--mode` and `--maturity`.
 
 ## Works with Devin alone (Devin-only mode)
 
