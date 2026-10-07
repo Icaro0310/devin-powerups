@@ -176,7 +176,7 @@ stored in this repository. A fork configures its own secrets/variables.
 
 The registry distinguishes public projects from maintainer-only records and
 treats every repository as an artifact. `artifact=tool` marks user-facing
-products (19 first-party `devin-*` entries today); `distribution`,
+products (the first-party `devin-*` entries); `distribution`,
 `infrastructure`, `suite` and `resource` separate the DevKit, hub, related
 collections and discovery documents from tools. `interfaces`, `audiences`,
 `platforms` and `environments` provide the metadata generators need for
