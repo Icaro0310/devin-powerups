@@ -568,7 +568,7 @@
           "supported": true,
           "runtime": "local-only",
           "delegation": "forbidden",
-          "external_dependencies": true,
+          "external_dependencies": false,
           "reason": "local generators work offline; GitHub-backed maintainer reports require explicit credentials"
         }
       },
