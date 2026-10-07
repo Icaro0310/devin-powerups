@@ -40,6 +40,19 @@ SCHEMA_PATH = HUB / "registry.schema.json"
 
 SKIP_DIRS = {".git", "__pycache__", ".pytest_cache"}
 
+# Least-claiming classification for a new public entry, by registry kind. The
+# maintainer refines it in registry.json (or with --track/--role/--nature/--mode).
+CLASSIFICATION = {
+    "project": {"track": "related", "role": "module", "nature": "product", "mode": "read"},
+    "infra": {"track": "platform", "role": "foundation", "nature": "infrastructure", "mode": "read"},
+    "distribution": {"track": "platform", "role": "installer", "nature": "distribution", "mode": "read"},
+}
+TRACKS = ["observe", "assure", "guard", "platform", "navigation", "foundation", "related"]
+ROLES = ["flagship", "module", "foundation", "installer", "catalog", "surface"]
+NATURES = ["product", "infrastructure", "distribution", "surface", "fixture"]
+MODES = ["read", "write", "mixed"]
+MATURITIES = ["experimental", "usable", "stable"]
+
 
 def fill(text: str, name: str, module: str, description: str) -> str:
     return (
@@ -102,6 +115,11 @@ def build_entry(
     requires_delegation: bool = False,
     requires_external_integration: str | None = None,
     requires_devin_vm: bool = False,
+    track: str | None = None,
+    role: str | None = None,
+    nature: str | None = None,
+    mode: str | None = None,
+    maturity: str = "experimental",
 ) -> dict:
     """Registry entry for a freshly scaffolded ``devin-<name>`` checkout."""
     artifact = {
@@ -161,8 +179,22 @@ def build_entry(
         environments[environment].update({
             "supported": False,
             "runtime": "unavailable",
+            "delegation": "forbidden",
             "reason": reason,
         })
+    chosen = {"track": track, "role": role, "nature": nature, "mode": mode}
+    if visibility == "public":
+        if kind not in CLASSIFICATION:
+            raise ValueError(f"--kind {kind} entries cannot be public")
+        merged = {**CLASSIFICATION[kind], **{k: v for k, v in chosen.items() if v}}
+        classification = {
+            "public": True, "nature": merged["nature"], "track": merged["track"], "role": merged["role"],
+            "mode": merged["mode"], "maturity": maturity, "official_overlap": "none", "overlap_note": None,
+        }
+    else:
+        if any(chosen.values()):
+            raise ValueError("--track/--role/--nature/--mode apply to public entries only")
+        classification = {"public": False, "maturity": maturity}
     return {
         "name": f"devin-{name}",
         "url": f"https://github.com/{owner}/devin-{name}",
@@ -175,6 +207,7 @@ def build_entry(
         "visibility": visibility,
         "wave": wave,
         "status": "active",
+        **classification,
         "stack": "python",
         "local_dir": f"../devin-{name}",
         "description": description,
@@ -285,6 +318,20 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="NAME",
         help="declare an external integration requirement; Corporate Windows is marked unsupported",
     )
+    for flag, values, what in (
+        ("--track", TRACKS, "primary public track"),
+        ("--role", ROLES, "role inside the track"),
+        ("--nature", NATURES, "what the entry is"),
+        ("--mode", MODES, "mutation behavior"),
+    ):
+        parser.add_argument(
+            flag, choices=values,
+            help=f"{what} for a public entry (default: least-claiming placement for --kind)",
+        )
+    parser.add_argument(
+        "--maturity", choices=MATURITIES, default="experimental",
+        help="registry maturity for the new entry (default: experimental)",
+    )
     parser.add_argument(
         "--registry",
         default=str(REGISTRY_PATH),
@@ -356,12 +403,14 @@ def main(argv: list[str] | None = None) -> int:
                 requires_delegation=args.requires_delegation,
                 requires_external_integration=args.requires_external_integration,
                 requires_devin_vm=args.requires_devin_vm,
+                track=args.track, role=args.role, nature=args.nature,
+                mode=args.mode, maturity=args.maturity,
             )
             merged = merge_registry(registry_path, entry)
         except ValueError as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 2
-        errors = _load_validator(Path(__file__).resolve().parent).validate(
+        errors = _load_validator(Path(__file__).resolve().parent).registry_errors(
             merged, schema
         )
         if errors:
@@ -409,8 +458,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"registered devin-{name} in {registry_path}")
 
     print(f"created {dest}")
+    visibility_flag = "--private" if args.visibility == "private" else "--public"
     print(f"next: cd {dest} && git add -A && git commit -m init && "
-          f"gh repo create Icaro0310/devin-{name} --public --source=. --push")
+          f"gh repo create Icaro0310/devin-{name} {visibility_flag} --source=. --push")
     return 0
 
 

@@ -207,8 +207,10 @@
           "interfaces",
           "audiences",
           "visibility",
+          "public",
           "wave",
           "status",
+          "maturity",
           "description"
         ],
         "properties": {
@@ -286,6 +288,44 @@
           "status": {
             "enum": ["active", "delivered"]
           },
+          "public": {
+            "type": "boolean",
+            "description": "Mirrors `visibility`: true for public entries, false otherwise. Public generators read this flag."
+          },
+          "nature": {
+            "enum": ["product", "infrastructure", "distribution", "surface", "fixture"],
+            "description": "What the entry is. product = user-facing tool, service or suite; infrastructure = foundation or maintainer layer other entries rely on; distribution = install channel; surface = discovery or navigation content (catalog, profile, site); fixture = synthetic data and generators used by tests, evals and demos. Independent of the structural `kind`."
+          },
+          "track": {
+            "enum": ["observe", "assure", "guard", "platform", "navigation", "foundation", "related"],
+            "description": "Primary public placement; an editorial classification, not a claim that one package implements it. observe = what happened in the agent and in the local data; assure = can the result be verified, measured and judged; guard = how execution is controlled and data protected; platform = how the ecosystem is installed, governed and distributed. navigation, foundation and related are supporting layers, not product tracks: navigation holds discovery surfaces, foundation holds entries that belong only to the foundation layer, related holds optional or adjacent projects and projects kept outside the main path."
+          },
+          "role": {
+            "enum": ["flagship", "module", "foundation", "installer", "catalog", "surface"],
+            "description": "Function inside the track. flagship = the public entry point of the ecosystem; module = a focused tool or fixture set; foundation = a layer other entries rely on (it also marks an entry that belongs to the foundation layer while sitting in a product track); installer = an install channel; catalog = inventory and governance functionality; surface = discovery content."
+          },
+          "mode": {
+            "enum": ["read", "write", "mixed"],
+            "description": "Mutation behavior of the entry's own executable surface. read = never modifies Devin stores, Devin or user configuration, or existing user files; it may write derived outputs of its own (exports, reports, indexes, caches), and passive content such as docs or manifests counts as read. write = its purpose is to modify data it does not own. mixed = read-only analysis plus explicit mutating commands, guarded (dry-run first, confirmation or an explicit apply flag) where supported."
+          },
+          "maturity": {
+            "enum": ["experimental", "usable", "stable"],
+            "description": "experimental = interfaces and behavior may change without notice and unattended use is not advised; usable = documented, tested in CI and installable through a supported path, interfaces may still change before 1.0; stable = a compatibility commitment designated by the maintainer."
+          },
+          "is_control_plane": {
+            "type": "boolean",
+            "default": false,
+            "description": "True for the one entry that holds the semantic registry and governance rules. Absent means false."
+          },
+          "official_overlap": {
+            "enum": ["none", "partial", "high"],
+            "description": "Editorial and governance field: how much the entry's concept overlaps an official Devin feature. It does not imply technical incompatibility or competition. none = no meaningful conceptual overlap; partial = overlaps an official concept but adds a distinct local, evidence or governance function; high = substantially the same function."
+          },
+          "overlap_note": {
+            "type": ["string", "null"],
+            "minLength": 1,
+            "description": "null when official_overlap is none; otherwise one sentence naming the official feature and what the entry adds."
+          },
           "version": {
             "type": "string",
             "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
@@ -342,6 +382,100 @@
               "required": ["visibility", "artifact"]
             },
             "then": {"required": ["platforms", "environments"]}
+          },
+          {
+            "description": "public entries are fully classified",
+            "if": {"properties": {"visibility": {"const": "public"}}, "required": ["visibility"]},
+            "then": {"required": ["nature", "track", "role", "mode", "official_overlap", "overlap_note"]}
+          },
+          {
+            "description": "public mirrors visibility",
+            "if": {"properties": {"visibility": {"const": "public"}}, "required": ["visibility"]},
+            "then": {"properties": {"public": {"const": true}}},
+            "else": {"properties": {"public": {"const": false}}}
+          },
+          {
+            "description": "overlap_note is null when official_overlap is none",
+            "if": {"properties": {"official_overlap": {"const": "none"}}, "required": ["official_overlap"]},
+            "then": {"properties": {"overlap_note": {"type": "null"}}}
+          },
+          {
+            "description": "partial or high overlap needs a note naming the official feature",
+            "if": {"properties": {"official_overlap": {"enum": ["partial", "high"]}}, "required": ["official_overlap"]},
+            "then": {"required": ["overlap_note"], "properties": {"overlap_note": {"type": "string"}}}
+          },
+          {
+            "description": "the control plane is the platform foundation infrastructure entry",
+            "if": {"properties": {"is_control_plane": {"const": true}}, "required": ["is_control_plane"]},
+            "then": {
+              "required": ["track", "role", "nature"],
+              "properties": {"track": {"const": "platform"}, "role": {"const": "foundation"}, "nature": {"const": "infrastructure"}}
+            }
+          },
+          {
+            "description": "a surface is a passive navigation entry",
+            "if": {"properties": {"nature": {"const": "surface"}}, "required": ["nature"]},
+            "then": {"properties": {"track": {"const": "navigation"}, "role": {"const": "surface"}, "mode": {"const": "read"}}}
+          },
+          {
+            "description": "the navigation track holds surfaces only",
+            "if": {"properties": {"track": {"const": "navigation"}}, "required": ["track"]},
+            "then": {"properties": {"nature": {"const": "surface"}, "role": {"const": "surface"}}}
+          },
+          {
+            "description": "the surface role belongs to surfaces",
+            "if": {"properties": {"role": {"const": "surface"}}, "required": ["role"]},
+            "then": {"properties": {"nature": {"const": "surface"}}}
+          },
+          {
+            "description": "a distribution is an installer in the platform track",
+            "if": {"properties": {"nature": {"const": "distribution"}}, "required": ["nature"]},
+            "then": {"properties": {"track": {"const": "platform"}, "role": {"const": "installer"}}}
+          },
+          {
+            "description": "the installer role belongs to distributions",
+            "if": {"properties": {"role": {"const": "installer"}}, "required": ["role"]},
+            "then": {"properties": {"nature": {"const": "distribution"}}}
+          },
+          {
+            "description": "infrastructure plays the foundation role",
+            "if": {"properties": {"nature": {"const": "infrastructure"}}, "required": ["nature"]},
+            "then": {"properties": {"role": {"const": "foundation"}}}
+          },
+          {
+            "description": "the foundation role belongs to infrastructure",
+            "if": {"properties": {"role": {"const": "foundation"}}, "required": ["role"]},
+            "then": {"properties": {"nature": {"const": "infrastructure"}}}
+          },
+          {
+            "description": "the foundation track holds foundation infrastructure",
+            "if": {"properties": {"track": {"const": "foundation"}}, "required": ["track"]},
+            "then": {"properties": {"role": {"const": "foundation"}, "nature": {"const": "infrastructure"}}}
+          },
+          {
+            "description": "the catalog role is platform governance functionality shipped as a product",
+            "if": {"properties": {"role": {"const": "catalog"}}, "required": ["role"]},
+            "then": {"properties": {"track": {"const": "platform"}, "nature": {"const": "product"}}}
+          },
+          {
+            "description": "the flagship is a product in a product track",
+            "if": {"properties": {"role": {"const": "flagship"}}, "required": ["role"]},
+            "then": {"properties": {"nature": {"const": "product"}, "track": {"enum": ["observe", "assure", "guard"]}}}
+          },
+          {
+            "description": "a fixture is a read-only module of the assure track",
+            "if": {"properties": {"nature": {"const": "fixture"}}, "required": ["nature"]},
+            "then": {"properties": {"track": {"const": "assure"}, "role": {"const": "module"}, "mode": {"const": "read"}}}
+          },
+          {
+            "description": "a module is a product or a fixture",
+            "if": {"properties": {"role": {"const": "module"}}, "required": ["role"]},
+            "then": {"properties": {"nature": {"enum": ["product", "fixture"]}}}
+          },
+          {
+            "description": "the related track holds product modules",
+            "if": {"properties": {"track": {"const": "related"}}, "required": ["track"]},
+            "then": {"properties": {"role": {"const": "module"}, "nature": {"const": "product"}}}
           }
         ]
       }
