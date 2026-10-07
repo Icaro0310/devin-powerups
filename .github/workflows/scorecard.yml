@@ -12,13 +12,15 @@ on:
   workflow_dispatch:
   workflow_call:
 
-permissions: read-all
+# No top-level `permissions`: a called workflow's requested scopes must be a
+# subset of what the caller grants, and `read-all` would demand every scope.
 
 jobs:
   analysis:
     name: Scorecard analysis
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       security-events: write
       id-token: write
     steps:

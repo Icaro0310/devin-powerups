@@ -40,11 +40,15 @@ permissions:
   pull-requests: write
 jobs:
   label:
+    permissions:
+      contents: read
+      pull-requests: write
     uses: Icaro0310/devin-powerups/.github/workflows/labeler.yml@v1
 ```
 
 ```yaml
-# scorecard.yml — callers grant the permissions the reusable needs.
+# scorecard.yml — the calling job must grant every scope the reusable
+# requests; missing grants fail at startup (startup_failure).
 name: OpenSSF Scorecard
 on:
   push:
@@ -56,6 +60,7 @@ permissions: read-all
 jobs:
   analysis:
     permissions:
+      contents: read
       security-events: write
       id-token: write
     uses: Icaro0310/devin-powerups/.github/workflows/scorecard.yml@v1
@@ -77,6 +82,10 @@ permissions:
   security-events: write
 jobs:
   analyze:
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
     uses: Icaro0310/devin-powerups/.github/workflows/codeql.yml@v1
 ```
 
@@ -91,10 +100,19 @@ permissions:
   contents: read
 jobs:
   test:
+    permissions:
+      contents: read
     uses: Icaro0310/devin-powerups/.github/workflows/python-test.yml@v1
   secrets-scan:
+    permissions:
+      contents: read
     uses: Icaro0310/devin-powerups/.github/workflows/secrets-scan.yml@v1
 ```
+
+Rule of thumb: the `permissions` on a `uses:` job must cover every scope the
+called workflow requests — GitHub rejects the run at startup otherwise
+(`startup_failure` with zero jobs). That is why callers declare explicit
+job-level permissions even when the workflow-level block already matches.
 
 ## Documented variants (intentionally NOT consolidated)
 
