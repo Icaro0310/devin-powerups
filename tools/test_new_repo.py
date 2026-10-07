@@ -192,6 +192,8 @@ class NewRepoTests(unittest.TestCase):
         entry = json.loads(self.registry.read_text(encoding="utf-8"))["repositories"][-1]
         self.assertFalse(entry["environments"]["linux"]["supported"])
         self.assertEqual(entry["environments"]["linux"]["reason"], "requires a Windows service")
+        self.assertEqual(entry["environments"]["linux"]["runtime"], "unavailable")
+        self.assertEqual(entry["environments"]["linux"]["delegation"], "forbidden")
         self.assertTrue(entry["environments"]["personal_windows"]["external_dependencies"])
         self.assertFalse(entry["environments"]["corporate_windows"]["supported"])
         self.assertEqual(entry["environments"]["corporate_windows"]["reason"], "requires external integration: slack")

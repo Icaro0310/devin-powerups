@@ -161,6 +161,7 @@ def build_entry(
         environments[environment].update({
             "supported": False,
             "runtime": "unavailable",
+            "delegation": "forbidden",
             "reason": reason,
         })
     return {
