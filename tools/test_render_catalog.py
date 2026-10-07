@@ -31,7 +31,7 @@ def test_profile_catalog_is_public_and_has_explicit_totals():
     registry = json.loads(REGISTRY.read_text(encoding="utf-8"))
     rendered = render_catalog.render_profile_catalog(registry)
 
-    assert "19 first-party tools · 3 distribution layer · 1 registry hub · 3 related artifacts (26 entries)" in rendered
+    assert "19 first-party tools · 3 distribution layers · 1 registry hub · 3 related artifacts (26 entries)" in rendered
     assert "devin-devkit" in rendered
     assert "devin-dashboard" not in rendered
     assert "personal-agent-system" not in rendered
