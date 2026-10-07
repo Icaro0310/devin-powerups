@@ -32,8 +32,9 @@ def render_profile_catalog(registry: dict) -> str:
     categories = registry["devkit"]["tools"]
     category_labels = {"qa": "QA", "evaluation": "Evaluation", "security": "Security", "memory": "Memory", "operations": "Operations", "governance": "Governance", "foundation": "Foundation"}
     entry_count = len(tools) + len(hubs) + len(distributions) + len(related)
+    plural = lambda n: "" if n == 1 else "s"  # noqa: E731
     lines = [
-        f"<summary><b>The ecosystem — {len(tools)} first-party tools · {len(distributions)} distribution layer · {len(hubs)} registry hub · {len(related)} related artifacts ({entry_count} entries)</b></summary>",
+        f"<summary><b>The ecosystem — {len(tools)} first-party tools · {len(distributions)} distribution layer{plural(len(distributions))} · {len(hubs)} registry hub{plural(len(hubs))} · {len(related)} related artifact{plural(len(related))} ({entry_count} entries)</b></summary>",
         "",
         "<br/>",
         "",
