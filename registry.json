@@ -225,7 +225,7 @@
         "manager": "uv",
         "source": "github",
         "package": "devin-evals",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "commands": [
           "devin-evals"
         ],
@@ -236,7 +236,7 @@
         ],
         "status": "source",
         "category": "evaluation",
-        "ref": "6b48c92cb60855ede0986cb47d0ea649f1db71c0"
+        "ref": "12f261ae5c1c46602cbfd929b4ba8e52da54c7af"
       },
       "devin-memory": {
         "manager": "uv",
@@ -1326,7 +1326,7 @@
       "maturity": "usable",
       "official_overlap": "partial",
       "overlap_note": "Complements official Devin Dreaming with deterministic, seed-controlled synthetic sessions carrying known defects (D01-D09) for reproducibility and agent assurance evaluation.",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "session": "chemical-jury",
       "stack": "python",
       "ci": "inline",
