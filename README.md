@@ -58,8 +58,9 @@ Each project adapts a proven tool with one Devin-specific capability that:
 2. disappears when Devin is removed; and
 3. can be explained in one sentence.
 
-The ecosystem tools are local-first and read-only by default, with explicit
-write actions where required and no telemetry.
+The ecosystem tools are local-first and send no telemetry. Read-only by default
+where applicable; mutating operations are explicit, guarded and dry-run first
+where supported.
 
 ## Run the maintainer tools
 
