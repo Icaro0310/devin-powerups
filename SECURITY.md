@@ -5,8 +5,9 @@
 - **No telemetry.** This project sends nothing to analytics or tracking.
 - **Network where the job requires it.** Maintainer scripts such as
   `refresh_devkit_refs.py` and `reconcile_registry.py` contact GitHub and
-  PyPI to fetch upstream references — that is their documented purpose.
-  Everything else runs locally.
+  PyPI to fetch upstream references, and `weekly_repo_report.py` fetches
+  GitHub data and can email the report through SMTP — that is their
+  documented purpose. Everything else runs locally.
 - **Data stays on your machine** apart from the fetches above.
 
 ## Sensitive data handling
