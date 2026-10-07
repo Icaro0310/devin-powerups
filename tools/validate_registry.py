@@ -2,14 +2,25 @@
 """validate_registry.py — validate registry.json against registry.schema.json.
 
 Dependency-free (stdlib only): implements the JSON Schema draft 2020-12 subset
-used by registry.schema.json — type, required, properties,
-additionalProperties, enum, items, minItems, pattern, minLength, minimum,
-minProperties. Unknown keywords are ignored (annotation behavior).
+used by registry.schema.json:
+
+    type, enum, const, required, properties, additionalProperties, items,
+    minItems, minProperties, minLength, pattern, minimum, $ref (local),
+    allOf, anyOf, not, if/then/else
+
+Annotation keywords ($schema, $id, $defs, $comment, title, description,
+default, examples, deprecated) are accepted and ignored. Any other keyword makes
+the schema check fail instead of being skipped silently, so a constraint
+written into the schema can never go unenforced. (An earlier version ignored
+unknown keywords, which hid a real violation behind an ``if``/``then`` rule.)
+
+On top of the schema, ``semantic_errors`` checks the rules JSON Schema cannot
+express across entries.
 
 Usage:
     python tools/validate_registry.py [registry.json] [--schema registry.schema.json]
 
-Exit codes: 0 = valid, 1 = validation errors, 2 = file/JSON problems.
+Exit codes: 0 = valid, 1 = validation errors, 2 = file/JSON/schema problems.
 """
 
 from __future__ import annotations
@@ -21,6 +32,16 @@ import sys
 from pathlib import Path
 
 HUB = Path(__file__).resolve().parent.parent
+
+ANNOTATIONS = frozenset({
+    "$schema", "$id", "$defs", "$comment", "title", "description",
+    "default", "examples", "deprecated",
+})
+SUPPORTED = frozenset({
+    "type", "enum", "const", "required", "properties", "additionalProperties",
+    "items", "minItems", "minProperties", "minLength", "pattern", "minimum",
+    "$ref", "allOf", "anyOf", "not", "if", "then", "else",
+})
 
 _TYPE_CHECKS = {
     "object": lambda v: isinstance(v, dict),
@@ -49,15 +70,81 @@ def _type_name(value) -> str:
     return "null"
 
 
-def validate(instance, schema: dict, path: str = "$") -> list[str]:
+def _same(a, b) -> bool:
+    """JSON equality: ``True`` is not ``1`` and ``1`` is not ``"1"``."""
+    if isinstance(a, bool) or isinstance(b, bool):
+        return isinstance(a, bool) and isinstance(b, bool) and a == b
+    if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+        return a == b
+    if isinstance(a, list) and isinstance(b, list):
+        return len(a) == len(b) and all(_same(x, y) for x, y in zip(a, b))
+    if isinstance(a, dict) and isinstance(b, dict):
+        return a.keys() == b.keys() and all(_same(a[k], b[k]) for k in a)
+    return type(a) is type(b) and a == b
+
+
+def _resolve(ref: str, root: dict):
+    """Resolve a local ``#/a/b`` JSON pointer; raise KeyError when missing."""
+    node = root
+    for part in ref[2:].split("/"):
+        node = node[part.replace("~1", "/").replace("~0", "~")]
+    return node
+
+
+def check_schema(schema, root: dict | None = None, path: str = "#") -> list[str]:
+    """Return problems that would make ``validate`` skip or misread a schema."""
+    root = schema if root is None else root
+    if not isinstance(schema, dict):
+        return [f"{path}: schema node is not an object"]
+    problems: list[str] = []
+    for key, value in schema.items():
+        if key in ANNOTATIONS:
+            if key == "$defs" and isinstance(value, dict):
+                for name, sub in value.items():
+                    problems.extend(check_schema(sub, root, f"{path}/$defs/{name}"))
+            continue
+        if key not in SUPPORTED:
+            problems.append(f"{path}: unsupported schema keyword {key!r}")
+        elif key == "properties":
+            for name, sub in value.items():
+                problems.extend(check_schema(sub, root, f"{path}/properties/{name}"))
+        elif key in ("items", "not", "if", "then", "else"):
+            problems.extend(check_schema(value, root, f"{path}/{key}"))
+        elif key == "additionalProperties" and isinstance(value, dict):
+            problems.extend(check_schema(value, root, f"{path}/{key}"))
+        elif key in ("allOf", "anyOf"):
+            for index, sub in enumerate(value):
+                problems.extend(check_schema(sub, root, f"{path}/{key}/{index}"))
+        elif key == "$ref":
+            if not (isinstance(value, str) and value.startswith("#/")):
+                problems.append(f"{path}: only local '#/...' $ref is supported, got {value!r}")
+            else:
+                try:
+                    _resolve(value, root)
+                except (KeyError, TypeError):
+                    problems.append(f"{path}: $ref {value!r} does not resolve")
+    return problems
+
+
+def validate(instance, schema: dict, path: str = "$", root: dict | None = None) -> list[str]:
     """Return a list of validation errors (empty = valid).
 
     ``path`` is a JSONPath-ish locator such as ``$.repositories[3].status``
-    so each error points at the offending value.
+    so each error points at the offending value. ``root`` is the document
+    ``$ref`` pointers resolve against; it defaults to ``schema``.
     """
+    root = schema if root is None else root
     errors: list[str] = []
     if not isinstance(schema, dict):
         return [f"{path}: schema node is not an object"]
+
+    if "$ref" in schema:
+        try:
+            target = _resolve(schema["$ref"], root)
+        except (KeyError, TypeError):
+            errors.append(f"{path}: cannot resolve $ref {schema['$ref']!r}")
+        else:
+            errors.extend(validate(instance, target, path, root))
 
     expected = schema.get("type")
     if expected is not None:
@@ -68,8 +155,11 @@ def validate(instance, schema: dict, path: str = "$") -> list[str]:
             )
             return errors  # type mismatch — deeper checks would be noise
 
-    if "enum" in schema and instance not in schema["enum"]:
+    if "enum" in schema and not any(_same(instance, option) for option in schema["enum"]):
         errors.append(f"{path}: {instance!r} is not one of {schema['enum']!r}")
+
+    if "const" in schema and not _same(instance, schema["const"]):
+        errors.append(f"{path}: expected {schema['const']!r}, got {instance!r}")
 
     if isinstance(instance, dict):
         for key in schema.get("required", []):
@@ -79,11 +169,11 @@ def validate(instance, schema: dict, path: str = "$") -> list[str]:
         additional = schema.get("additionalProperties", True)
         for key, value in instance.items():
             if key in properties:
-                errors.extend(validate(value, properties[key], f"{path}.{key}"))
+                errors.extend(validate(value, properties[key], f"{path}.{key}", root))
             elif additional is False:
                 errors.append(f"{path}: unexpected property {key!r}")
             elif isinstance(additional, dict):
-                errors.extend(validate(value, additional, f"{path}.{key}"))
+                errors.extend(validate(value, additional, f"{path}.{key}", root))
         min_props = schema.get("minProperties")
         if min_props is not None and len(instance) < min_props:
             errors.append(f"{path}: has {len(instance)} properties, minimum is {min_props}")
@@ -92,7 +182,7 @@ def validate(instance, schema: dict, path: str = "$") -> list[str]:
         item_schema = schema.get("items")
         if isinstance(item_schema, dict):
             for index, item in enumerate(instance):
-                errors.extend(validate(item, item_schema, f"{path}[{index}]"))
+                errors.extend(validate(item, item_schema, f"{path}[{index}]", root))
         min_items = schema.get("minItems")
         if min_items is not None and len(instance) < min_items:
             errors.append(f"{path}: has {len(instance)} items, minimum is {min_items}")
@@ -110,6 +200,32 @@ def validate(instance, schema: dict, path: str = "$") -> list[str]:
         if minimum is not None and instance < minimum:
             errors.append(f"{path}: {instance!r} is below minimum {minimum}")
 
+    for sub in schema.get("allOf", []):
+        errors.extend(validate(instance, sub, path, root))
+
+    if "anyOf" in schema:
+        if all(validate(instance, sub, path, root) for sub in schema["anyOf"]):
+            errors.append(f"{path}: does not match any allowed alternative")
+
+    if "not" in schema and not validate(instance, schema["not"], path, root):
+        errors.append(f"{path}: matches a schema it must not match")
+
+    if "if" in schema:
+        matched = not validate(instance, schema["if"], path, root)
+        branch = schema.get("then") if matched else schema.get("else")
+        if branch is not None:
+            note = f" [rule: {schema['description']}]" if "description" in schema else ""
+            errors.extend(f"{error}{note}" for error in validate(instance, branch, path, root))
+
+    return errors
+
+
+def semantic_errors(registry: dict) -> list[str]:
+    """Cross-entry rules that JSON Schema cannot express."""
+    errors: list[str] = []
+    names = [entry.get("name") for entry in registry.get("repositories", [])]
+    for name in sorted({n for n in names if names.count(n) > 1}, key=str):
+        errors.append(f"$.repositories: duplicate name {name!r}")
     return errors
 
 
@@ -137,7 +253,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"::error::{exc}", file=sys.stderr)
         return 2
 
-    errors = validate(registry, schema)
+    problems = check_schema(schema)
+    if problems:
+        print(f"{args.schema}: {len(problems)} schema problem(s):", file=sys.stderr)
+        for problem in problems:
+            print(f"  {problem}", file=sys.stderr)
+        return 2
+
+    errors = validate(registry, schema) + semantic_errors(registry)
     if errors:
         print(f"{args.registry}: {len(errors)} validation error(s):", file=sys.stderr)
         for error in errors:
