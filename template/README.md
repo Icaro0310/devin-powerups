@@ -27,6 +27,17 @@ One-line description of what this tool does.
 
 ## Install
 
+<!-- DIST-STATUS:BEGIN — generated from devin-powerups/registry.json -->
+> **Source-only distribution.** This tool is not yet published to PyPI.
+> Install from source:
+>
+> ```bash
+> pipx install git+https://github.com/Icaro0310/devin-{{name}}.git
+> # or
+> uv tool install git+https://github.com/Icaro0310/devin-{{name}}.git
+> ```
+<!-- DIST-STATUS:END -->
+
 Choose the environment guide for setup and install commands:
 
 - [Linux](README.linux.md)

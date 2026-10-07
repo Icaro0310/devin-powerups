@@ -17,7 +17,7 @@ import json
 HUB = Path(__file__).resolve().parent.parent
 BEGIN = re.compile(r"<!--\s*DIST-STATUS:BEGIN")
 END = re.compile(r"<!--\s*DIST-STATUS:END")
-GIT_URL = re.compile(r"git\+https://github\.com/Icaro0310/[\w.-]+")
+GIT_URL = "github.com/Icaro0310/{name}.git"
 
 
 def errors_for(entry: dict, root: Path) -> list[str]:
@@ -32,15 +32,17 @@ def errors_for(entry: dict, root: Path) -> list[str]:
     if not readme.is_file():
         return [f"{name}: checkout exists but README.md is missing"]
     text = readme.read_text(encoding="utf-8", errors="replace")
-    has_block = bool(BEGIN.search(text) and END.search(text))
+    begin = BEGIN.search(text)
+    end = END.search(text)
+    has_block = bool(begin and end and begin.start() < end.start())
     problems = []
     if status == "source_only":
         if not has_block:
             problems.append(f"{name}: source_only but README lacks a DIST-STATUS block")
-        elif not GIT_URL.search(text):
-            problems.append(f"{name}: DIST-STATUS block lacks a git+https install line")
-    elif status == "published" and has_block:
-        problems.append(f"{name}: published but README still carries a DIST-STATUS block")
+        elif GIT_URL.format(name=name) not in text[begin.start():end.end()]:
+            problems.append(f"{name}: DIST-STATUS block lacks this repo's github.com install URL")
+    elif status == "published" and (begin or end):
+        problems.append(f"{name}: published but README still carries a DIST-STATUS marker")
     return problems
 
 
