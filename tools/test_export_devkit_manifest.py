@@ -54,23 +54,42 @@ def test_manifest_does_not_include_private_or_non_tool_repositories():
 
 
 def test_manifest_uses_pypi_names_and_real_cli_entrypoints():
-    manifest = exporter.build_manifest(load_registry())
+    registry = load_registry()
+    manifest = exporter.build_manifest(registry)
     tools = {tool["id"]: tool for tool in manifest["tools"]}
 
-    assert tools["devin-internals-spec"]["install_spec"] == "devin-internals-spec==0.3.0"
-    assert tools["devin-memory"]["install_spec"] == "devin-memory[mcp]==0.3.0"
     assert tools["devin-qa-pack"]["commands"] == ["devin-qa-pack"]
     assert tools["devin-orchestrator"]["package"] == "devin-fanout"
     assert tools["devin-orchestrator"]["commands"] == ["devin-orchestrator"]
     assert tools["devin-bridge"]["manager"] == "npm"
     assert tools["devin-bridge"]["runtime"] == "node>=20"
-    assert tools["devin-bridge"]["install_spec"].startswith("https://github.com/Icaro0310/devin-bridge/archive/")
-    assert tools["devin-bridge"]["requires_git"] is False
-    assert tools["devin-doctor"]["install_spec"].startswith("https://github.com/Icaro0310/devin-doctor/archive/")
-    assert tools["devin-doctor"]["requires_git"] is False
+    assert tools["devin-memory"]["install_spec"].startswith("devin-memory[mcp]==")
     assert manifest["git_required_tools"] == []
+    assert all(tool["requires_git"] is False for tool in tools.values())
     assert tools["devin-office"]["install_spec"] is None
     assert tools["devin-office"]["status"] == "manual"
+
+
+def test_install_spec_follows_the_registry_source():
+    # The PyPI/npm flip jobs change `source` on their own, so the channel of a
+    # given tool must not be frozen here; the spec shape must follow the source.
+    registry = load_registry()
+    manifest = exporter.build_manifest(registry)
+    repos = {repo["name"]: repo for repo in registry["repositories"]}
+    seen = set()
+    for tool in manifest["tools"]:
+        declared = registry["devkit"]["tools"][tool["id"]]
+        seen.add(declared["source"])
+        spec = tool["install_spec"]
+        if declared["source"] == "pypi":
+            assert spec.startswith(declared["package"]) and spec.endswith(f"=={declared['version']}")
+        elif declared["source"] == "npm":
+            assert spec == f"{declared['package']}@{declared['version']}"
+        elif declared["source"] == "github":
+            assert spec == f"{repos[tool['id']]['url']}/archive/{declared['ref']}.tar.gz"
+        else:
+            assert spec is None
+    assert {"pypi", "npm", "manual"} <= seen
 
 
 def test_profiles_only_reference_known_tools():
