@@ -325,23 +325,6 @@
         "category": "operations",
         "manual_note": "Source-only dashboard service; no distributable package metadata yet."
       },
-      "devin-dream": {
-        "manager": "uv",
-        "source": "github",
-        "package": "devin-dream",
-        "version": "0.1.0",
-        "commands": [
-          "devin-dream"
-        ],
-        "runtime": "python>=3.10",
-        "platforms": [
-          "windows",
-          "linux"
-        ],
-        "status": "source",
-        "category": "evaluation",
-        "ref": "f1dfebceee3129f78a7e3c60dad3275960e17886"
-      },
       "devin-switch": {
         "manager": "uv",
         "source": "github",
@@ -411,8 +394,7 @@
         "tools": [
           "devin-internals-spec",
           "devin-evals",
-          "devin-metrics",
-          "devin-dream"
+          "devin-metrics"
         ]
       },
       "security": {
@@ -492,7 +474,6 @@
           "devin-janitor",
           "devin-bridge",
           "devin-orchestrator",
-          "devin-dream",
           "devin-switch",
           "devin-skill-catalog",
           "poordjaevin"
@@ -520,7 +501,6 @@
           "devin-janitor",
           "devin-bridge",
           "devin-orchestrator",
-          "devin-dream",
           "devin-switch",
           "devin-skill-catalog",
           "poordjaevin"
@@ -1344,14 +1324,14 @@
       "role": "module",
       "mode": "read",
       "maturity": "usable",
-      "official_overlap": "none",
-      "overlap_note": null,
+      "official_overlap": "partial",
+      "overlap_note": "Complements official Devin Dreaming with deterministic, seed-controlled synthetic sessions carrying known defects (D01-D09) for reproducibility and agent assurance evaluation.",
       "version": "0.1.0",
       "session": "chemical-jury",
       "stack": "python",
       "ci": "inline",
-      "tests": 62,
-      "description": "Deterministic eval harness: replay recorded sessions against rubric graders.",
+      "tests": 195,
+      "description": "Deterministic eval harness: replay recorded sessions against rubric graders; the `dream` subgroup generates synthetic sessions with known verdicts (D01-D09, absorbs devin-dream).",
       "distribution_status": "source_only"
     },
     {
@@ -1833,61 +1813,6 @@
       "official_overlap": "none",
       "overlap_note": null,
       "description": "Curated awesome-list of Devin tooling and resources (CC0)."
-    },
-    {
-      "name": "devin-dream",
-      "url": "https://github.com/Icaro0310/devin-dream",
-      "kind": "project",
-      "artifact": "tool",
-      "interfaces": [
-        "cli",
-        "library"
-      ],
-      "audiences": [
-        "qa",
-        "ai-engineers"
-      ],
-      "platforms": [
-        "windows",
-        "linux"
-      ],
-      "environments": {
-        "linux": {
-          "supported": true,
-          "runtime": "extended",
-          "delegation": "optional",
-          "external_dependencies": false
-        },
-        "personal_windows": {
-          "supported": true,
-          "runtime": "extended",
-          "delegation": "optional",
-          "external_dependencies": false
-        },
-        "corporate_windows": {
-          "supported": true,
-          "runtime": "local-only",
-          "delegation": "forbidden",
-          "external_dependencies": false
-        }
-      },
-      "visibility": "public",
-      "wave": 2,
-      "status": "active",
-      "public": true,
-      "nature": "fixture",
-      "track": "assure",
-      "role": "module",
-      "mode": "read",
-      "maturity": "usable",
-      "official_overlap": "partial",
-      "overlap_note": "Name overlap with official Devin Dreaming, which consolidates memory notes in the background. devin-dream does something else: it generates synthetic Devin sessions with known verdicts as fixtures for graders and demos.",
-      "version": "0.1.0",
-      "stack": "python",
-      "ci": "inline",
-      "tests": 14,
-      "description": "Synthetic Devin sessions with known verdicts — labeled defects (D01-D09), adversarial inject mode, and fleet generation. Regression/adversarial test data for the catalog.",
-      "distribution_status": "source_only"
     },
     {
       "name": "devin-switch",

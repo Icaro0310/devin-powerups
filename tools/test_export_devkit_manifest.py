@@ -27,13 +27,13 @@ def test_manifest_is_repeatable_and_counts_tools_separately_from_hub():
 
     assert first == second
     assert first["catalog"] == {
-        "tool_count": 19,
+        "tool_count": 18,
         "distribution_count": 3,
         "hub_count": 1,
         "related_count": 3,
-        "entry_count": 26,
+        "entry_count": 25,
     }
-    assert len(first["tools"]) == 20
+    assert len(first["tools"]) == 19
 
 
 def test_manifest_does_not_include_private_or_non_tool_repositories():

@@ -214,7 +214,7 @@ def test_every_combination_agrees_with_the_jsonschema_reference():
 # governance decision: update this table in the same pull request.
 APPROVED_TRACKS = {
     "observe": ["devin-internals-spec", "devin-doctor", "devin-history", "devin-search", "devin-graph", "devin-office"],
-    "assure": ["devin-qa-pack", "devin-evals", "devin-metrics", "poordjaevin", "devin-dream"],
+    "assure": ["devin-qa-pack", "devin-evals", "devin-metrics", "poordjaevin"],
     "guard": ["devin-bridge", "devin-orchestrator", "devin-switch", "devin-redact", "devin-backup", "devin-janitor", "devin-memory"],
     "platform": ["devin-devkit", "devin-powerups", "devin-skill-catalog", "homebrew-tap", "scoop-bucket"],
     "navigation": ["awesome-devin"],
@@ -226,7 +226,7 @@ PUBLIC_ENTRIES = [e for e in REGISTRY["repositories"] if e["visibility"] == "pub
 
 def test_every_public_entry_is_classified_in_exactly_the_approved_track():
     expected = {name: track for track, names in APPROVED_TRACKS.items() for name in names}
-    assert len(expected) == len(PUBLIC_ENTRIES) == 26
+    assert len(expected) == len(PUBLIC_ENTRIES) == 25
     assert {e["name"]: e["track"] for e in PUBLIC_ENTRIES} == expected
 
 
@@ -254,7 +254,7 @@ def test_devin_powerups_is_the_only_control_plane():
 
 def test_official_overlap_is_declared_only_where_the_repository_documents_it():
     partial = {e["name"] for e in PUBLIC_ENTRIES if e["official_overlap"] == "partial"}
-    assert partial == {"devin-memory", "devin-dream", "devin-skill-catalog"}
+    assert partial == {"devin-memory", "devin-evals", "devin-skill-catalog"}
     assert not [e for e in PUBLIC_ENTRIES if e["official_overlap"] == "high"]
     for e in PUBLIC_ENTRIES:
         if e["official_overlap"] == "none":
@@ -266,7 +266,8 @@ def test_official_overlap_is_declared_only_where_the_repository_documents_it():
 def test_flagship_fixture_and_surface_are_unique():
     roles = [e["role"] for e in PUBLIC_ENTRIES]
     assert roles.count("flagship") == 1 and BY_NAME["devin-qa-pack"]["role"] == "flagship"
-    assert [e["name"] for e in PUBLIC_ENTRIES if e["nature"] == "fixture"] == ["devin-dream"]
+    # the only fixture (devin-dream) was absorbed into devin-evals (P4)
+    assert [e["name"] for e in PUBLIC_ENTRIES if e["nature"] == "fixture"] == []
     assert [e["name"] for e in PUBLIC_ENTRIES if e["nature"] == "surface"] == ["awesome-devin"]
 
 
@@ -283,7 +284,7 @@ def test_distribution_status_is_declared_on_public_products_and_fixtures():
         if e["nature"] in ("product", "fixture"):
             assert e.get("distribution_status") in VOCABULARY["distribution_status"], e["name"]
     assert {e["name"] for e in PUBLIC_ENTRIES if e.get("distribution_status") == "source_only"} == {
-        "devin-backup", "devin-dream", "devin-evals", "devin-graph", "devin-janitor",
+        "devin-backup", "devin-evals", "devin-graph", "devin-janitor",
         "devin-metrics", "devin-search", "devin-skill-catalog", "devin-switch",
         "devin-office", "qwenpaw-suite"}
 
