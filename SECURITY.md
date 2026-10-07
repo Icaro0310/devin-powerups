@@ -2,11 +2,12 @@
 
 ## What this tool does with your data
 
-- **No telemetry.** This project sends nothing anywhere.
-- **No network by default.** All processing is local unless a command
-  explicitly says otherwise (and it will say so in `--help`).
-- **Data stays on your machine.** Files it reads and writes are documented
-  in the README.
+- **No telemetry.** This project sends nothing to analytics or tracking.
+- **Network where the job requires it.** Maintainer scripts such as
+  `refresh_devkit_refs.py` and `reconcile_registry.py` contact GitHub and
+  PyPI to fetch upstream references — that is their documented purpose.
+  Everything else runs locally.
+- **Data stays on your machine** apart from the fetches above.
 
 ## Sensitive data handling
 
