@@ -1109,7 +1109,7 @@
       "ci": "inline",
       "tests": 70,
       "description": "Local-only session observability: activity, context size, and token peaks per project/model/day; zero telemetry. Devin does not persist cost fields, so cost is not claimed. Includes an optional dashboard subpackage and command.",
-      "distribution_status": "source_only"
+      "distribution_status": "published"
     },
     {
       "name": "devin-backup",
