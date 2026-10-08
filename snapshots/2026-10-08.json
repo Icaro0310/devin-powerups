@@ -77,9 +77,9 @@
       "clones_14d": 2578,
       "unique_cloners_14d": 779,
       "ci": {
-        "runs_14d": 100,
-        "pass_rate_14d": 0.96,
-        "failures_14d": 4
+        "runs_14d": 178,
+        "pass_rate_14d": 0.927,
+        "failures_14d": 13
       }
     },
     "devin-redact": {
@@ -93,9 +93,9 @@
       "clones_14d": 874,
       "unique_cloners_14d": 312,
       "ci": {
-        "runs_14d": 100,
-        "pass_rate_14d": 0.94,
-        "failures_14d": 6
+        "runs_14d": 113,
+        "pass_rate_14d": 0.876,
+        "failures_14d": 14
       }
     },
     "devin-history": {
@@ -109,9 +109,9 @@
       "clones_14d": 573,
       "unique_cloners_14d": 154,
       "ci": {
-        "runs_14d": 100,
-        "pass_rate_14d": 0.95,
-        "failures_14d": 5
+        "runs_14d": 134,
+        "pass_rate_14d": 0.91,
+        "failures_14d": 12
       }
     },
     "devin-doctor": {
@@ -125,9 +125,9 @@
       "clones_14d": 624,
       "unique_cloners_14d": 171,
       "ci": {
-        "runs_14d": 100,
-        "pass_rate_14d": 0.94,
-        "failures_14d": 6
+        "runs_14d": 165,
+        "pass_rate_14d": 0.927,
+        "failures_14d": 12
       }
     },
     "devin-pm": {
@@ -157,9 +157,9 @@
       "clones_14d": 943,
       "unique_cloners_14d": 243,
       "ci": {
-        "runs_14d": 100,
-        "pass_rate_14d": 0.97,
-        "failures_14d": 3
+        "runs_14d": 218,
+        "pass_rate_14d": 0.954,
+        "failures_14d": 10
       }
     },
     "devin-metrics": {
@@ -173,9 +173,9 @@
       "clones_14d": 567,
       "unique_cloners_14d": 178,
       "ci": {
-        "runs_14d": 100,
-        "pass_rate_14d": 0.92,
-        "failures_14d": 8
+        "runs_14d": 102,
+        "pass_rate_14d": 0.902,
+        "failures_14d": 10
       }
     },
     "devin-backup": {
@@ -237,9 +237,9 @@
       "clones_14d": 680,
       "unique_cloners_14d": 199,
       "ci": {
-        "runs_14d": 100,
-        "pass_rate_14d": 0.89,
-        "failures_14d": 11
+        "runs_14d": 150,
+        "pass_rate_14d": 0.86,
+        "failures_14d": 21
       }
     },
     "devin-memory": {
@@ -253,9 +253,9 @@
       "clones_14d": 678,
       "unique_cloners_14d": 232,
       "ci": {
-        "runs_14d": 100,
-        "pass_rate_14d": 0.88,
-        "failures_14d": 12
+        "runs_14d": 128,
+        "pass_rate_14d": 0.883,
+        "failures_14d": 15
       }
     },
     "devin-janitor": {
@@ -285,9 +285,9 @@
       "clones_14d": 620,
       "unique_cloners_14d": 185,
       "ci": {
-        "runs_14d": 100,
-        "pass_rate_14d": 0.98,
-        "failures_14d": 2
+        "runs_14d": 122,
+        "pass_rate_14d": 0.91,
+        "failures_14d": 11
       }
     },
     "devin-orchestrator": {
@@ -405,13 +405,13 @@
   },
   "downloads": {
     "devin-internals-spec": {
-      "pypi_last_day": 501,
-      "pypi_last_week": 879,
+      "pypi_last_day": 622,
+      "pypi_last_week": 1501,
       "pypi_last_month": 378
     },
     "devin-redact": {
-      "pypi_last_day": 7,
-      "pypi_last_week": 153,
+      "pypi_last_day": 6,
+      "pypi_last_week": 159,
       "pypi_last_month": 146
     },
     "devin-history": {
@@ -419,12 +419,12 @@
       "pypi_last_week": null,
       "pypi_last_month": null,
       "errors": [
-        "https://pypistats.org/api/packages/devin-history/recent: HTTP Error 404: Not Found"
+        "https://pypistats.org/api/packages/devin-history/recent: HTTP Error 429: Too Many Requests"
       ]
     },
     "devin-doctor": {
-      "pypi_last_day": 7,
-      "pypi_last_week": 107,
+      "pypi_last_day": 11,
+      "pypi_last_week": 118,
       "pypi_last_month": 100
     },
     "devin-pm": {
@@ -432,25 +432,22 @@
       "pypi_last_week": null,
       "pypi_last_month": null,
       "errors": [
-        "https://pypistats.org/api/packages/devin-pm/recent: HTTP Error 404: Not Found"
+        "https://pypistats.org/api/packages/devin-pm/recent: HTTP Error 429: Too Many Requests"
       ]
     },
     "devin-qa-pack": {
-      "pypi_last_day": 7,
-      "pypi_last_week": 116,
+      "pypi_last_day": 10,
+      "pypi_last_week": 126,
       "pypi_last_month": 109
     },
     "devin-metrics": {
-      "pypi_last_day": null,
-      "pypi_last_week": null,
-      "pypi_last_month": null,
-      "errors": [
-        "https://pypistats.org/api/packages/devin-metrics/recent: HTTP Error 404: Not Found"
-      ]
+      "pypi_last_day": 84,
+      "pypi_last_week": 84,
+      "pypi_last_month": 0
     },
     "devin-memory": {
-      "pypi_last_day": 6,
-      "pypi_last_week": 145,
+      "pypi_last_day": 4,
+      "pypi_last_week": 149,
       "pypi_last_month": 139
     },
     "@icaro0310/devin-bridge": {
@@ -460,13 +457,13 @@
       ]
     },
     "devin-fanout": {
-      "pypi_last_day": 81,
-      "pypi_last_week": 81,
+      "pypi_last_day": 8,
+      "pypi_last_week": 89,
       "pypi_last_month": 0
     },
     "poordjaevin": {
-      "pypi_last_day": 94,
-      "pypi_last_week": 94,
+      "pypi_last_day": 13,
+      "pypi_last_week": 107,
       "pypi_last_month": 0
     }
   }

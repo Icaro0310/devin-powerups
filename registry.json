@@ -70,7 +70,7 @@
           "linux"
         ],
         "status": "published",
-        "category": "understand"
+        "category": "foundation"
       },
       "devin-redact": {
         "manager": "uv",
@@ -86,7 +86,7 @@
           "linux"
         ],
         "status": "published",
-        "category": "protect"
+        "category": "security"
       },
       "devin-history": {
         "manager": "uv",
@@ -102,7 +102,7 @@
           "linux"
         ],
         "status": "published",
-        "category": "understand"
+        "category": "operations"
       },
       "devin-doctor": {
         "manager": "uv",
@@ -118,7 +118,7 @@
           "linux"
         ],
         "status": "published",
-        "category": "verify"
+        "category": "qa"
       },
       "devin-pm": {
         "manager": "uv",
@@ -134,7 +134,7 @@
           "linux"
         ],
         "status": "published",
-        "category": "control"
+        "category": "operations"
       },
       "devin-qa-pack": {
         "manager": "uv",
@@ -150,7 +150,7 @@
           "linux"
         ],
         "status": "published",
-        "category": "verify"
+        "category": "qa"
       },
       "devin-metrics": {
         "manager": "uv",
@@ -167,7 +167,7 @@
           "linux"
         ],
         "status": "published",
-        "category": "measure"
+        "category": "evaluation"
       },
       "devin-backup": {
         "manager": "uv",
@@ -183,7 +183,7 @@
           "linux"
         ],
         "status": "source",
-        "category": "protect",
+        "category": "operations",
         "ref": "c16e23e66e1b8509ea68f5ccd5c42df9665f201b"
       },
       "devin-search": {
@@ -200,7 +200,7 @@
           "linux"
         ],
         "status": "source",
-        "category": "understand",
+        "category": "memory",
         "ref": "96b49eba2f0ba3758dd63579e64d64cd5bfe289b"
       },
       "devin-graph": {
@@ -217,7 +217,7 @@
           "linux"
         ],
         "status": "source",
-        "category": "understand",
+        "category": "memory",
         "ref": "ebb8fc12e97dc6b1db28778c329da70767d4b502"
       },
       "devin-evals": {
@@ -234,7 +234,7 @@
           "linux"
         ],
         "status": "source",
-        "category": "measure",
+        "category": "evaluation",
         "ref": "12f261ae5c1c46602cbfd929b4ba8e52da54c7af"
       },
       "devin-memory": {
@@ -253,7 +253,7 @@
           "linux"
         ],
         "status": "published",
-        "category": "understand",
+        "category": "memory",
         "extras": [
           "mcp"
         ]
@@ -272,7 +272,7 @@
           "linux"
         ],
         "status": "source",
-        "category": "protect",
+        "category": "security",
         "ref": "f9aee000205b8e5c29cfb407f177217be38790e3"
       },
       "devin-bridge": {
@@ -289,7 +289,7 @@
           "linux"
         ],
         "status": "published",
-        "category": "control"
+        "category": "security"
       },
       "devin-orchestrator": {
         "manager": "uv",
@@ -305,7 +305,7 @@
           "linux"
         ],
         "status": "published",
-        "category": "control"
+        "category": "operations"
       },
       "devin-office": {
         "manager": "manual",
@@ -321,7 +321,7 @@
           "linux"
         ],
         "status": "manual",
-        "category": "understand",
+        "category": "operations",
         "manual_note": "Source-only dashboard service; no distributable package metadata yet."
       },
       "devin-switch": {
@@ -338,7 +338,7 @@
           "linux"
         ],
         "status": "source",
-        "category": "control",
+        "category": "governance",
         "ref": "cbae07fd0215b3c57235b2b02833a004721bec6f"
       },
       "devin-skill-catalog": {
@@ -355,7 +355,7 @@
           "linux"
         ],
         "status": "source",
-        "category": "control",
+        "category": "governance",
         "ref": "cffb914365109fa93822c9abb1ced8bfaad01398"
       },
       "poordjaevin": {
@@ -372,7 +372,7 @@
           "linux"
         ],
         "status": "published",
-        "category": "judge"
+        "category": "governance"
       }
     },
     "profiles": {
@@ -773,7 +773,7 @@
       "stack": "python",
       "ci": "inline",
       "tests": 52,
-      "description": "Documents Devin's local stores (sessions DB, ACP, state) with schema-version detection and the devin-inspect CLI.",
+      "description": "Documented internals of Devin Desktop/CLI stores + schema-version detection + fixtures + devin-inspect CLI.",
       "tag": "v0.3.0",
       "distribution_status": "published"
     },
@@ -831,7 +831,7 @@
       "ci": "inline",
       "tests": 23,
       "tag": "v0.2.0",
-      "description": "Scrubs secrets and PII from Devin stores in place, aware of tool-call semantics, with a verification pass.",
+      "description": "Secret/PII redaction that understands Devin tool-call semantics, in-place in SQLite, with a verification gate.",
       "distribution_status": "published"
     },
     {
@@ -886,7 +886,7 @@
       "stack": "python",
       "ci": "inline",
       "tests": 44,
-      "description": "Exports Devin session history to Markdown, JSON or CSV; audit-ready and Obsidian-ready.",
+      "description": "Export and audit Devin session history — markdown notes, JSON, CSV, Obsidian-ready.",
       "distribution_status": "published"
     },
     {
@@ -941,7 +941,7 @@
       "stack": "python",
       "ci": "inline",
       "tests": 53,
-      "description": "Verifies a Devin install end to end (stores, schema, locks, config, disk) and suggests fixes.",
+      "description": "Diagnose a Devin Desktop installation: stores, schema, locks, config, disk — with fix suggestions.",
       "distribution_status": "published"
     },
     {
@@ -997,7 +997,7 @@
       "stack": "python",
       "ci": "inline",
       "tests": 53,
-      "description": "Rolls sessions up into per-repo projects with milestones and status reports.",
+      "description": "Project manager over sessions: per-repo rollups, milestones, status reports, registry.json.",
       "distribution_status": "published"
     },
     {
@@ -1052,7 +1052,7 @@
       "stack": "python",
       "ci": "inline",
       "tests": 45,
-      "description": "Audits a session's delivery claims against recorded tool-call evidence; verdict PASS, PARTIAL or UNVERIFIED.",
+      "description": "Flagship QA audit: verifies session deliverable claims against tool-call ground truth and reports PASS/PARTIAL/UNVERIFIED.",
       "distribution_status": "published"
     },
     {
@@ -1108,7 +1108,7 @@
       "stack": "python",
       "ci": "inline",
       "tests": 70,
-      "description": "Measures local session activity, context size and token peaks per project, model and day; no telemetry, no cost claims.",
+      "description": "Local-only session observability: activity, context size, and token peaks per project/model/day; zero telemetry. Devin does not persist cost fields, so cost is not claimed. Includes an optional dashboard subpackage and command.",
       "distribution_status": "published"
     },
     {
@@ -1163,7 +1163,7 @@
       "stack": "python",
       "ci": "inline",
       "tests": 48,
-      "description": "Snapshots, verifies, restores and rotates Devin stores with schema-version manifests.",
+      "description": "Safe snapshot/verify/restore/rotate of Devin stores with schema-version manifests.",
       "distribution_status": "source_only"
     },
     {
@@ -1218,7 +1218,7 @@
       "stack": "python",
       "ci": "inline",
       "tests": 35,
-      "description": "Full-text search (FTS5) over all Devin sessions, tagged by role and filterable by project.",
+      "description": "FTS5 full-text search across all Devin sessions, role-tagged and project-filtered.",
       "distribution_status": "source_only"
     },
     {
@@ -1274,7 +1274,7 @@
       "stack": "python",
       "ci": "inline",
       "tests": 57,
-      "description": "Builds a queryable graph linking sessions, projects, files touched and tools used.",
+      "description": "Knowledge graph: sessions, projects, files touched, tools used — queryable edges.",
       "distribution_status": "source_only"
     },
     {
@@ -1330,7 +1330,7 @@
       "stack": "python",
       "ci": "inline",
       "tests": 195,
-      "description": "Replays recorded sessions against deterministic rubric graders; `dream` generates synthetic sessions with known verdicts.",
+      "description": "Deterministic eval harness: replay recorded sessions against rubric graders; the `dream` subgroup generates synthetic sessions with known verdicts (D01-D09, absorbs devin-dream).",
       "distribution_status": "source_only"
     },
     {
@@ -1388,7 +1388,7 @@
       "stack": "python",
       "ci": "inline",
       "tests": 161,
-      "description": "Persistent memory store for sessions, with provenance, versioning and a quarantine gate against poisoning.",
+      "description": "Anti-poisoning memory store: provenance, versioning, quarantine gate, and session-learning utilities.",
       "distribution_status": "published"
     },
     {
@@ -1444,7 +1444,7 @@
       "stack": "python",
       "ci": "inline",
       "tests": 54,
-      "description": "Deletes stale sessions safely: exports before deleting, classifies by tier, consults the judge, retries locked stores.",
+      "description": "Session lifecycle janitor: export-then-delete pipeline, tiered classification, pluggable judge, pending-retry for locked stores.",
       "distribution_status": "source_only"
     },
     {
@@ -1512,7 +1512,7 @@
       "stack": "node",
       "ci": "inline",
       "tests": 55,
-      "description": "Runs per-repo ACP sessions behind an allow/deny/ask permission policy (Node.js).",
+      "description": "Policy-gated ACP client (Node.js, CI matrix Node 22 + 24): isolated sessions per repo with allow/deny/ask permission policy.",
       "distribution_status": "published"
     },
     {
@@ -1567,7 +1567,7 @@
       "stack": "python",
       "ci": "inline",
       "tests": 29,
-      "description": "Fans out background workers under a deterministic cap (max 3, no nesting) with collect-before-report.",
+      "description": "Background-worker fan-out policy: deterministic planner enforcing worker caps (max 3), no nesting, read-only profiles for review, collect-before-report. Skill + always-on rule.",
       "note": "PyPI distribution is devin-fanout because devin-orchestrator is occupied; console command remains devin-orchestrator. Absorbed devin-subagent-orchestrator draft (never published).",
       "distribution_status": "published"
     },
@@ -1671,7 +1671,7 @@
       "overlap_note": null,
       "stack": "python",
       "local_dir": "../devin-office",
-      "description": "Renders live Devin sessions and subagents on a local SVG dashboard; standalone or probe-to-hub split mode.",
+      "description": "Local-first Devin session and subagent dashboard with standalone and optional split modes.",
       "version": "0.1.0",
       "tag": "v0.1.0",
       "distribution_status": "source_only"
@@ -1783,7 +1783,7 @@
       "overlap_note": null,
       "stack": "python",
       "local_dir": "../poordjaevin",
-      "description": "Djævin: calibrated decision layer. Typed questions get answers with measured confidence via Devin's own model (ACP) or a fully-offline NLI backend.",
+      "description": "Djævin: calibrated local-first decision layer with typed questions and honest confidence. The Devin ACP backend reuses the model your Devin CLI already runs (no extra download, no API key); the local NLI backend stays as a fully-offline fallback.",
       "version": "0.1.0",
       "tag": "v0.1.0",
       "distribution_status": "published"
@@ -1864,7 +1864,7 @@
       "stack": "python",
       "ci": "inline",
       "tests": 70,
-      "description": "Swaps Devin config profiles (hooks, MCP, models) atomically with snapshot and rollback; dry-run by default.",
+      "description": "Switch between Devin configuration profiles (hooks, MCP, models) with snapshot, sha256 verify, atomic write, journal and rollback. Dry-run by default; secrets never printed.",
       "distribution_status": "source_only"
     },
     {
@@ -1919,7 +1919,7 @@
       "stack": "python",
       "ci": "inline",
       "tests": 68,
-      "description": "Controls the .devin skills/rules lifecycle: scan, lint, G1/G2 gates, quarantine, signed export/import bundles.",
+      "description": "Lifecycle + quality gates for .devin skills/rules: scan, lint, diff, G1/G2 gates, quarantined→approved→active lifecycle, sha256-verified export/import bundles (imports land quarantined).",
       "distribution_status": "source_only"
     },
     {

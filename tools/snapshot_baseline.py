@@ -22,6 +22,7 @@ import argparse
 import json
 import subprocess
 import sys
+import time
 import urllib.parse
 import urllib.request
 from collections import Counter
@@ -77,22 +78,32 @@ def collect_repo(name: str) -> dict:
     )
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=14)
-    runs = gh_api(
-        f"repos/{OWNER}/{name}/actions/runs?branch=main&per_page=100",
-        errors,
-    )
-    conclusions = Counter()
-    for run in (runs.get("workflow_runs") or []):
-        created = datetime.fromisoformat(run["created_at"].replace("Z", "+00:00"))
-        if created >= cutoff and run.get("conclusion"):
-            conclusions[run["conclusion"]] += 1
-    total = sum(conclusions.values())
-    ci = {
-        "runs_14d": total,
-        "pass_rate_14d": round(conclusions["success"] / total, 3) if total else None,
-        "failures_14d": conclusions.get("failure", 0)
-        + conclusions.get("startup_failure", 0),
-    }
+    ci_errors_before = len(errors)
+    conclusions: Counter[str] = Counter()
+    for page in range(1, 4):
+        runs = gh_api(
+            f"repos/{OWNER}/{name}/actions/runs?branch=main"
+            f"&created=>={cutoff.date().isoformat()}&per_page=100&page={page}",
+            errors,
+        )
+        page_runs = runs.get("workflow_runs") or []
+        for run in page_runs:
+            if run.get("conclusion"):
+                conclusions[run["conclusion"]] += 1
+        if len(page_runs) < 100:
+            break
+    if len(errors) > ci_errors_before:
+        ci = {"runs_14d": None, "pass_rate_14d": None, "failures_14d": None}
+    else:
+        total = sum(conclusions.values())
+        ci = {
+            "runs_14d": total,
+            "pass_rate_14d": (
+                round(conclusions["success"] / total, 3) if total else None
+            ),
+            "failures_14d": conclusions.get("failure", 0)
+            + conclusions.get("startup_failure", 0),
+        }
 
     result = {
         "stars": repo.get("stargazers_count"),
@@ -116,6 +127,8 @@ def collect_downloads(registry: dict) -> dict:
     for name, tool in (registry.get("devkit", {}).get("tools") or {}).items():
         if tool.get("status") != "published":
             continue
+        # pypistats/npm rate-limit bursts; pace package-stat calls
+        time.sleep(2)
         src, pkg = tool.get("source"), tool.get("package")
         if src == "pypi" and pkg:
             errors: list[str] = []
@@ -160,7 +173,7 @@ def to_markdown(snapshot: dict) -> str:
             f"| {_fmt(m['open_issues'])} | {_fmt(m['open_prs'])} "
             f"| {_fmt(m['views_14d'])} ({_fmt(m['unique_visitors_14d'])}u) "
             f"| {_fmt(m['clones_14d'])} ({_fmt(m['unique_cloners_14d'])}u) "
-            f"| {_fmt(ci['pass_rate_14d'])} ({ci['runs_14d']} runs) |"
+            f"| {_fmt(ci['pass_rate_14d'])} ({_fmt(ci['runs_14d'])} runs) |"
         )
     lines += ["", "| package | last day | last week | last month |", "|---|---|---|---|"]
     for pkg, m in sorted(snapshot["downloads"].items()):

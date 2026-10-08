@@ -32,9 +32,7 @@ def catalog_sections(registry: dict) -> tuple[list[dict], list[dict], list[dict]
 def render_profile_catalog(registry: dict) -> str:
     tools, hubs, distributions, related = catalog_sections(registry)
     categories = registry["devkit"]["tools"]
-    stage_order = ["understand", "verify", "measure", "control", "protect", "judge"]
-    category_labels = {s: s.capitalize() for s in stage_order}
-    tools.sort(key=lambda r: stage_order.index(categories[r["name"]]["category"]))
+    category_labels = {"qa": "QA", "evaluation": "Evaluation", "security": "Security", "memory": "Memory", "operations": "Operations", "governance": "Governance", "foundation": "Foundation"}
     entry_count = len(tools) + len(hubs) + len(distributions) + len(related)
     plural = lambda n: "" if n == 1 else "s"  # noqa: E731
     lines = [

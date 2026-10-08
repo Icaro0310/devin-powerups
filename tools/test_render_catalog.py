@@ -44,7 +44,7 @@ def test_catalog_labels_related_artifacts_instead_of_calling_them_tools():
     registry = json.loads(REGISTRY.read_text(encoding="utf-8"))
     rendered = render_catalog.render_profile_catalog(registry)
 
-    assert "| **Judge** | [`poordjaevin`]" in rendered
+    assert "| **Governance** | [`poordjaevin`]" in rendered
     assert "| **Related Suite** | [`qwenpaw-suite`]" in rendered
     assert "| **Related Resource** | [`awesome-devin`]" in rendered
 
@@ -73,11 +73,11 @@ def test_catalog_table_uses_registry_descriptions_and_urls():
 def test_patch_profile_catalog_only_replaces_marked_block():
     registry = json.loads(REGISTRY.read_text(encoding="utf-8"))
     rendered = render_catalog.render_profile_catalog(registry)
-    current = "before\n<!-- DEVIN-CATALOG:BEGIN -->\nSTALE_MARKER\n<!-- DEVIN-CATALOG:END -->\nafter\n"
+    current = "before\n<!-- DEVIN-CATALOG:BEGIN -->\nstale\n<!-- DEVIN-CATALOG:END -->\nafter\n"
 
     patched = render_catalog.patch_profile_catalog(current, rendered)
 
     assert patched.startswith("before\n")
     assert patched.endswith("after\n")
-    assert "STALE_MARKER" not in patched
+    assert "stale" not in patched
     assert rendered in patched
