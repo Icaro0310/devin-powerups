@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
-"""Collect a P5 adoption baseline snapshot for the public ecosystem.
+"""Collect a P5 adoption/reliability baseline snapshot for the public ecosystem.
 
 Reads registry.json, then per public repository collects:
 
-- GitHub: stargazers, forks, watchers, open issues, open PRs
+- GitHub: stargazers, forks, watchers, open issues (PRs excluded), open PRs
 - GitHub traffic (push access): views and clones over the trailing 14 days
+- GitHub reliability: conclusion mix of default-branch workflow runs (14d)
 - Package downloads (published entries only): PyPI via pypistats.org,
   npm via api.npmjs.org — both keyless
+
+API failures are recorded under each repo's ``errors`` list and never
+silently zeroed — a null metric with an error is different from a real 0.
 
 Usage:
     python3 tools/snapshot_baseline.py [--json out.json] [--md]
@@ -18,8 +22,10 @@ import argparse
 import json
 import subprocess
 import sys
+import urllib.parse
 import urllib.request
-from datetime import date
+from collections import Counter
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -27,7 +33,7 @@ REGISTRY = ROOT / "registry.json"
 OWNER = "Icaro0310"
 
 
-def gh_api(path: str) -> dict:
+def gh_api(path: str, errors: list[str]) -> dict | list:
     out = subprocess.run(
         ["gh", "api", path],
         capture_output=True,
@@ -35,34 +41,74 @@ def gh_api(path: str) -> dict:
         check=False,
     )
     if out.returncode != 0:
+        errors.append(f"gh api {path}: {out.stderr.strip()[:120]}")
         return {}
     return json.loads(out.stdout or "{}")
 
 
-def http_json(url: str) -> dict:
+def http_json(url: str, errors: list[str]) -> dict:
     try:
         with urllib.request.urlopen(url, timeout=15) as resp:
             return json.loads(resp.read().decode())
-    except Exception:
+    except Exception as exc:
+        errors.append(f"{url}: {exc}")
         return {}
 
 
 def collect_repo(name: str) -> dict:
-    repo = gh_api(f"repos/{OWNER}/{name}")
-    views = gh_api(f"repos/{OWNER}/{name}/traffic/views")
-    clones = gh_api(f"repos/{OWNER}/{name}/traffic/clones")
-    prs = gh_api(f"repos/{OWNER}/{name}/pulls?state=open&per_page=100")
-    return {
+    errors: list[str] = []
+    repo = gh_api(f"repos/{OWNER}/{name}", errors)
+    views = gh_api(f"repos/{OWNER}/{name}/traffic/views", errors)
+    clones = gh_api(f"repos/{OWNER}/{name}/traffic/clones", errors)
+
+    # total_count avoids pagination caps and keeps PRs out of the issue count
+    pr_search = gh_api(
+        f"search/issues?q=repo:{OWNER}/{name}+type:pr+state:open",
+        errors,
+    )
+    open_prs = (
+        pr_search.get("total_count") if isinstance(pr_search, dict) else None
+    )
+    open_issues_raw = repo.get("open_issues_count")
+    open_issues = (
+        open_issues_raw - open_prs
+        if open_issues_raw is not None and open_prs is not None
+        else None
+    )
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=14)
+    runs = gh_api(
+        f"repos/{OWNER}/{name}/actions/runs?branch=main&per_page=100",
+        errors,
+    )
+    conclusions = Counter()
+    for run in (runs.get("workflow_runs") or []):
+        created = datetime.fromisoformat(run["created_at"].replace("Z", "+00:00"))
+        if created >= cutoff and run.get("conclusion"):
+            conclusions[run["conclusion"]] += 1
+    total = sum(conclusions.values())
+    ci = {
+        "runs_14d": total,
+        "pass_rate_14d": round(conclusions["success"] / total, 3) if total else None,
+        "failures_14d": conclusions.get("failure", 0)
+        + conclusions.get("startup_failure", 0),
+    }
+
+    result = {
         "stars": repo.get("stargazers_count"),
         "forks": repo.get("forks_count"),
         "watchers": repo.get("subscribers_count"),
-        "open_issues": repo.get("open_issues_count"),
-        "open_prs": len(prs) if isinstance(prs, list) else None,
+        "open_issues": open_issues,
+        "open_prs": open_prs,
         "views_14d": views.get("count"),
         "unique_visitors_14d": views.get("uniques"),
         "clones_14d": clones.get("count"),
         "unique_cloners_14d": clones.get("uniques"),
+        "ci": ci,
     }
+    if errors:
+        result["errors"] = errors
+    return result
 
 
 def collect_downloads(registry: dict) -> dict:
@@ -72,38 +118,67 @@ def collect_downloads(registry: dict) -> dict:
             continue
         src, pkg = tool.get("source"), tool.get("package")
         if src == "pypi" and pkg:
+            errors: list[str] = []
             data = http_json(
-                f"https://pypistats.org/api/packages/{pkg}/recent"
+                f"https://pypistats.org/api/packages/{pkg}/recent", errors
             ).get("data", {})
             out[pkg] = {
-                "pypi_last_month": data.get("last_month"),
+                "pypi_last_day": data.get("last_day"),
                 "pypi_last_week": data.get("last_week"),
+                "pypi_last_month": data.get("last_month"),
             }
+            if errors:
+                out[pkg]["errors"] = errors
         elif src == "npm" and pkg:
+            errors = []
+            encoded = urllib.parse.quote(pkg, safe="")
             data = http_json(
-                f"https://api.npmjs.org/downloads/point/last-month/{pkg}"
+                f"https://api.npmjs.org/downloads/point/last-month/{encoded}",
+                errors,
             )
             out[pkg] = {"npm_last_month": data.get("downloads")}
+            if errors:
+                out[pkg]["errors"] = errors
     return out
+
+
+def _fmt(value: object) -> str:
+    return "n/a" if value is None else str(value)
 
 
 def to_markdown(snapshot: dict) -> str:
     lines = [
         f"## Snapshot {snapshot['date']}",
         "",
-        "| repo | stars | forks | open issues | open PRs | views 14d | clones 14d |",
-        "|---|---|---|---|---|---|---|",
+        "| repo | stars | forks | open issues | open PRs | views 14d | clones 14d | CI pass 14d |",
+        "|---|---|---|---|---|---|---|---|",
     ]
     for name, m in sorted(snapshot["repos"].items()):
+        ci = m["ci"]
         lines.append(
-            f"| {name} | {m['stars']} | {m['forks']} | {m['open_issues']} "
-            f"| {m['open_prs']} | {m['views_14d']} ({m['unique_visitors_14d']}u) "
-            f"| {m['clones_14d']} ({m['unique_cloners_14d']}u) |"
+            f"| {name} | {_fmt(m['stars'])} | {_fmt(m['forks'])} "
+            f"| {_fmt(m['open_issues'])} | {_fmt(m['open_prs'])} "
+            f"| {_fmt(m['views_14d'])} ({_fmt(m['unique_visitors_14d'])}u) "
+            f"| {_fmt(m['clones_14d'])} ({_fmt(m['unique_cloners_14d'])}u) "
+            f"| {_fmt(ci['pass_rate_14d'])} ({ci['runs_14d']} runs) |"
         )
-    lines += ["", "| package | downloads last month |", "|---|---|"]
+    lines += ["", "| package | last day | last week | last month |", "|---|---|---|---|"]
     for pkg, m in sorted(snapshot["downloads"].items()):
-        val = m.get("pypi_last_month", m.get("npm_last_month"))
-        lines.append(f"| {pkg} | {val} |")
+        if "npm_last_month" in m:
+            lines.append(f"| {pkg} | — | — | {_fmt(m['npm_last_month'])} |")
+        else:
+            lines.append(
+                f"| {pkg} | {_fmt(m['pypi_last_day'])} "
+                f"| {_fmt(m['pypi_last_week'])} | {_fmt(m['pypi_last_month'])} |"
+            )
+    errors = {
+        n: m["errors"]
+        for n, m in {**snapshot["repos"], **snapshot["downloads"]}.items()
+        if m.get("errors")
+    }
+    if errors:
+        lines += ["", "**Collection errors:**"]
+        lines += [f"- `{n}`: {len(errs)} failed call(s)" for n, errs in sorted(errors.items())]
     return "\n".join(lines)
 
 
