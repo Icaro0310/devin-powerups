@@ -4,6 +4,28 @@ Structural decisions about the ecosystem, newest first. Format per
 `GOVERNANCE.md`: Decision / Date / Reason / Evidence / Expected outcome /
 Result. Records are not eternal — revisit when new evidence arrives.
 
+## D-2026-10-08 — Product Boundary Reassessment (P6): measure families before merging
+
+- **Decision:** reopen consolidation evaluation at the product-family
+  level (`docs/product-boundaries.md`), with preregistered signals per
+  candidate and a devkit `explore` profile as a co-install probe. No
+  physical merge during the P5 window; no `family` field in the registry
+  until the audit decides.
+- **Reason:** discovery is now solved (journeys expose the semantic
+  model), so the remaining question is which repo boundaries are real
+  product boundaries. The four-level model TRACK → FAMILY → REPOSITORY →
+  CAPABILITY keeps navigation and packaging decoupled.
+- **Evidence:** verified technical facts in the doc — vendored
+  `paths.py`/`vscdb.py`/`identity.py` across history/search/graph (being
+  absorbed by the shared-infra D-record, so not merge evidence), real
+  janitor→backup contract coupling, and `graph`/`janitor` still
+  `source_only` (family decision precedes their publication).
+- **Expected outcome:** at the 2026-12-03 audit each family (explore /
+  assure / data, plus devkit+skill-catalog and doctor+switch probes) is
+  either confirmed as a boundary or proposed as a merge with the signal
+  table filled.
+- **Result:** open — measuring.
+
 ## D-2026-10-08 — `devin-pm` vs `devin-metrics`: measure the boundary (V4 §16)
 
 - **Decision:** keep the repos separate during the window and define in
