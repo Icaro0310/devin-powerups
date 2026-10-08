@@ -8,6 +8,12 @@ Reads registry.json, then per public repository collects:
 - GitHub reliability: conclusion mix of default-branch workflow runs (14d)
 - Package downloads (published entries only): PyPI via pypistats.org,
   npm via api.npmjs.org — both keyless
+- Boundary signals (P6, per family in ``BOUNDARY_FAMILIES``): sibling
+  repo names mentioned in a member's issues (cross-repo confusion proxy)
+  and GitHub popular-referrers pointing at siblings (journey-traversal
+  proxy). Co-installation is intentionally NOT collected — no telemetry
+  exists and source_only members (graph, janitor) have no package
+  signal at all; the December audit must read absence accordingly.
 
 API failures are recorded under each repo's ``errors`` list and never
 silently zeroed — a null metric with an error is different from a real 0.
@@ -123,6 +129,65 @@ def collect_repo(name: str) -> dict:
     if errors:
         result["errors"] = errors
     return result
+
+
+# P6 boundary hypotheses — the three families under measurement until
+# the 2026-12-03 audit (see docs/product-boundaries.md).
+BOUNDARY_FAMILIES = {
+    "f1-explore": ("devin-history", "devin-search", "devin-graph"),
+    "f2-assure": ("devin-qa-pack", "devin-evals"),
+    "f3-data": ("devin-backup", "devin-janitor"),
+}
+
+
+def collect_boundary_signals() -> dict:
+    """Per-family confusion and traversal proxies.
+
+    ``issue_cross_refs[a->b]`` counts issues in repo ``a`` whose text
+    mentions sibling ``b`` — the cross-boundary-confusion signal.
+    ``sibling_referrers[m]`` lists popular-referrer entries in ``m``
+    whose source URL is a sibling repo — the journey-traversal signal.
+    Both are null-tolerant: API errors land in ``errors``, never zeros.
+    """
+    signals: dict[str, dict] = {}
+    for family, members in BOUNDARY_FAMILIES.items():
+        errors: list[str] = []
+        xrefs: dict[str, int | None] = {}
+        for a in members:
+            for b in members:
+                if a == b:
+                    continue
+                res = gh_api(
+                    f"search/issues?q=repo:{OWNER}/{a}+{b}+type:issue",
+                    errors,
+                )
+                xrefs[f"{a}->{b}"] = (
+                    res.get("total_count") if isinstance(res, dict) else None
+                )
+        sibling_hosts = {f"github.com/{OWNER}/{m}" for m in members}
+        referrers: dict[str, list[dict]] = {}
+        for m in members:
+            data = gh_api(
+                f"repos/{OWNER}/{m}/traffic/popular/referrers", errors
+            )
+            referrers[m] = [
+                {
+                    "referrer": r["referrer"],
+                    "count": r["count"],
+                    "uniques": r["uniques"],
+                }
+                for r in (data if isinstance(data, list) else [])
+                if any(h in r.get("referrer", "") for h in sibling_hosts)
+            ]
+        entry: dict = {
+            "members": list(members),
+            "issue_cross_refs": xrefs,
+            "sibling_referrers": referrers,
+        }
+        if errors:
+            entry["errors"] = errors
+        signals[family] = entry
+    return signals
 
 
 def collect_downloads(registry: dict) -> dict:
@@ -301,6 +366,7 @@ def main() -> int:
         "structural_changes_since_previous": changes,
         "repos": {name: collect_repo(name) for name in repos},
         "downloads": collect_downloads(registry),
+        "boundary_signals": collect_boundary_signals(),
     }
     # full per-entry fingerprint is kept for future diffs
     snapshot["structure"]["entries"] = struct["entries"]
