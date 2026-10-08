@@ -119,7 +119,7 @@ job-level permissions even when the workflow-level block already matches.
 | Repo | Workflow | Why it stays inline |
 |---|---|---|
 | `devin-bridge` | `ci.yml` | Node.js toolchain, not Python — `python-test.yml` does not apply |
-| `devin-evals` | `ci.yml` | Extra `corpus` job (EV-3 golden-case gate) + secrets-scan fixture exclusions |
+| `devin-evals` | `ci.yml` | Extra `corpus` job (EV-3 golden-case gate) |
 | `devin-memory` | `ci.yml` | Installs sibling deps from git pins before `pip install -e .` |
 | `devin-qa-pack` | `ci.yml` | Python matrix 3.10/3.11/3.12 + different action pins |
 
