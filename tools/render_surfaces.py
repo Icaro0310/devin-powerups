@@ -147,7 +147,60 @@ def render_journeys(registry: dict) -> str:
     return "\n".join(lines).rstrip()
 
 
-def render_tool_block(repo: dict) -> str:
+def journey_context(registry: dict) -> dict[str, list[dict]]:
+    """repo name -> ordered path memberships: audience, step, neighbours."""
+    ctx: dict[str, list[dict]] = {}
+    for audience, steps in (registry.get("journeys") or {}).items():
+        for i, step in enumerate(steps):
+            ctx.setdefault(step["repo"], []).append({
+                "audience": AUDIENCE_LABELS.get(audience, audience),
+                "step": i + 1,
+                "total": len(steps),
+                "after": steps[i - 1]["repo"] if i else None,
+                "before": steps[i + 1]["repo"] if i + 1 < len(steps) else None,
+            })
+    return ctx
+
+
+def render_journeys_html(registry: dict) -> str:
+    """Site surface: one card per journey, steps as an ordered chain."""
+    errors = validate_journeys(registry)
+    if errors:
+        raise ValueError("; ".join(errors))
+    by_name = {r["name"]: r for r in public_entries(registry)}
+    lines = []
+    for audience in sorted(registry.get("journeys") or {},
+                           key=lambda a: AUDIENCE_LABELS.get(a, a)):
+        steps = registry["journeys"][audience]
+        chain = " &rarr; ".join(
+            f'<a href="{by_name[s["repo"]]["url"]}"><code>{s["repo"]}</code></a>'
+            for s in steps
+        )
+        lines.append(
+            f'  <div class="card"><h3>{AUDIENCE_LABELS.get(audience, audience)}</h3>'
+            f"<p>{chain}.</p></div>"
+        )
+    return "\n".join(lines)
+
+
+def render_journeys_compact(registry: dict) -> str:
+    """Profile surface: one line per journey — Audience: a → b → c."""
+    errors = validate_journeys(registry)
+    if errors:
+        raise ValueError("; ".join(errors))
+    by_name = {r["name"]: r for r in public_entries(registry)}
+    lines = []
+    for audience in sorted(registry.get("journeys") or {},
+                           key=lambda a: AUDIENCE_LABELS.get(a, a)):
+        chain = " → ".join(
+            f"[`{s['repo']}`]({by_name[s['repo']]['url']})"
+            for s in registry["journeys"][audience]
+        )
+        lines.append(f"- **{AUDIENCE_LABELS.get(audience, audience)}:** {chain}")
+    return "\n".join(lines)
+
+
+def render_tool_block(repo: dict, registry: dict | None = None) -> str:
     """Per-repo README block: where it fits and what it connects to."""
     track = repo.get("track")
     track_line = TRACK_META.get(track, (9, track or "related", ""))[1]
@@ -159,13 +212,27 @@ def render_tool_block(repo: dict) -> str:
     ) or "—"
     # trailing two spaces = hard line breaks; plain `>` lines would fold
     # into one paragraph in rendered Markdown
+    lines = [
+        "> **Part of the [DEVIN ecosystem](https://github.com/Icaro0310/awesome-devin)**",
+        f"> Track: {track_line} · Nature: {repo.get('nature', 'product')}",
+        f"> For: {audiences}",
+        f"> Interface: {interfaces}",
+    ]
+    if registry is not None:
+        for membership in journey_context(registry).get(repo["name"], []):
+            pos = []
+            if membership["after"]:
+                pos.append(f"after `{membership['after']}`")
+            if membership["before"]:
+                pos.append(f"before `{membership['before']}`")
+            tail = f" — {', '.join(pos)}" if pos else ""
+            lines.append(
+                f"> Path: {membership['audience']} · step "
+                f"{membership['step']}/{membership['total']}{tail}"
+            )
     return "\n".join(
-        [
-            "> **Part of the [DEVIN ecosystem](https://github.com/Icaro0310/awesome-devin)**  ",
-            f"> Track: {track_line} · Nature: {repo.get('nature', 'product')}  ",
-            f"> For: {audiences}  ",
-            f"> Interface: {interfaces}",
-        ]
+        line + "  " if i < len(lines) - 1 else line
+        for i, line in enumerate(lines)
     )
 
 
@@ -191,7 +258,8 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument(
         "surface",
-        choices=["intent", "audience", "interface", "block", "counts", "paths"],
+        choices=["intent", "audience", "interface", "block", "counts", "paths",
+                 "paths-compact", "paths-html"],
     )
     ap.add_argument("name", nargs="?", help="repo name for surface=block")
     ap.add_argument("--registry", type=Path, default=REGISTRY)
@@ -225,13 +293,17 @@ def main(argv: list[str] | None = None) -> int:
         if repo is None:
             print(f"error: unknown repo {args.name}", file=sys.stderr)
             return 2
-        print(render_tool_block(repo))
+        print(render_tool_block(repo, registry))
         return 0
 
     if args.surface == "intent":
         print(render_intent_map(registry))
     elif args.surface == "paths":
         print(render_journeys(registry))
+    elif args.surface == "paths-compact":
+        print(render_journeys_compact(registry))
+    elif args.surface == "paths-html":
+        print(render_journeys_html(registry))
     elif args.surface == "audience":
         print(render_browse(registry, "audiences"))
     elif args.surface == "interface":
