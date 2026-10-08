@@ -1,7 +1,7 @@
 {
   "$schema": "https://github.com/Icaro0310/devin-powerups/registry.schema.json",
-  "version": 18,
-  "generated": "2026-10-07",
+  "version": 19,
+  "generated": "2026-10-08",
   "owner": "Icaro0310",
   "note": "Public maintainer toolkit: registry, template, scaffolder, and public-project report. Public Devin tools are listed below; the maintainer's private runtime remains kind=system and is excluded from public-project reports. Unrelated personal repositories are not part of this catalog. CI is inline per public project; see README.md.",
   "ci": {
@@ -154,7 +154,7 @@
       },
       "devin-metrics": {
         "manager": "uv",
-        "source": "github",
+        "source": "pypi",
         "package": "devin-metrics",
         "version": "0.2.0",
         "commands": [
@@ -166,9 +166,8 @@
           "windows",
           "linux"
         ],
-        "status": "source",
-        "category": "evaluation",
-        "ref": "15c9ce9e337f213fd9d269694523e0b6ece199fe"
+        "status": "published",
+        "category": "evaluation"
       },
       "devin-backup": {
         "manager": "uv",
