@@ -19,9 +19,7 @@ def test_catalog_counts_match_registry_and_separate_tools_from_hub():
 
     assert len(tools) == 19
     assert [item["name"] for item in hubs] == ["devin-powerups"]
-    assert [item["name"] for item in distributions] == [
-        "devin-devkit", "homebrew-tap", "scoop-bucket"
-    ]
+    assert [item["name"] for item in distributions] == ["devin-devkit"]
     assert {item["name"] for item in related} == {
         "qwenpaw-suite", "awesome-devin"
     }
@@ -31,7 +29,7 @@ def test_profile_catalog_is_public_and_has_explicit_totals():
     registry = json.loads(REGISTRY.read_text(encoding="utf-8"))
     rendered = render_catalog.render_profile_catalog(registry)
 
-    assert "19 first-party tools · 3 distribution layers · 1 registry hub · 2 related artifacts (25 entries)" in rendered
+    assert "19 first-party tools · 1 distribution layer · 1 registry hub · 2 related artifacts (23 entries)" in rendered
     assert "devin-devkit" in rendered
     assert "devin-dashboard" not in rendered
     assert "personal-agent-system" not in rendered
