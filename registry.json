@@ -187,7 +187,7 @@
       },
       "devin-search": {
         "manager": "uv",
-        "source": "github",
+        "source": "pypi",
         "package": "devin-search",
         "version": "0.1.0",
         "commands": [
@@ -198,9 +198,8 @@
           "windows",
           "linux"
         ],
-        "status": "source",
-        "category": "memory",
-        "ref": "96b49eba2f0ba3758dd63579e64d64cd5bfe289b"
+        "status": "published",
+        "category": "memory"
       },
       "devin-graph": {
         "manager": "uv",
@@ -221,7 +220,7 @@
       },
       "devin-evals": {
         "manager": "uv",
-        "source": "github",
+        "source": "pypi",
         "package": "devin-evals",
         "version": "0.2.0",
         "commands": [
@@ -232,9 +231,8 @@
           "windows",
           "linux"
         ],
-        "status": "source",
-        "category": "evaluation",
-        "ref": "12f261ae5c1c46602cbfd929b4ba8e52da54c7af"
+        "status": "published",
+        "category": "evaluation"
       },
       "devin-memory": {
         "manager": "uv",
@@ -1163,7 +1161,7 @@
       "ci": "inline",
       "tests": 48,
       "description": "Safe snapshot/verify/restore/rotate of Devin stores with schema-version manifests.",
-      "distribution_status": "source_only"
+      "distribution_status": "published"
     },
     {
       "name": "devin-search",
@@ -1218,7 +1216,7 @@
       "ci": "inline",
       "tests": 35,
       "description": "FTS5 full-text search across all Devin sessions, role-tagged and project-filtered.",
-      "distribution_status": "source_only"
+      "distribution_status": "published"
     },
     {
       "name": "devin-graph",
@@ -1330,7 +1328,7 @@
       "ci": "inline",
       "tests": 195,
       "description": "Deterministic eval harness: replay recorded sessions against rubric graders; the `dream` subgroup generates synthetic sessions with known verdicts (D01-D09, absorbs devin-dream).",
-      "distribution_status": "source_only"
+      "distribution_status": "published"
     },
     {
       "name": "devin-memory",
