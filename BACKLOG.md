@@ -33,7 +33,8 @@ repo (all prefixed `[V4]`); this file is the index.
 | backup+janitor shared helper contracts (only if evidence justifies) | medium | devin-powerups#27 |
 | pm+metrics product boundary — measure whether users treat them as one job | medium | devin-powerups#28 |
 | .gitleaksignore fixtures hygiene | low | devin-powerups#29 |
-| `poordjaevin.version` watchdog | low | devin-powerups#30 |
+| `poordjaevin.version` watchdog | low | Icaro0310/devin-powerups#30 |
+| Fork visibility strategy — act on the upstream funnel signal | low | Icaro0310/devin-powerups#32 |
 | Meta-issue for PyPI publication backlog | optional | not created; registry `distribution_status` is the tracker |
 | Align generated-guide install format (tarball URL) with the `git+https` banner format | low | not filed; flagged in P2.x |
 
