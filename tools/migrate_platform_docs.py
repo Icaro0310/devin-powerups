@@ -255,12 +255,6 @@ _RECURRING_JOBS: dict[str, dict[str, str]] = {
         "win": "py daemon.py --port 8788",
         "note": "Long-running daemon — prefer `systemd --user` service on Linux or a logon trigger (`/sc onlogon`) on Windows, not an interval.",
     },
-    "devin-dashboard": {
-        "cmd": "python tools/laptop_reporter.py",
-        "cron": "*/5 * * * *",
-        "win": "py tools\\laptop_reporter_win.py",
-        "note": "Client-side reporter posts local metrics to the dashboard; the server side is a long-running process (see devin-office pattern).",
-    },
 }
 
 
