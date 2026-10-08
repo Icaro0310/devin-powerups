@@ -174,6 +174,30 @@ may consume one member, receive a tool indirectly, or skip the bundle
 over packaging preference while still treating the family as one
 product in journeys and issues. No single signal decides.
 
+### How signals are collected (active, weekly)
+
+`tools/snapshot_baseline.py` (weekly `baseline-snapshot` workflow) now
+writes a `boundary_signals` block per family:
+
+| Signal | Sensor |
+|---|---|
+| cross-boundary confusion | issue cross-references: `search/issues` for sibling names inside each member repo |
+| journey traversal | `traffic/popular/referrers` filtered to sibling repo URLs |
+| adoption per member | existing views/clones/downloads series |
+
+Structural blind spots, by design — read them correctly in December:
+
+- **No co-installation metric exists.** The devkit has no telemetry and
+  PyPI reports per package, not per install event. The audit must
+  decide on confusion + traversal + identity plausibility, not on
+  co-install counts.
+- **`devin-graph` and `devin-janitor` are `source_only`** — they emit
+  no download signal at all. Zero is the design, not the evidence.
+- Low-activity repos mean most series start at zero; first collected
+  baseline already shows `devin-evals→qa-pack` cross-references (the
+  boundary issue lives there). Direction and accumulation matter more
+  than absolute counts.
+
 ## Audit decision rule (2026-12-03)
 
 Per family, answer six questions from the signals above:
