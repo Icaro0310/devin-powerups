@@ -16,7 +16,6 @@ repo (all prefixed `[V4]`); this file is the index.
 | `devin-evals` PyPI publication | high |Icaro0310/devin-evals#21 |
 | D05 — privacy/PII grader | high |Icaro0310/devin-evals#19 |
 | internals-spec downstream bump automation | high |Icaro0310/devin-powerups#25 |
-| Governance lifecycle rules + decision records | high |Icaro0310/devin-powerups#17 |
 | Snapshot structural-change ledger (registry version/SHA, counts, deltas) | high |Icaro0310/devin-powerups#21 |
 | Fix stale site claims (`19 first-party`, `Start here`, `read-only by default`, `live sessions/work`) | high |Icaro0310/Icaro0310.github.io#11 |
 | `awesome-devin`: catalog → intent map | high |Icaro0310/awesome-devin#9 |
@@ -59,6 +58,7 @@ what unblocks.
 
 ## Resolved
 
+- Governance lifecycle rules + decision records — `GOVERNANCE.md` lifecycle section + `DECISIONS.md` (Icaro0310/devin-powerups#17).
 - `devin-dream → devin-evals` merge (P4) — done; repo archived.
 - `devin-metrics` PyPI publication — done 2026-10-08; README banner removed.
 - `devin-backup` PyPI publication — done; registry v20 flipped source to `pypi`.

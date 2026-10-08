@@ -102,9 +102,11 @@ is recorded after.
 ### Archival
 
 Archive when a repo is absorbed (post-merge), superseded upstream, or
-its function is demonstrably unused. Archived repos stay in the registry
-with `archived`/`isArchived` state so historical series remain
-interpretable.
+its function is demonstrably unused. Archival removes the repo from the
+active registry (`devin-dream`) or keeps it as a non-public entry
+(`devin-dashboard`); `reconcile_registry.py` never reports a
+GitHub-archived repo as drift. The decision and its evidence stay in
+`DECISIONS.md` so the historical series remains interpretable.
 
 ### Reclassification
 

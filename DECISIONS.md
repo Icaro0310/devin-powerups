@@ -46,6 +46,18 @@ Result. Records are not eternal — revisit when new evidence arrives.
 - **Result:** met, plus one real production bug found and fixed
   (scorecard `read-all` permissions → `startup_failure`).
 
+## D-2026-10-08 — `distribution_status` + DIST-STATUS banners (P2.x)
+
+- **Decision:** registry declares `published`/`source_only`; source-only
+  READMEs carry a marked banner enforced by `check_dist_status`.
+- **Reason:** honest distribution metadata; prevents implying PyPI/npm
+  installs that do not exist.
+- **Evidence:** caught in production on day one — `devin-metrics` flip
+  left `source_only` stale; drift workflow failed as designed.
+- **Expected outcome:** distribution claims stay consistent with the
+  registry without manual policing.
+- **Result:** met.
+
 ## D-2026-10-07 — HOLD the five upstream forks (P1)
 
 - **Decision:** do not merge or repurpose fork-janitor's targets; keep
@@ -57,15 +69,6 @@ Result. Records are not eternal — revisit when new evidence arrives.
 - **Result:** confirmed — funnel now measured weekly by
   `tools/fork_visibility.py`.
 
-## D-2026-10-08 — `distribution_status` + DIST-STATUS banners (P2.x)
-
-- **Decision:** registry declares `published`/`source_only`; source-only
-  READMEs carry a marked banner enforced by `check_dist_status`.
-- **Reason:** honest distribution metadata; prevents implying PyPI/npm
-  installs that do not exist.
-- **Evidence:** caught in production on day one — `devin-metrics` flip
-  left `source_only` stale; drift workflow failed as designed.
-- **Result:** met.
 
 ## Standing negative decisions (until evidence changes)
 
