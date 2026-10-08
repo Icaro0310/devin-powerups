@@ -59,6 +59,9 @@ class TestVersionAllowed:
             (">=0.3.0", "0.4.0", True),
             ("==0.3.0", "0.3.0", True),
             ("==0.3.0", "0.3.1", False),
+            ("~=0.3.0", "0.3.5", True),
+            ("~=0.3.0", "0.4.0", False),
+            ("~=0.3", "0.4.0", True),
             ("", "99.0.0", True),
         ],
     )
@@ -76,6 +79,20 @@ class TestCheck:
         write_pyproject(tmp_path, "dead-repo", "devin-internals-spec<0.1.0")
         write_registry(tmp_path, {"dead-repo": "private"})
         assert check(tmp_path, "9.9.9") == []
+
+    def test_local_dir_outside_glob_is_checked(self, tmp_path):
+        # poordjaevin layout: entry name resolves via local_dir, not glob.
+        hub = tmp_path / "devin-powerups"
+        hub.mkdir()
+        outside = tmp_path.parent / "poordjaevin-clone"
+        write_pyproject(outside.parent, "poordjaevin-clone",
+                        "devin-internals-spec<0.1.0")
+        (hub / "registry.json").write_text(json.dumps({"repositories": [
+            {"name": "poordjaevin", "visibility": "public",
+             "local_dir": "../poordjaevin-clone"},
+        ]}))
+        [r] = check(tmp_path, "9.9.9")
+        assert r["repo"] == "poordjaevin" and r["allows_latest"] is False
 
     def test_flags_excluded_latest(self, tmp_path):
         write_pyproject(tmp_path, "a", "devin-internals-spec>=0.3.0,<0.4.0")

@@ -69,30 +69,38 @@ def version_allowed(constraint: str, version: str) -> bool:
             return False
         if op == "==" and not vp == bp:
             return False
-        if op == "~=" and not (vp >= bp and vp[:1] == bp[:1]):
-            return False
+        if op == "~=":
+            # PEP 440: ~=a.b[.c] means >=a.b[.c] and <a.(b+1) — the version
+            # must share the bound's prefix minus its last component.
+            if not vp >= bp:
+                return False
+            prefix = len(b) - 1
+            if vp[:prefix] != bp[:prefix]:
+                return False
     return True
 
 
-def public_repo_names(root: Path) -> set[str] | None:
-    """Names of public registry entries, or None when no registry is found."""
+def public_entries(root: Path) -> list[dict] | None:
+    """Public registry entries, or None when no registry is found."""
     registry = root / "devin-powerups" / "registry.json"
     if not registry.is_file():
         return None
     reg = json.loads(registry.read_text())
-    return {
-        e["name"]
-        for e in reg["repositories"]
-        if e.get("visibility") == "public"
-    }
+    return [e for e in reg["repositories"] if e.get("visibility") == "public"]
 
 
 def check(root: Path, latest: str) -> list[dict]:
-    public = public_repo_names(root)
+    entries = public_entries(root)
+    if entries is None:
+        candidates = [(p.parent.name, p) for p in sorted(root.glob("*/pyproject.toml"))]
+    else:
+        candidates = sorted(
+            (e["name"], root / (e.get("local_dir") or e["name"]) / "pyproject.toml")
+            for e in entries
+        )
     results = []
-    for pyproject in sorted(root.glob("*/pyproject.toml")):
-        repo = pyproject.parent.name
-        if public is not None and repo not in public:
+    for repo, pyproject in candidates:
+        if not pyproject.is_file():
             continue
         constraint = spec_constraint(pyproject)
         if constraint is None:
@@ -136,7 +144,8 @@ def main(argv: list[str] | None = None) -> int:
             f"error: pins exclude {SPEC} {latest}: {stale}", file=sys.stderr
         )
         return 1
-    print(f"ok: {len(results)} consumer pin(s) allow {SPEC} {latest}")
+    if not args.json:
+        print(f"ok: {len(results)} consumer pin(s) allow {SPEC} {latest}")
     return 0
 
 
