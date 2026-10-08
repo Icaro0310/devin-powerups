@@ -372,7 +372,7 @@
           "linux"
         ],
         "status": "published",
-        "category": "memory"
+        "category": "governance"
       }
     },
     "profiles": {
@@ -1783,7 +1783,7 @@
       "overlap_note": null,
       "stack": "python",
       "local_dir": "../poordjaevin",
-      "description": "Djævin: fork of poordjaevin adding a Devin ACP backend (uses the model Devin already runs, no extra download); local NLI backend stays as fully-offline fallback.",
+      "description": "Djævin: calibrated local-first decision layer with typed questions and honest confidence. The Devin ACP backend reuses the model your Devin CLI already runs (no extra download, no API key); the local NLI backend stays as a fully-offline fallback.",
       "version": "0.1.0",
       "tag": "v0.1.0",
       "distribution_status": "published"

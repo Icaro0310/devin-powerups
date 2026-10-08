@@ -16,9 +16,11 @@ def _escape(value: str) -> str:
 
 def catalog_sections(registry: dict) -> tuple[list[dict], list[dict], list[dict], list[dict]]:
     public = [r for r in registry["repositories"] if r.get("visibility") == "public"]
+    devkit_tools = registry.get("devkit", {}).get("tools", {})
     tools = [
         r for r in public
-        if r.get("artifact") == "tool" and r["name"].startswith("devin-")
+        if r.get("artifact") == "tool"
+        and (r["name"].startswith("devin-") or r["name"] in devkit_tools)
     ]
     hubs = [r for r in public if r.get("artifact") == "infrastructure"]
     distributions = [r for r in public if r.get("artifact") == "distribution"]
