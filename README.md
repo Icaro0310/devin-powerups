@@ -242,6 +242,15 @@ Private entries only need `public: false` and a `maturity`. A new public entry
 scaffolded with `tools/new-repo.py` gets the least-claiming placement; refine it
 with `--track`, `--role`, `--nature`, `--mode` and `--maturity`.
 
+**Entries are not repositories.** The registry counts logical entries, so its
+size legitimately differs from the physical repo count: `devin-learning` is a
+`kind=system` record for the learning-loop runtime that lives *inside*
+devin-powerups (its `url` points here) and has no repository of its own —
+registry v20 lists 28 entries over 27 physical repositories. Conversely
+`devin-dream` still exists on GitHub as an archived repo but no longer holds
+a registry entry after the merge into `devin-evals`. Audits and counts must
+state which of the two they mean.
+
 ## Works with Devin alone (Devin-only mode)
 
 The hub itself is optional — every tool in `registry.json` installs and runs
