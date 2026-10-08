@@ -1,0 +1,32 @@
+name: pr-approve
+
+# Approves pull requests from trusted automation authors so repos with
+# a required-approving-review branch rule can merge without an admin
+# bypass. Runs on pull_request_target (never checks out PR code), so it
+# also covers forks. Reusable: other repos call this with `uses:`; the
+# github event context carries the caller's pull_request payload.
+#
+# Trusted authors are the owner's own PRs plus dependabot. An approval
+# is a gate signal only — required status checks still gate the merge.
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_call:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  approve:
+    runs-on: ubuntu-latest
+    if: >-
+      contains(fromJSON('["Icaro0310","dependabot[bot]"]'),
+      github.event.pull_request.user.login)
+    steps:
+      - name: Approve PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr review --approve "$PR_URL"
