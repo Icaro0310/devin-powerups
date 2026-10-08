@@ -86,6 +86,7 @@ def test_apply_creates_os_guides_and_removes_legacy_translation(tmp_path: Path):
     assert "TLS inspection" in corporate and "No admin rights" in corporate
     assert "Offline/air-gapped" in corporate
     assert "--no-build-isolation" in corporate and "source_only" in corporate
+    assert "DEVIN_DOCTOR_OFFLINE" in corporate and "Fully local runtime" in corporate
     assert "## Personal Windows specifics" in windows
     assert "Microsoft Store" in windows and "Uninstall" in windows
     assert "uv tool install" in linux and "XDG_DATA_HOME" in linux
