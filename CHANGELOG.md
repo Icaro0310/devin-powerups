@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Registry v17 classifies every entry with `track`, `role`, `nature`, `mode`, `maturity`, `public`, `official_overlap` and `overlap_note`, and marks `devin-powerups` as the control plane (`is_control_plane`). The structural `kind` is unchanged. Rules in `registry.schema.json` reject contradictory combinations and name the broken rule.
 - `tools/test_validate_registry.py` and `tools/test_registry_classification.py` check every validator keyword, the vocabulary, the consistency rules, the approved track membership and agreement with the `jsonschema` reference implementation (skipped when it is not installed).
 - `tools/new-repo.py` accepts `--track`, `--role`, `--nature`, `--mode` and `--maturity` and registers new entries with the least-claiming classification.
+- `tools/render_surfaces.py`: renders the semantic layer as derivable surfaces — intent map (track -> tools), browse-by-audience, browse-by-interface, per-repo ecosystem blocks, and headline counts. Editorial copy stays manual.
 - `DECISIONS.md` + `GOVERNANCE.md` lifecycle section: creation/consolidation/archival/reclassification criteria and the six-field decision-record format; the merge rule is now a criterion (technical + product signals), not a prohibition.
 
 ### Changed
