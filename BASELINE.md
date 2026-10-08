@@ -84,10 +84,13 @@ Two measurement caveats learned at day 1:
 | devin-search | 1 | 0 | 0 | 0 | 12 (8u) | 478 (164u) | 0.921 (89 runs) |
 | devin-skill-catalog | 1 | 0 | 0 | 0 | 5 (2u) | 234 (105u) | 0.857 (28 runs) |
 | devin-switch | 1 | 0 | 0 | 0 | 4 (2u) | 181 (72u) | 0.929 (28 runs) |
-| homebrew-tap | 1 | 0 | 0 | 0 | 6 (4u) | 96 (49u) | 1.0 (6 runs) |
+| ~~homebrew-tap~~ † | 1 | 0 | 0 | 0 | 6 (4u) | 96 (49u) | 1.0 (6 runs) |
 | poordjaevin | 6 | 0 | 2 | 0 | 33 (22u) | 521 (172u) | 0.984 (63 runs) |
 | qwenpaw-suite | 1 | 0 | 0 | 0 | 9 (5u) | 180 (88u) | 1.0 (11 runs) |
-| scoop-bucket | 1 | 0 | 0 | 0 | 6 (3u) | 125 (75u) | 1.0 (4 runs) |
+| ~~scoop-bucket~~ † | 1 | 0 | 0 | 0 | 6 (3u) | 125 (75u) | 1.0 (4 runs) |
+
+† repos deleted 2026-10-08 (maintainer decision: orphaned artifacts, manual 2/14
+package coverage, no evidence of demand; series ends at day-1 values).
 
 | package | last day | last week | last month |
 |---|---|---|---|

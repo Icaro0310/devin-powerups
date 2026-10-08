@@ -216,7 +216,7 @@ APPROVED_TRACKS = {
     "observe": ["devin-internals-spec", "devin-doctor", "devin-history", "devin-search", "devin-graph", "devin-office"],
     "assure": ["devin-qa-pack", "devin-evals", "devin-metrics", "poordjaevin"],
     "guard": ["devin-bridge", "devin-orchestrator", "devin-switch", "devin-redact", "devin-backup", "devin-janitor", "devin-memory"],
-    "platform": ["devin-devkit", "devin-powerups", "devin-skill-catalog", "homebrew-tap", "scoop-bucket"],
+    "platform": ["devin-devkit", "devin-powerups", "devin-skill-catalog"],
     "navigation": ["awesome-devin"],
     "related": ["qwenpaw-suite", "devin-pm"],
 }
@@ -226,7 +226,7 @@ PUBLIC_ENTRIES = [e for e in REGISTRY["repositories"] if e["visibility"] == "pub
 
 def test_every_public_entry_is_classified_in_exactly_the_approved_track():
     expected = {name: track for track, names in APPROVED_TRACKS.items() for name in names}
-    assert len(expected) == len(PUBLIC_ENTRIES) == 25
+    assert len(expected) == len(PUBLIC_ENTRIES) == 23
     assert {e["name"]: e["track"] for e in PUBLIC_ENTRIES} == expected
 
 

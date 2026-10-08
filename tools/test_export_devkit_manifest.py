@@ -28,10 +28,10 @@ def test_manifest_is_repeatable_and_counts_tools_separately_from_hub():
     assert first == second
     assert first["catalog"] == {
         "tool_count": 18,
-        "distribution_count": 3,
+        "distribution_count": 1,
         "hub_count": 1,
         "related_count": 3,
-        "entry_count": 25,
+        "entry_count": 23,
     }
     assert len(first["tools"]) == 19
 

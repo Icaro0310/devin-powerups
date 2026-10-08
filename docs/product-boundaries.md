@@ -142,12 +142,12 @@ decision, not an omission.
 | `devin-pm` / `devin-office` / `devin-metrics` | evaluated *as F1 members*, not as their own families (pm/metrics has its own D-record) |
 | `devin-bridge` + `devin-orchestrator` | merge explicitly disallowed — different runtime contracts |
 | `devin-powerups` / `devin-internals-spec` / `awesome-devin` | control plane / foundation / navigation — structural layers, not products |
-| `devin-devkit` / `homebrew-tap` / `scoop-bucket` | distribution, not products |
+| `devin-devkit` | distribution, not a product (`homebrew-tap`/`scoop-bucket` deleted 2026-10-08 — orphaned, manual coverage 2/14, no external demand) |
 | `poordjaevin` / `qwenpaw-suite` | adjacent projects with their own identities |
 | `personal-agent-system` / `devin-dashboard` / `devin-learning` | private/system entries, not public product surface |
 
 Numbers are canonical and drift-checked: **19 products**
-(`nature: product`), **25 public entries**, **28 registry entries** —
+(`nature: product`), **23 public entries**, **26 registry entries** —
 the generated catalog counts derive from the registry and
 `registry-drift.yml` gates them per push.
 
