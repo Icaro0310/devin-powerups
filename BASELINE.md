@@ -22,13 +22,35 @@ Per public registry repository:
 
 ```bash
 python3 tools/snapshot_baseline.py --json snapshots/<date>.json --md
+python3 tools/fork_visibility.py --json snapshots/forks-<date>.json --md
 ```
 
-Suggested cadence: monthly, plus a final snapshot on 2026-12-03.
+Cadence is automated: `.github/workflows/baseline-snapshot.yml` runs
+**every Monday 08:15 UTC** (plus `workflow_dispatch`), commits the dated
+JSONs to `snapshots/`, and opens an issue if collection fails — a missed
+window cannot be recovered retroactively.
+
 `n/a` means the source has not indexed the package yet (normal for fresh
 publications). A genuine collection failure is listed separately under
 "Collection errors" in the snapshot output — treat those as unknowns, not
 zeros.
+
+Two measurement caveats learned at day 1:
+
+- Package `last_month` excludes the current month, so fresh publications
+  show `0`/`n/a` monthly while `last_day`/`last_week` already have data.
+- Most day-1 downloads carry a null user-agent (`system`/`python_major`
+  show `null` categories) — indexers, mirrors and scrapers, not real pip
+  installs. `with_mirrors` vs `without_mirrors` in pypistats `overall`
+  separates them. Downloads are API requests, not installations; CI,
+  cache misses and crawlers all count.
+
+## Working rules during the window
+
+- PRs touching baseline tooling or bugs stage **named files only** —
+  never `git add -A`. A stray taxonomy regrouping once nearly entered
+  `main` inside the baseline PR itself; that would have violated the
+  freeze and contaminated day-1 state. (Rule 5 in `GOVERNANCE.md`.)
 
 ## Day-1 snapshot (2026-10-08, registry v19)
 

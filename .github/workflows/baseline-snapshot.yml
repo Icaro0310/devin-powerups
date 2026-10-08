@@ -1,0 +1,52 @@
+name: baseline-snapshot (weekly)
+
+# P5 baseline collection: commits a dated snapshot to snapshots/ every
+# Monday and opens an issue if collection fails — a missed snapshot cannot
+# be recovered retroactively. Window: 2026-10-08 → 2026-12-03.
+
+on:
+  schedule:
+    - cron: "15 8 * * 1"   # Mondays 08:15 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      - name: Collect baseline + fork visibility
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 tools/snapshot_baseline.py --json "snapshots/$(date +%F).json"
+          python3 tools/fork_visibility.py --json "snapshots/forks-$(date +%F).json"
+
+      - name: Commit snapshots
+        run: |
+          if git diff --quiet snapshots/ 2>/dev/null && [ -z "$(git status --porcelain snapshots/)" ]; then
+            echo "no changes"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "snapshots/$(date +%F).json" "snapshots/forks-$(date +%F).json"
+          git commit -m "chore: weekly baseline snapshot $(date +%F)"
+          git push
+
+      - name: Open issue on collection failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "baseline snapshot failed $(date +%F)" \
+            --body "Weekly P5 collection failed: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }} — rerun \`baseline-snapshot\` via workflow_dispatch; the missed window cannot be recovered later."
