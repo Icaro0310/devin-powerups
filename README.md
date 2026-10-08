@@ -204,6 +204,34 @@ unchanged.
 | `is_control_plane` | boolean, default `false` | True for the one entry that holds the registry and its governance rules: this hub. |
 | `official_overlap`, `overlap_note` | `none`, `partial`, `high`; text or `null` | Editorial note on overlap with an official Devin feature. It does not imply incompatibility or competition. |
 
+The fields answer different questions and are deliberately independent —
+one entry can legitimately sit in several places at once:
+
+| Axis | Question it answers |
+|---|---|
+| `track` | Where does it sit in the ecosystem? (navigation intent) |
+| `nature` | What kind of thing is it? (product vs infrastructure vs surface) |
+| `role` | Which function does it exercise inside its placement? |
+| `audiences` | Who is it for? |
+| `interfaces` | How is it consumed? |
+
+`devin-internals-spec` is the canonical example: `track=observe` (that is
+where explorers look for it), `role=foundation`, `nature=infrastructure`,
+`audiences=[developers, maintainers]`, `interfaces=[cli, library]`. It is a
+foundation in the architecture *and* an Observe entry in navigation — the
+model does not force a single answer.
+
+`mode` is a technical behavior, not a classification law. The heuristic
+"`read` suggests observe/assure, `mixed` suggests guard" works inside the
+product tracks, but `platform` holds tools of every mode and `orchestrator`
+is an explicit exception. `mode` may inform a placement; it never decides it
+alone.
+
+Generated surfaces consume these axes at different depths: the profile shows
+track only, `awesome-devin` adds audience/interface browsing, and per-repo
+README blocks show track/nature/audience/interface. The registry keeps the
+full semantics; no surface exposes all of it at once.
+
 `devin-devkit` distributes the tools, `devin-powerups` is the semantic control
 plane and the source of truth for this metadata, and `devin-skill-catalog` is
 catalog and governance functionality. Contradictory combinations (a `surface`
@@ -213,6 +241,15 @@ fail validation, and the error names the broken rule.
 Private entries only need `public: false` and a `maturity`. A new public entry
 scaffolded with `tools/new-repo.py` gets the least-claiming placement; refine it
 with `--track`, `--role`, `--nature`, `--mode` and `--maturity`.
+
+**Entries are not repositories.** The registry counts logical entries, so its
+size legitimately differs from the physical repo count: `devin-learning` is a
+`kind=system` record for the learning-loop runtime that lives *inside*
+devin-powerups (its `url` points here) and has no repository of its own —
+registry v20 lists 28 entries over 27 physical repositories. Conversely
+`devin-dream` still exists on GitHub as an archived repo but no longer holds
+a registry entry after the merge into `devin-evals`. Audits and counts must
+state which of the two they mean.
 
 ## Works with Devin alone (Devin-only mode)
 
