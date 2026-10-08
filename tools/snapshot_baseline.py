@@ -197,6 +197,7 @@ def diff_structure(prev: dict, cur: dict) -> dict:
             n for n in set(pe) & set(ce)
             if pe[n].get("track") != ce[n].get("track")
             or pe[n].get("nature") != ce[n].get("nature")
+            or pe[n].get("artifact") != ce[n].get("artifact")
         ),
         "visibility_changed": sorted(
             n for n in set(pe) & set(ce)
@@ -207,7 +208,7 @@ def diff_structure(prev: dict, cur: dict) -> dict:
 
 
 def previous_snapshot(today: str) -> dict | None:
-    snaps = sorted((ROOT / "snapshots").glob("*.json"))
+    snaps = sorted((ROOT / "snapshots").glob("????-??-??.json"))
     prev = [p for p in snaps if p.stem < today]
     if not prev:
         return None
