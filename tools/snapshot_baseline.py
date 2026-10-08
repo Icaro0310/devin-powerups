@@ -171,6 +171,10 @@ def structure(registry: dict) -> dict:
             "visibility": e.get("visibility"),
             "artifact": e.get("artifact"),
             "nature": e.get("nature"),
+            "role": e.get("role"),
+            "mode": e.get("mode"),
+            "audiences": e.get("audiences"),
+            "interfaces": e.get("interfaces"),
         }
     pub = [e for e in registry["repositories"] if e.get("visibility") == "public"]
     return {
@@ -195,8 +199,11 @@ def diff_structure(prev: dict, cur: dict) -> dict:
         "removed_repos": sorted(set(pe) - set(ce)),
         "reclassified": sorted(
             n for n in set(pe) & set(ce)
-            if pe[n].get("track") != ce[n].get("track")
-            or pe[n].get("nature") != ce[n].get("nature")
+            if any(
+                pe[n].get(f) != ce[n].get(f)
+                for f in ("track", "nature", "artifact", "role", "mode",
+                          "audiences", "interfaces")
+            )
         ),
         "visibility_changed": sorted(
             n for n in set(pe) & set(ce)
@@ -207,7 +214,7 @@ def diff_structure(prev: dict, cur: dict) -> dict:
 
 
 def previous_snapshot(today: str) -> dict | None:
-    snaps = sorted((ROOT / "snapshots").glob("*.json"))
+    snaps = sorted((ROOT / "snapshots").glob("????-??-??.json"))
     prev = [p for p in snaps if p.stem < today]
     if not prev:
         return None
