@@ -43,25 +43,25 @@ TRACK_META = {
 
 AUDIENCE_LABELS = {
     "qa": "QA engineers",
-    "developers": "developers",
+    "developers": "Developers",
     "ai-engineers": "AI engineers",
-    "security": "security engineers",
-    "operations": "operations",
-    "maintainers": "maintainers",
-    "end-users": "end users",
+    "security": "Security engineers",
+    "operations": "Operations",
+    "maintainers": "Maintainers",
+    "end-users": "End users",
 }
 
 INTERFACE_LABELS = {
     "cli": "CLI",
     "library": "Python library",
     "mcp": "MCP server",
-    "dashboard": "dashboard",
-    "service": "service",
-    "installer": "installer",
-    "automation": "automation",
-    "bridge": "bridge",
-    "registry": "registry",
-    "docs": "docs",
+    "dashboard": "Dashboard",
+    "service": "Service",
+    "installer": "Installer",
+    "automation": "Automation",
+    "bridge": "Bridge",
+    "registry": "Registry",
+    "docs": "Docs",
 }
 
 
@@ -115,6 +115,38 @@ def render_browse(registry: dict, axis: str) -> str:
     return "\n".join(lines).rstrip()
 
 
+def validate_journeys(registry: dict) -> list[str]:
+    """Cross-check ``journeys`` against repository entries — the schema
+    constrains shape, but repo references and audience fit are semantic."""
+    import validate_registry as vr
+
+    errors = vr.journey_errors(registry)
+    for audience in (registry.get("journeys") or {}):
+        if audience not in AUDIENCE_LABELS:
+            errors.append(f"journeys.{audience}: unknown audience")
+    return errors
+
+
+def render_journeys(registry: dict) -> str:
+    """Curated 'Paths by audience' — ordered steps with reasons, the
+    editorial layer above the flat browse lists."""
+    errors = validate_journeys(registry)
+    if errors:
+        raise ValueError("; ".join(errors))
+    journeys = registry.get("journeys") or {}
+    by_name = {r["name"]: r for r in public_entries(registry)}
+    lines = ["## Paths by audience", ""]
+    for audience in sorted(journeys, key=lambda a: AUDIENCE_LABELS.get(a, a)):
+        lines += [f"**{AUDIENCE_LABELS.get(audience, audience)}**", ""]
+        for i, step in enumerate(journeys[audience], 1):
+            repo = by_name[step["repo"]]
+            lines.append(
+                f"{i}. [`{repo['name']}`]({repo['url']}) — {step['why']}"
+            )
+        lines.append("")
+    return "\n".join(lines).rstrip()
+
+
 def render_tool_block(repo: dict) -> str:
     """Per-repo README block: where it fits and what it connects to."""
     track = repo.get("track")
@@ -159,7 +191,7 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument(
         "surface",
-        choices=["intent", "audience", "interface", "block", "counts"],
+        choices=["intent", "audience", "interface", "block", "counts", "paths"],
     )
     ap.add_argument("name", nargs="?", help="repo name for surface=block")
     ap.add_argument("--registry", type=Path, default=REGISTRY)
@@ -198,6 +230,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.surface == "intent":
         print(render_intent_map(registry))
+    elif args.surface == "paths":
+        print(render_journeys(registry))
     elif args.surface == "audience":
         print(render_browse(registry, "audiences"))
     elif args.surface == "interface":

@@ -32,6 +32,19 @@
           }
         }
       ]
+    },
+    "journeySteps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["repo", "why"],
+        "properties": {
+          "repo": {"type": "string", "minLength": 1},
+          "why": {"type": "string", "minLength": 1}
+        }
+      }
     }
   },
   "additionalProperties": false,
@@ -487,6 +500,20 @@
             "then": {"properties": {"role": {"const": "module"}, "nature": {"const": "product"}}}
           }
         ]
+      }
+    },
+    "journeys": {
+      "type": "object",
+      "description": "curated per-audience paths: ordered steps, each a public repo with a one-line reason; rendered as 'Paths by audience'",
+      "additionalProperties": false,
+      "properties": {
+        "qa": {"$ref": "#/$defs/journeySteps"},
+        "developers": {"$ref": "#/$defs/journeySteps"},
+        "ai-engineers": {"$ref": "#/$defs/journeySteps"},
+        "security": {"$ref": "#/$defs/journeySteps"},
+        "operations": {"$ref": "#/$defs/journeySteps"},
+        "maintainers": {"$ref": "#/$defs/journeySteps"},
+        "end-users": {"$ref": "#/$defs/journeySteps"}
       }
     }
   }

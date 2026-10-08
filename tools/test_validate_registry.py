@@ -24,6 +24,7 @@ def entry(name: str) -> dict:
 def doc(*entries: dict) -> dict:
     document = copy.deepcopy(REGISTRY)
     document["repositories"] = list(entries)
+    document.pop("journeys", None)  # steps reference repos not in these docs
     return document
 
 
