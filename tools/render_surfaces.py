@@ -15,7 +15,7 @@ Consumed by awesome-devin, the profile README, the site and per-repo
 README blocks. Editorial copy (positioning, claims) is never generated.
 
 Usage:
-    python3 tools/render_surfaces.py intent [--md]
+    python3 tools/render_surfaces.py intent
     python3 tools/render_surfaces.py block devin-evals
     python3 tools/render_surfaces.py counts --json
 """
@@ -80,17 +80,18 @@ def render_intent_map(registry: dict) -> str:
     """'What do you want to do?' — tracks as intents, tools underneath."""
     by_track: dict[str, list[dict]] = defaultdict(list)
     for repo in public_entries(registry):
-        if repo.get("track") in TRACK_META:
-            by_track[repo["track"]].append(repo)
+        track = repo.get("track")
+        if track:
+            by_track[track].append(repo)
     lines = ["## What do you want to do?", ""]
-    for track, (_, verb, promise) in sorted(
-        TRACK_META.items(), key=lambda kv: kv[1][0]
-    ):
-        repos = by_track.get(track)
-        if not repos:
-            continue
-        lines += [f"**{verb}** — {promise}", ""]
-        lines += [_line(r) for r in sorted(repos, key=lambda r: r["name"])]
+    ordered = sorted(
+        by_track, key=lambda t: (TRACK_META.get(t, (90, t.title(), ""))[0], t)
+    )
+    for track in ordered:
+        _, verb, promise = TRACK_META.get(track, (90, track.title(), ""))
+        suffix = f" — {promise}" if promise else ""
+        lines += [f"**{verb}**{suffix}", ""]
+        lines += [_line(r) for r in sorted(by_track[track], key=lambda r: r["name"])]
         lines.append("")
     return "\n".join(lines).rstrip()
 
@@ -141,11 +142,14 @@ def counts(registry: dict) -> dict:
         "entries": len(registry["repositories"]),
         "public_entries": len(pub),
         "tools": sum(1 for r in pub if r.get("artifact") == "tool"),
-        "tracks": {
-            t: sum(1 for r in pub if r.get("track") == t)
-            for t in TRACK_META
-            if any(r.get("track") == t for r in pub)
-        },
+        "tracks": dict(
+            sorted(
+                {
+                    t: sum(1 for r in pub if r.get("track") == t)
+                    for t in {r.get("track") for r in pub} - {None}
+                }.items()
+            )
+        ),
     }
 
 
@@ -171,12 +175,17 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(out, indent=2) if args.json else out)
         return 0
 
+    if args.json:
+        print("error: --json is only supported for surface=counts",
+              file=sys.stderr)
+        return 2
+
     if args.surface == "block":
         if not args.name:
             print("error: surface=block needs a repo name", file=sys.stderr)
             return 2
         repo = next(
-            (r for r in registry["repositories"] if r["name"] == args.name),
+            (r for r in public_entries(registry) if r["name"] == args.name),
             None,
         )
         if repo is None:

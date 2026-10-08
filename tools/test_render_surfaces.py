@@ -129,6 +129,34 @@ class TestMain(unittest.TestCase):
         rc = rs.main(["block", "nope", "--registry", path])
         self.assertEqual(rc, 2)
 
+    def _registry_file(self) -> str:
+        import tempfile
+        with tempfile.NamedTemporaryFile(
+            "w", suffix=".json", delete=False
+        ) as f:
+            json.dump(REGISTRY, f)
+        return f.name
+
+    def test_cli_block_rejects_private_repo(self):
+        rc = rs.main(["block", "private-thing", "--registry",
+                      self._registry_file()])
+        self.assertEqual(rc, 2)
+
+    def test_cli_json_rejected_for_markdown_surfaces(self):
+        rc = rs.main(["intent", "--json", "--registry",
+                      self._registry_file()])
+        self.assertEqual(rc, 2)
+
+    def test_unknown_track_renders_instead_of_dropping(self):
+        reg = {"version": 1, "repositories": [
+            repo(name="devin-spec", track="foundation"),
+        ]}
+        out = rs.render_intent_map(reg)
+        self.assertIn("**Foundation**", out)
+        self.assertIn("`devin-spec`", out)
+        c = rs.counts(reg)
+        self.assertEqual(c["tracks"]["foundation"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()
