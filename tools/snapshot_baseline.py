@@ -158,6 +158,72 @@ def collect_downloads(registry: dict) -> dict:
     return out
 
 
+def structure(registry: dict) -> dict:
+    """Structural fingerprint: what each snapshot is actually measuring.
+
+    Lets a later analysis correlate metric deltas with structural changes
+    instead of freezing the architecture for a 'clean' series.
+    """
+    entries = {}
+    for e in registry["repositories"]:
+        entries[e["name"]] = {
+            "track": e.get("track"),
+            "visibility": e.get("visibility"),
+            "artifact": e.get("artifact"),
+            "nature": e.get("nature"),
+            "role": e.get("role"),
+            "mode": e.get("mode"),
+            "audiences": e.get("audiences"),
+            "interfaces": e.get("interfaces"),
+        }
+    pub = [e for e in registry["repositories"] if e.get("visibility") == "public"]
+    return {
+        "registry_commit": subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=ROOT,
+            capture_output=True, text=True,
+        ).stdout.strip() or None,
+        "first_party_tools": sum(
+            1 for e in pub if e.get("artifact") == "tool"
+        ),
+        "public_repos": len(pub),
+        "private_repos": len(registry["repositories"]) - len(pub),
+        "entries": entries,
+    }
+
+
+def diff_structure(prev: dict, cur: dict) -> dict:
+    """Compare two ``structure`` blocks; empty diff if either is missing."""
+    pe, ce = (prev or {}).get("entries", {}), cur.get("entries", {})
+    out = {
+        "created_repos": sorted(set(ce) - set(pe)),
+        "removed_repos": sorted(set(pe) - set(ce)),
+        "reclassified": sorted(
+            n for n in set(pe) & set(ce)
+            if any(
+                pe[n].get(f) != ce[n].get(f)
+                for f in ("track", "nature", "artifact", "role", "mode",
+                          "audiences", "interfaces")
+            )
+        ),
+        "visibility_changed": sorted(
+            n for n in set(pe) & set(ce)
+            if pe[n].get("visibility") != ce[n].get("visibility")
+        ),
+    }
+    return {k: v for k, v in out.items() if v}
+
+
+def previous_snapshot(today: str) -> dict | None:
+    snaps = sorted((ROOT / "snapshots").glob("????-??-??.json"))
+    prev = [p for p in snaps if p.stem < today]
+    if not prev:
+        return None
+    try:
+        return json.loads(prev[-1].read_text())
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
 def _fmt(value: object) -> str:
     return "n/a" if value is None else str(value)
 
@@ -211,12 +277,25 @@ def main() -> int:
         if e.get("visibility") == "public"
     ]
 
+    today = date.today().isoformat()
+    struct = structure(registry)
+    prev = previous_snapshot(today)
+    if prev is None:
+        changes: dict | str = "no previous snapshot"
+    elif "structure" not in prev:
+        changes = "fingerprint established (previous snapshot predates structure)"
+    else:
+        changes = diff_structure(prev["structure"], struct)
     snapshot = {
-        "date": date.today().isoformat(),
+        "date": today,
         "registry_version": registry.get("version"),
+        "structure": {k: v for k, v in struct.items() if k != "entries"},
+        "structural_changes_since_previous": changes,
         "repos": {name: collect_repo(name) for name in repos},
         "downloads": collect_downloads(registry),
     }
+    # full per-entry fingerprint is kept for future diffs
+    snapshot["structure"]["entries"] = struct["entries"]
 
     if args.json:
         Path(args.json).write_text(json.dumps(snapshot, indent=2) + "\n")
