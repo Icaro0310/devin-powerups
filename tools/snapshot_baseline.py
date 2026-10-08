@@ -88,7 +88,10 @@ def collect_repo(name: str) -> dict:
         )
         page_runs = runs.get("workflow_runs") or []
         for run in page_runs:
-            if run.get("conclusion"):
+            created = datetime.fromisoformat(
+                run["created_at"].replace("Z", "+00:00")
+            )
+            if created >= cutoff and run.get("conclusion"):
                 conclusions[run["conclusion"]] += 1
         if len(page_runs) < 100:
             break
