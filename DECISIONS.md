@@ -4,6 +4,29 @@ Structural decisions about the ecosystem, newest first. Format per
 `GOVERNANCE.md`: Decision / Date / Reason / Evidence / Expected outcome /
 Result. Records are not eternal — revisit when new evidence arrives.
 
+## D-2026-10-08 — `devin-pm` vs `devin-metrics`: measure the boundary (V4 §16)
+
+- **Decision:** keep the repos separate during the window and define in
+  advance which signals decide the boundary question — not "wait 8
+  weeks then maybe merge".
+- **Reason:** the two tools answer different questions today (pm: "what
+  is the state of my projects" — rollups, milestones, status reports;
+  metrics: "what did sessions do" — activity, context size, token
+  peaks), but only observed usage can show whether users treat them as
+  one job.
+- **Evidence:** signals that argue there is NO boundary (product
+  overlap — merge candidates per GOVERNANCE.md): issues filed on one
+  tool that belong to the other, docs/referrers presenting them as one
+  journey, high devkit co-install, overlapping commands in real usage.
+  Signals that argue a boundary EXISTS: distinct issue trackers with no
+  cross-filing, separate audiences using each alone, pm reports that
+  never embed metrics output. Shared-infra overlap (both read
+  `sessions.db` via parallel implementations, ~400 LOC) is tracked under
+  the internals-spec evaluation, not merge evidence.
+- **Expected outcome:** at the December audit the accumulated signals
+  either justify a merge proposal or record the boundary as confirmed.
+- **Result:** open — measuring.
+
 ## D-2026-10-08 — P5 is a measurement window, not a work freeze
 
 - **Decision:** lift the blanket freeze; gate only changes that
