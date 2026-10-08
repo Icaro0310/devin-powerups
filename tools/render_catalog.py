@@ -49,6 +49,9 @@ def render_profile_catalog(registry: dict) -> str:
         "",
         "<br/>",
         "",
+        "*(Understand / Verify / Control / Build are the public tracks;*",
+        "*Operations, Distribution and Maintainer hub are support roles.)*",
+        "",
         "| Group | Repo | What it does |",
         "|---|---|---|",
     ]
