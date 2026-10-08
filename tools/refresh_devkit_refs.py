@@ -92,7 +92,10 @@ def refresh(registry_path: Path, owner: str) -> dict:
     changes: list[str] = []
     errors: list[str] = []
 
+    repo_entries = {e["name"]: e for e in registry.get("repositories", [])}
+
     for name, tool in registry.get("devkit", {}).get("tools", {}).items():
+        newest = None
         source = tool.get("source")
         if source == "github":
             try:
@@ -104,20 +107,28 @@ def refresh(registry_path: Path, owner: str) -> dict:
                 changes.append(f"{name}.ref: {str(tool.get('ref'))[:8]} -> {head[:8]}")
                 tool["ref"] = head
             try:
-                newest_tag = _github_newest_tag(owner, name)
+                newest = _github_newest_tag(owner, name)
             except (RuntimeError, subprocess.TimeoutExpired, json.JSONDecodeError) as exc:
                 errors.append(f"{name}: tag check failed: {exc}")
-                newest_tag = None
-            current = _norm_version(tool.get("version", ""))
-            if newest_tag and (current is None or _version_key(newest_tag) > _version_key(current)):
-                changes.append(f"{name}.version: {tool.get('version')} -> {newest_tag}")
-                tool["version"] = newest_tag
         elif source == "pypi":
             newest = _pypi_newest_version(tool.get("package", name))
-            current = _norm_version(tool.get("version", ""))
-            if newest and (current is None or _version_key(newest) > _version_key(current)):
-                changes.append(f"{name}.version: {tool.get('version')} -> {newest} (PyPI)")
-                tool["version"] = newest
+        if newest is None:
+            continue
+        current = _norm_version(tool.get("version", ""))
+        if current is None or _version_key(newest) > _version_key(current):
+            changes.append(f"{name}.version: {tool.get('version')} -> {newest}")
+            tool["version"] = newest
+        # The per-repo `version` field must track the same release — it
+        # drifted to 0.1.0 for poordjaevin while devkit.tools said 0.1.1
+        # (devin-powerups#30).
+        entry = repo_entries.get(name)
+        if entry is not None:
+            entry_version = _norm_version(entry.get("version", ""))
+            if entry_version is None or _version_key(newest) > _version_key(entry_version):
+                changes.append(
+                    f"{name} (repo entry).version: {entry.get('version')} -> {newest}"
+                )
+                entry["version"] = newest
 
     report = {"changes": changes, "errors": errors}
     if changes:
