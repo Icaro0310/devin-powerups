@@ -36,12 +36,38 @@ issue tracker, release channel, CI, SEO).
 | qa-pack + evals | none found | none — different inputs (claims audit vs replay grading) |
 | redact vs backup/janitor | — | none — redact is a *security* boundary, not lifecycle |
 
+## Current ranking (2026-10-08, post-verification)
+
+| Rank | Family | Evidence |
+|---|---|---|
+| 1 | F3 `backup + janitor` | real, tested contract coupling — cleanup requires a verified snapshot |
+| 2 | F1 `history + search + graph` | one job, three identities; a *product-unity* test, not architecture |
+| 3 | F2 `qa-pack + evals` | technically cheap, but both PyPI identities exist — deprecation cost vs unproven gain |
+
+The candidates are no longer interchangeable: F3 is a dependency
+argument, F1 is a cognitive-load argument, F2 is an editorial argument
+with public-identity cost.
+
 ## Candidates
+
+### F3 — `devin-data` (backup + janitor; redact stays out)
+
+- **Contractual unity:** `backup` produces verified snapshots;
+  `janitor` cleanup *requires* one (the contract is tested, not
+  thematic). preserve → remove safely is one workflow, not two tools
+  that happen to touch data.
+- **redact is excluded, not merely deferred:** it is a security
+  boundary (audience: security engineers; failure mode: shipping
+  secrets). It does not enter the family by inertia — the bar would be
+  evidence that users run it inside the lifecycle flow rather than as
+  its own gate.
+- **Distribution note:** `devin-janitor` is `source_only` — decide the
+  family before publishing it, avoiding a create-then-deprecate cycle.
 
 ### F1 — `devin-explore` (history + search + graph; pm/office probed)
 
-The strongest candidate. All three are read-only interfaces over the
-same object — the Devin session universe:
+Three read-only interfaces over the same object — the Devin session
+universe:
 
 ```
 history → when did it happen?
@@ -58,11 +84,16 @@ graph   → how does it relate?
   extraction; the D-record already chose the latter, so code overlap is
   *not* itself merge evidence. What remains is product-identity cost:
   three READMEs, three issue trackers, three releases for one job.
+  This is a product-unity test, not an architecture argument.
 - **Distribution note:** `devin-graph` is `source_only` — merging before
   publishing avoids creating a package identity that gets deprecated.
   Correct order: decide family first, publish second.
 - **Probes (measurable before any merge):** devkit `explore` profile
   co-install rates; cross-repo issues/referrers; traffic correlation.
+  Caveat: the profile measures *installation unity* only — users may
+  consume a single member, get a tool indirectly, or never install the
+  bundle; absence of profile adoption does not alone confirm the
+  boundary.
 - **pm / office / metrics:** evaluate as family *members*, not automatic
   merge candidates. `pm` writes rollups/milestones (different mode);
   `office` is a visual interface over the same state; `metrics` is
@@ -76,21 +107,12 @@ graph   → how does it relate?
 - **Technical:** no shared code — clean submodule boundary
   (`audit` / `replay` / `grade`). Merge is cheap in code terms; the cost
   is deprecating a published PyPI identity.
+- **Cost-benefit:** precisely because the merge is technically cheap,
+  the dominant question becomes whether collapsing two public
+  identities pays for itself — the burden of proof is on the merge.
 - **poordjaevin stays out** — it is a decision/confidence layer with an
   audience beyond assurance (MCP server, ACP backend). Integrates, does
   not merge.
-
-### F3 — `devin-data` (backup + janitor; redact = open question)
-
-- **Narrative unity:** preserve → sanitize → remove safely. The
-  janitor→backup contract is real coupling, not thematic similarity.
-- **Boundary question (must answer before merge):** is `redact` a
-  capability of data lifecycle, or an independent security product? Its
-  audience (security engineers) and failure mode (shipping secrets)
-  argue for keeping the boundary crisp. Provisionally: backup+janitor
-  merge candidates; redact stays separate but adjacent.
-- **Distribution note:** `devin-janitor` is `source_only` — same
-  family-first ordering as graph.
 
 ### Secondary — `devkit + skill-catalog`
 
@@ -129,6 +151,6 @@ cross-filing, and a merged description that reads as two products.
 
 - **Now (allowed):** this assessment, the `explore` devkit profile as a
   co-install probe, continued D07/D05/D09 work, baseline collection.
-- **After 2026-12-03 (or on governance trigger):** merge execution in
-  family order F1 → F2 → F3, each as its own PR + D-record update with
-  the evidence table filled.
+- **After 2026-12-03 (or on governance trigger):** merge proposals in
+  ranking order F3 → F1 → F2, each as its own PR + D-record update with
+  the evidence table filled — "keep separate" is a legitimate outcome.
