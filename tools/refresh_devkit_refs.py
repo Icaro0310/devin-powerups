@@ -98,6 +98,17 @@ def refresh(registry_path: Path, owner: str) -> dict:
         newest = None
         source = tool.get("source")
         if source == "github":
+            # Watchdog for the drift class found in v1.0: a tool pinned to
+            # a git ref whose package was later published to PyPI (evals,
+            # search). Runs before the GitHub lookups so an API outage
+            # can't suppress the publication warning; the declared channel
+            # is a decision, not derived state, so it warns only.
+            pypi_ver = _pypi_newest_version(tool.get("package", name))
+            if pypi_ver is not None:
+                errors.append(
+                    f"{name}: source is 'github' but {tool.get('package', name)} "
+                    f"{pypi_ver} exists on PyPI — consider flipping source/status"
+                )
             try:
                 head = _github_head(owner, name)
             except (RuntimeError, subprocess.TimeoutExpired, json.JSONDecodeError) as exc:

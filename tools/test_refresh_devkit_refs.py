@@ -93,3 +93,39 @@ def test_devkit_tool_without_repo_entry_is_untouched(tmp_path, monkeypatch):
     report = r.refresh(path, "owner")
     assert json.loads(path.read_text())["devkit"]["tools"]["ghost"]["version"] == "1.0.0"
     assert "ghost.version: 0.1.0 -> 1.0.0" in report["changes"]
+
+
+def test_github_tool_on_pypi_warns(tmp_path, monkeypatch):
+    """A github-pinned tool whose package exists on PyPI triggers a
+    warning; the declared channel itself is left alone."""
+    monkeypatch.setattr(r, "_github_head", lambda o, n: "a" * 40)
+    monkeypatch.setattr(r, "_github_newest_tag", lambda o, n: "0.1.0")
+    monkeypatch.setattr(r, "_pypi_newest_version", lambda pkg: "0.1.0")
+    reg = registry(
+        {"devin-search": {"source": "github", "package": "devin-search",
+                          "version": "0.1.0", "ref": "a" * 40}},
+        [{"name": "devin-search", "version": "0.1.0"}],
+    )
+    path = tmp_path / "registry.json"
+    path.write_text(json.dumps(reg))
+    report = r.refresh(path, "owner")
+    tool = json.loads(path.read_text())["devkit"]["tools"]["devin-search"]
+    assert tool["source"] == "github"
+    assert any("PyPI" in e for e in report["errors"])
+
+
+def test_github_outage_still_warns_about_pypi(tmp_path, monkeypatch):
+    """The publication watchdog runs even when GitHub lookups fail."""
+    def boom(o, n):
+        raise RuntimeError("api down")
+    monkeypatch.setattr(r, "_github_head", boom)
+    monkeypatch.setattr(r, "_pypi_newest_version", lambda pkg: "0.1.0")
+    reg = registry(
+        {"devin-graph": {"source": "github", "package": "devin-graph",
+                         "version": "0.1.0", "ref": "a" * 40}},
+        [{"name": "devin-graph", "version": "0.1.0"}],
+    )
+    path = tmp_path / "registry.json"
+    path.write_text(json.dumps(reg))
+    report = r.refresh(path, "owner")
+    assert any("PyPI" in e for e in report["errors"])
