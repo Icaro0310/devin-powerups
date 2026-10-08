@@ -33,6 +33,14 @@ def render_profile_catalog(registry: dict) -> str:
     tools, hubs, distributions, related = catalog_sections(registry)
     categories = registry["devkit"]["tools"]
     category_labels = {"qa": "QA", "evaluation": "Evaluation", "security": "Security", "memory": "Memory", "operations": "Operations", "governance": "Governance", "foundation": "Foundation"}
+    track_labels = {
+        "observe": "Understand",
+        "assure": "Verify",
+        "guard": "Control",
+        "platform": "Build",
+        "navigation": "Navigate",
+        "related": "Related",
+    }
     entry_count = len(tools) + len(hubs) + len(distributions) + len(related)
     plural = lambda n: "" if n == 1 else "s"  # noqa: E731
     lines = [
@@ -45,9 +53,11 @@ def render_profile_catalog(registry: dict) -> str:
     ]
     for repo in tools:
         name = repo["name"]
-        category = category_labels[categories[name]["category"]]
+        group = track_labels.get(repo.get("track"))
+        if group is None:
+            group = category_labels[categories[name]["category"]]
         lines.append(
-            f"| **{category}** | [`{name}`]({repo['url']}) | {_escape(repo['description'])} |"
+            f"| **{group}** | [`{name}`]({repo['url']}) | {_escape(repo['description'])} |"
         )
     for repo in distributions:
         lines.append(
