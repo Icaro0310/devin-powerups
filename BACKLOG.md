@@ -53,7 +53,7 @@ what unblocks.
 |---|---|---|
 | `fork-janitor` cron (04:45 daily) | daily | new PATH/`gh` failure → open issue |
 | `registry-drift` workflow | per push | real drift → fix like the devin-metrics incident |
-| `registry-refresh` (Mon 07:33 UTC) | weekly | `poordjaevin.version` stale → escalate (devin-powerups#30) |
+| `registry-refresh` (Mon 07:33 UTC) | weekly | `poordjaevin.version` stale → escalate (Icaro0310/devin-powerups#30) |
 | `check_dist_status` | per push | a README banner disagrees with the registry |
 | `baseline-snapshot` (Mon 08:15 UTC) | weekly | opens a GitHub issue automatically; missed windows are unrecoverable |
 
