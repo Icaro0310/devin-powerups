@@ -73,6 +73,27 @@ class TestAttribution:
         assert ci_attribution(r) == "mixed/unclear"
 
 
+class TestReportUsesLatestAbsolute:
+    def test_funnel_uses_snapshot_b_counts(self, tmp_path):
+        a = snap("2026-10-08", {"x": repo(unique_visitors_14d=30, unique_cloners_14d=12)})
+        b = snap("2026-12-03", {"x": repo(unique_visitors_14d=20, unique_cloners_14d=20)})
+        from analyze_baseline import report
+
+        [r] = report(a, b)
+        assert r["clone_rate"] == 1.0
+        assert r["unique_cloners_14d"] == 8  # delta stays a delta
+
+    def test_attribution_uses_snapshot_b_counts(self):
+        a = snap("2026-10-08", {"x": repo()})
+        b_repo = repo(clones_14d=500, unique_cloners_14d=20)
+        b_repo["ci"]["runs_14d"] = 50
+        b = snap("2026-12-03", {"x": b_repo})
+        from analyze_baseline import report
+
+        [r] = report(a, b)
+        assert r["attribution"] == "ci-dominated?"
+
+
 class TestMain:
     def test_markdown_and_json(self, tmp_path, capsys):
         a = tmp_path / "a.json"

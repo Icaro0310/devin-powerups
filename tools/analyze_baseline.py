@@ -94,9 +94,14 @@ def ci_attribution(repo: dict) -> str:
 def report(a: dict, b: dict) -> list[dict]:
     rows = per_repo(a, b)
     for row in rows:
-        if row["status"] == "tracked":
-            row.update(funnel(row))
-            row["attribution"] = ci_attribution(row)
+        if row["status"] != "tracked":
+            continue
+        # Funnel and attribution must read the later snapshot's absolute
+        # counts — the row's metric fields are deltas, and dividing deltas
+        # produces negative or missing rates.
+        latest = b["repos"].get(row["repo"], {})
+        row.update(funnel(latest))
+        row["attribution"] = ci_attribution(latest)
     return rows
 
 
