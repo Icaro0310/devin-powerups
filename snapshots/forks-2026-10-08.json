@@ -1,0 +1,325 @@
+{
+  "date": "2026-10-08",
+  "upstream_prs": {
+    "MobinX/awesome-mcp-list": {
+      "open": 1,
+      "merged": 0,
+      "closed_unmerged": 0,
+      "other": 0
+    },
+    "TensorBlock/awesome-mcp-servers": {
+      "open": 0,
+      "merged": 1,
+      "closed_unmerged": 0,
+      "other": 0
+    },
+    "YuzeHao2023/Awesome-MCP-Servers": {
+      "open": 1,
+      "merged": 0,
+      "closed_unmerged": 0,
+      "other": 0
+    },
+    "atinfo/awesome-test-automation": {
+      "open": 0,
+      "merged": 0,
+      "closed_unmerged": 1,
+      "other": 0
+    },
+    "awesome-obsidian/awesome-obsidian": {
+      "open": 0,
+      "merged": 0,
+      "closed_unmerged": 1,
+      "other": 0
+    },
+    "bradAGI/awesome-cli-coding-agents": {
+      "open": 0,
+      "merged": 0,
+      "closed_unmerged": 2,
+      "other": 0
+    },
+    "e2b-dev/awesome-ai-sdks": {
+      "open": 0,
+      "merged": 0,
+      "closed_unmerged": 2,
+      "other": 0
+    },
+    "emmabostian/developer-portfolios": {
+      "open": 0,
+      "merged": 0,
+      "closed_unmerged": 0,
+      "other": 1
+    },
+    "punkpeye/awesome-mcp-servers": {
+      "open": 1,
+      "merged": 0,
+      "closed_unmerged": 3,
+      "other": 1
+    },
+    "shalk/awesome-ai-coding": {
+      "open": 0,
+      "merged": 0,
+      "closed_unmerged": 2,
+      "other": 0
+    },
+    "yzfly/Awesome-MCP-ZH": {
+      "open": 1,
+      "merged": 0,
+      "closed_unmerged": 0,
+      "other": 0
+    }
+  },
+  "details": {
+    "MobinX/awesome-mcp-list": {
+      "open": 1,
+      "merged": 0,
+      "closed_unmerged": 0,
+      "prs": [
+        {
+          "title": "Add Icaro0310/poordjaevin to Developer Tools",
+          "url": "https://github.com/MobinX/awesome-mcp-list/pull/665",
+          "state": "open",
+          "merged_at": null,
+          "promotes": [
+            "poordjaevin"
+          ]
+        }
+      ],
+      "other": []
+    },
+    "TensorBlock/awesome-mcp-servers": {
+      "open": 0,
+      "merged": 1,
+      "closed_unmerged": 0,
+      "prs": [
+        {
+          "title": "Add poordjaevin to Developer Productivity & Utilities",
+          "url": "https://github.com/TensorBlock/awesome-mcp-servers/pull/3229",
+          "state": "merged",
+          "merged_at": "2026-10-07T16:09:39Z",
+          "promotes": [
+            "poordjaevin"
+          ]
+        }
+      ],
+      "other": []
+    },
+    "YuzeHao2023/Awesome-MCP-Servers": {
+      "open": 1,
+      "merged": 0,
+      "closed_unmerged": 0,
+      "prs": [
+        {
+          "title": "Add poordjaevin to Development Tools",
+          "url": "https://github.com/YuzeHao2023/Awesome-MCP-Servers/pull/585",
+          "state": "open",
+          "merged_at": null,
+          "promotes": [
+            "poordjaevin"
+          ]
+        }
+      ],
+      "other": []
+    },
+    "atinfo/awesome-test-automation": {
+      "open": 0,
+      "merged": 0,
+      "closed_unmerged": 1,
+      "prs": [
+        {
+          "title": "Add devin-qa-pack to Useful libs",
+          "url": "https://github.com/atinfo/awesome-test-automation/pull/607",
+          "state": "closed_unmerged",
+          "merged_at": null,
+          "promotes": [
+            "devin-qa-pack"
+          ]
+        }
+      ],
+      "other": []
+    },
+    "awesome-obsidian/awesome-obsidian": {
+      "open": 0,
+      "merged": 0,
+      "closed_unmerged": 1,
+      "prs": [
+        {
+          "title": "Add project: devin-history",
+          "url": "https://github.com/awesome-obsidian/awesome-obsidian/pull/19",
+          "state": "closed_unmerged",
+          "merged_at": null,
+          "promotes": [
+            "devin-history"
+          ]
+        }
+      ],
+      "other": []
+    },
+    "bradAGI/awesome-cli-coding-agents": {
+      "open": 0,
+      "merged": 0,
+      "closed_unmerged": 2,
+      "prs": [
+        {
+          "title": "Add devin-qa-pack to Agent infrastructure",
+          "url": "https://github.com/bradAGI/awesome-cli-coding-agents/pull/437",
+          "state": "closed_unmerged",
+          "merged_at": null,
+          "promotes": [
+            "devin-qa-pack"
+          ]
+        },
+        {
+          "title": "Add devin-bridge",
+          "url": "https://github.com/bradAGI/awesome-cli-coding-agents/pull/433",
+          "state": "closed_unmerged",
+          "merged_at": null,
+          "promotes": [
+            "devin-bridge"
+          ]
+        }
+      ],
+      "other": []
+    },
+    "e2b-dev/awesome-ai-sdks": {
+      "open": 0,
+      "merged": 0,
+      "closed_unmerged": 2,
+      "prs": [
+        {
+          "title": "Add devin-qa-pack (agent session auditing)",
+          "url": "https://github.com/e2b-dev/awesome-ai-sdks/pull/392",
+          "state": "closed_unmerged",
+          "merged_at": null,
+          "promotes": [
+            "devin-qa-pack"
+          ]
+        },
+        {
+          "title": "Add devin-evals",
+          "url": "https://github.com/e2b-dev/awesome-ai-sdks/pull/391",
+          "state": "closed_unmerged",
+          "merged_at": null,
+          "promotes": [
+            "devin-evals"
+          ]
+        }
+      ],
+      "other": []
+    },
+    "emmabostian/developer-portfolios": {
+      "open": 0,
+      "merged": 0,
+      "closed_unmerged": 0,
+      "prs": [],
+      "other": [
+        {
+          "title": "Add \u00cdcaro Galv\u00e3o",
+          "url": "https://github.com/emmabostian/developer-portfolios/pull/4284",
+          "state": "merged",
+          "merged_at": "2026-10-04T15:59:51Z"
+        }
+      ]
+    },
+    "punkpeye/awesome-mcp-servers": {
+      "open": 1,
+      "merged": 0,
+      "closed_unmerged": 3,
+      "prs": [
+        {
+          "title": "Add poordjaevin to Developer Tools \ud83e\udd16\ud83e\udd16\ud83e\udd16",
+          "url": "https://github.com/punkpeye/awesome-mcp-servers/pull/15863",
+          "state": "open",
+          "merged_at": null,
+          "promotes": [
+            "poordjaevin"
+          ]
+        },
+        {
+          "title": "Add poordjaevin to Developer Tools",
+          "url": "https://github.com/punkpeye/awesome-mcp-servers/pull/15779",
+          "state": "closed_unmerged",
+          "merged_at": null,
+          "promotes": [
+            "poordjaevin"
+          ]
+        },
+        {
+          "title": "Add devin-memory",
+          "url": "https://github.com/punkpeye/awesome-mcp-servers/pull/15723",
+          "state": "closed_unmerged",
+          "merged_at": null,
+          "promotes": [
+            "devin-memory"
+          ]
+        },
+        {
+          "title": "Add Icaro0310/poordjaevin server \ud83e\udd16\ud83e\udd16\ud83e\udd16",
+          "url": "https://github.com/punkpeye/awesome-mcp-servers/pull/15601",
+          "state": "closed_unmerged",
+          "merged_at": null,
+          "promotes": [
+            "poordjaevin"
+          ]
+        }
+      ],
+      "other": [
+        {
+          "title": "ci: pin actions by SHA, minimal token permissions",
+          "url": "https://github.com/punkpeye/awesome-mcp-servers/pull/15870",
+          "state": "closed_unmerged",
+          "merged_at": null
+        }
+      ]
+    },
+    "shalk/awesome-ai-coding": {
+      "open": 0,
+      "merged": 0,
+      "closed_unmerged": 2,
+      "prs": [
+        {
+          "title": "Add devin-qa-pack to Testing & QA",
+          "url": "https://github.com/shalk/awesome-ai-coding/pull/12",
+          "state": "closed_unmerged",
+          "merged_at": null,
+          "promotes": [
+            "devin-qa-pack"
+          ]
+        },
+        {
+          "title": "Add devin-metrics",
+          "url": "https://github.com/shalk/awesome-ai-coding/pull/11",
+          "state": "closed_unmerged",
+          "merged_at": null,
+          "promotes": [
+            "devin-metrics"
+          ]
+        }
+      ],
+      "other": []
+    },
+    "yzfly/Awesome-MCP-ZH": {
+      "open": 1,
+      "merged": 0,
+      "closed_unmerged": 0,
+      "prs": [
+        {
+          "title": "\u65b0\u589e poordjaevin \u5230 \ud83d\udcbb \u5f00\u53d1\u4e0e\u4ee3\u7801\u6267\u884c",
+          "url": "https://github.com/yzfly/Awesome-MCP-ZH/pull/687",
+          "state": "open",
+          "merged_at": null,
+          "promotes": [
+            "poordjaevin"
+          ]
+        }
+      ],
+      "other": []
+    }
+  },
+  "totals": {
+    "open": 4,
+    "merged": 1,
+    "closed_unmerged": 11,
+    "other": 2
+  },
+  "errors": []
+}

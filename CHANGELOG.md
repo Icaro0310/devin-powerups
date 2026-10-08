@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `GOVERNANCE.md` + `BACKLOG.md`: central rules (P5 freeze, merge evidence rule, `@v1` caller pinning, named-file staging) and the parked-work tracker. `tools/fork_visibility.py` measures the upstream awesome-list PR funnel. `.github/workflows/baseline-snapshot.yml` automates weekly P5 collection (Mon 08:15 UTC, commits snapshots, opens an issue on failure).
+
 - `tools/snapshot_baseline.py` + `BASELINE.md`: P5 adoption/reliability baseline — per-repo GitHub stats and traffic (14d), PyPI/npm downloads for published tools, day-1 snapshot at `snapshots/2026-10-08.json`. Collection window 2026-10-08 → 2026-12-03.
 
 - `scorecard.yml` drops top-level `permissions: read-all`: a called workflow's requested scopes must be a subset of what the caller grants, and `read-all` demanded every scope (caused `startup_failure` in callers). The job now declares exactly `contents: read`, `security-events: write`, `id-token: write`; `VARIANTS.md` caller templates grant permissions at job level explicitly.
