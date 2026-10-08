@@ -125,10 +125,31 @@ directly (own identity) or only via scaffold/bundle flows (capability)?
 Both manage the Devin *environment* (health / config profiles). Weaker
 than F1–F3; keep for a later pass.
 
-## Explicitly out of scope (boundaries confirmed)
+## Explicitly out of scope (KEEP by default)
 
-internals-spec consumers · powerups · awesome-devin · memory · bridge +
-orchestrator · poordjaevin · homebrew/scoop · qwenpaw-suite.
+F1/F2/F3 are *the three families where a boundary hypothesis is strong
+enough to investigate* — not "the three families of the ecosystem".
+Everything else stays KEEP by default; absence from the table is a
+decision, not an omission.
+
+| Entry | Why not a hypothesis |
+|---|---|
+| `devin-doctor` | environment health — no sibling shares its job |
+| `devin-redact` | security boundary (audience + failure mode); excluded from F3 by rule, not inertia |
+| `devin-switch` | config profiles — single-job tool |
+| `devin-skill-catalog` | capability vs product question parked (see secondary candidate above) |
+| `devin-memory` | foundation-adjacent persistence, no candidate sibling |
+| `devin-pm` / `devin-office` / `devin-metrics` | evaluated *as F1 members*, not as their own families (pm/metrics has its own D-record) |
+| `devin-bridge` + `devin-orchestrator` | merge explicitly disallowed — different runtime contracts |
+| `devin-powerups` / `devin-internals-spec` / `awesome-devin` | control plane / foundation / navigation — structural layers, not products |
+| `devin-devkit` / `homebrew-tap` / `scoop-bucket` | distribution, not products |
+| `poordjaevin` / `qwenpaw-suite` | adjacent projects with their own identities |
+| `personal-agent-system` / `devin-dashboard` / `devin-learning` | private/system entries, not public product surface |
+
+Numbers are canonical and drift-checked: **19 products**
+(`nature: product`), **25 public entries**, **28 registry entries** —
+the generated catalog counts derive from the registry and
+`registry-drift.yml` gates them per push.
 
 ## Preregistered signals (December audit reads these)
 
@@ -175,6 +196,16 @@ Three outcomes, all legitimate:
   repos. This is the likely answer when structure is sound but users
   still can't see the family as one thing — and it is the cheapest
   correction available, so it should be ruled *out*, not forgotten.
+  Concrete forms per family:
+  - *F1 explore*: a thin `devin-explore` dispatcher CLI delegating to
+    history/search/graph; a shared "Explore family" banner across the
+    three READMEs; one `awesome-devin` journey presenting them as a
+    single walkthrough.
+  - *F3 data*: "data lifecycle" documentation treating backup+janitor
+    as one flow; coordinated `--help` output cross-referencing the
+    sibling.
+  - *F2 assure*: a `devin-assure` umbrella that runs qa-pack + evals as
+    one CI experience; shared rubric vocabulary between the two.
 
 These are product-boundary **hypotheses**, not merge candidates. The
 audit may conclude "keep everything" — that is a finding, not a failure.
