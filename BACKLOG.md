@@ -12,28 +12,7 @@ repo (all prefixed `[V4]`); this file is the index.
 
 | Item | Priority | Tracking |
 |---|---|---|
-| D07 — grader for content inside `tool_call_update_json` (injected instructions in tool output are invisible today) | high |Icaro0310/devin-evals#18 |
-| `devin-evals` PyPI publication | high |Icaro0310/devin-evals#21 |
-| D05 — privacy/PII grader | high |Icaro0310/devin-evals#19 |
-| internals-spec downstream bump automation | high |Icaro0310/devin-powerups#25 |
-| Snapshot structural-change ledger (registry version/SHA, counts, deltas) | high |Icaro0310/devin-powerups#21 |
-| Fix stale site claims (`19 first-party`, `Start here`, `read-only by default`, `live sessions/work`) | high |Icaro0310/Icaro0310.github.io#11 |
-| `awesome-devin`: catalog → intent map | high |Icaro0310/awesome-devin#9 |
-| D09 — cross-call secret join | medium |Icaro0310/devin-evals#20 |
-| Registry-driven generated surfaces (catalog, counts, related links) | medium |Icaro0310/devin-powerups#18 |
-| Per-repo README "Part of the DEVIN ecosystem" block | medium |Icaro0310/devin-powerups#19 |
-| Profile README: position the ecosystem by tracks | medium |Icaro0310/Icaro0310#5 |
-| Site intent-first discovery UX | medium |Icaro0310/Icaro0310.github.io#12 |
-| December analysis tooling (funnel joins, CI-vs-human attribution) | medium |Icaro0310/devin-powerups#22 |
-| GitHub topics per repo (`devin` + `devin-{track}`) | medium |Icaro0310/devin-powerups#20 |
-| Registry semantics docs (mode→track heuristic, multi-axis model) | medium |Icaro0310/devin-powerups#23 |
-| Audit reconciliation: 27 cloned vs 28 registry entries | medium |Icaro0310/devin-powerups#24 |
-| Evaluate shared infra extraction (identity.py / paths.py / vscdb.py) | medium |Icaro0310/devin-powerups#26 |
-| backup+janitor shared helper contracts (only if evidence justifies) | medium |Icaro0310/devin-powerups#27 |
-| pm+metrics product boundary — measure whether users treat them as one job | medium |Icaro0310/devin-powerups#28 |
-| .gitleaksignore fixtures hygiene | low |Icaro0310/devin-powerups#29 |
-| `poordjaevin.version` watchdog | low | Icaro0310/devin-powerups#30 |
-| Fork visibility strategy — act on the upstream funnel signal | low | Icaro0310/devin-powerups#32 |
+| P6 product-boundary probes → 2026-12-03 audit (F3 backup+janitor / F1 explore / F2 assure; signals preregistered in `docs/product-boundaries.md`) | high | docs + D-record (#49, #50) |
 | Meta-issue for PyPI publication backlog | optional | not created; registry `distribution_status` is the tracker |
 | Align generated-guide install format (tarball URL) with the `git+https` banner format | low | not filed; flagged in P2.x |
 
@@ -58,6 +37,28 @@ what unblocks.
 
 ## Resolved
 
+- D07 tool-output-content grader — devin-evals#18 (PR#23, shipped in v0.2.0).
+- D05 PII grader — devin-evals#19 (PR#23).
+- D09 cross-call secret join — devin-evals#20 (PR#23).
+- `devin-evals` PyPI publication — devin-evals#21; v0.2.0 live.
+- internals-spec pin drift check — #25 → PR#38.
+- Snapshot structural-change ledger — #21 → PR#36.
+- Stale site claims — Icaro0310.github.io#11 → PR#13.
+- `awesome-devin` catalog → intent map — awesome-devin#9 (journeys in #47/#48).
+- Registry-driven generated surfaces — #18 → PR#34.
+- Per-repo DEVIN ecosystem README blocks — #19 → PR#35 + sweep.
+- Profile README by tracks — Icaro0310#5 → merged.
+- Site intent-first discovery — Icaro0310.github.io#12 → PR#14.
+- December analysis tooling (funnel + attribution) — #22 → PR#39.
+- GitHub topics per repo — #20; applied to 25 repos.
+- Registry semantics docs — #23 → PR#37.
+- Audit reconciliation (27 vs 28; devin-learning registry-only) — #24.
+- Shared infra evaluation → internals-spec — #26 → PR#42.
+- backup+janitor snapshot contract — #27 → devin-backup#14 + devin-janitor#15.
+- pm+metrics boundary D-record — #28 → PR#40.
+- .gitleaksignore fixtures hygiene — #29 → PR#43 + devin-redact#16.
+- `poordjaevin.version` watchdog — #30 → PR#44.
+- Fork visibility strategy — #32 → PR#41.
 - Governance lifecycle rules + decision records — `GOVERNANCE.md` lifecycle section + `DECISIONS.md` (Icaro0310/devin-powerups#17).
 - `devin-dream → devin-evals` merge (P4) — done; repo archived.
 - `devin-metrics` PyPI publication — done 2026-10-08; README banner removed.
