@@ -189,6 +189,11 @@ _WINDOWS_CORPORATE_SPECIFICS = [
     "(`pip download setuptools wheel`), then install with `pip install "
     "--no-index --find-links wheels\\ --no-build-isolation .` inside "
     "the checkout.",
+    "- **Fully local runtime:** installed tools make no required network "
+    "calls — they read `sessions.db` and local stores only. The single "
+    "exception is devin-doctor's optional update check (fetches the "
+    "DevKit manifest); it self-skips when the registry is unreachable, "
+    "or force it off with `DEVIN_DOCTOR_OFFLINE=1`.",
 ]
 
 
