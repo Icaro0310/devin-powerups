@@ -147,10 +147,42 @@ For each candidate family, the merge signal is:
 Boundary-confirmed signal: distinct audiences, independent usage, no
 cross-filing, and a merged description that reads as two products.
 
+Caveat on the co-install probe: `devin-devkit install explore` measures
+*installation unity* only. A negative result is weak evidence — users
+may consume one member, receive a tool indirectly, or skip the bundle
+over packaging preference while still treating the family as one
+product in journeys and issues. No single signal decides.
+
+## Audit decision rule (2026-12-03)
+
+Per family, answer six questions from the signals above:
+
+| Question | Evidence |
+|---|---|
+| Used together? | co-installation |
+| Understood as one thing? | cross-repo confusion |
+| Traversed as one task? | journey behavior |
+| One identity plausible? | merged-description test |
+| Real cost to staying split? | maintenance/discovery burden |
+| Does merging break a boundary? | technical/security surface |
+
+Three outcomes, all legitimate:
+
+- **MERGE** — boundary reduction outweighs identity/deprecation cost.
+- **KEEP** — independence is demonstrably useful.
+- **REPOSITION** — structure works but identity/UX is wrong: change
+  presentation (naming, journeys, READMEs, profiles) without touching
+  repos. This is the likely answer when structure is sound but users
+  still can't see the family as one thing — and it is the cheapest
+  correction available, so it should be ruled *out*, not forgotten.
+
+These are product-boundary **hypotheses**, not merge candidates. The
+audit may conclude "keep everything" — that is a finding, not a failure.
+
 ## What changes now vs after the window
 
 - **Now (allowed):** this assessment, the `explore` devkit profile as a
   co-install probe, continued D07/D05/D09 work, baseline collection.
-- **After 2026-12-03 (or on governance trigger):** merge proposals in
-  ranking order F3 → F1 → F2, each as its own PR + D-record update with
-  the evidence table filled — "keep separate" is a legitimate outcome.
+- **After 2026-12-03 (or on governance trigger):** decisions in ranking
+  order F3 → F1 → F2, each as its own PR + D-record update with the
+  evidence table filled.
