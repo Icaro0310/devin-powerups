@@ -35,6 +35,20 @@ now?"
    files only. A stray working-tree change once nearly entered a PR and
    would have violated the P5 freeze — always check `git status` before
    committing.
+6. **Direct pushes to `main` are an exception path, not a workflow.**
+   The normal path is PR → required checks → trusted-author
+   auto-approve → merge. A direct push (SSH, admin) is acceptable only
+   when *all* of these hold:
+   - the change touches `.github/workflows/` and the `gh` OAuth token
+     lacks the `workflow` scope, so neither the REST API nor API merges
+     can carry it — SSH is the only working transport;
+   - the content is mechanical or generated (caller fixes, syncs), not
+     feature code that needs review;
+   - the commit message states why the bypass was used.
+   It is *not* acceptable when the PR path works, for feature work, or
+   to skip review. If `enforce_admins` is ever enabled this path stops
+   working — that is by design, and the correct remediation is to
+   reissue the token with `workflow` scope, not to weaken protection.
 
 ## P5 measurement window (2026-10-08 → 2026-12-03)
 
