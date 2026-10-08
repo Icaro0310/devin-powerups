@@ -266,6 +266,33 @@ def validate(instance, schema: dict, path: str = "$", root: dict | None = None) 
     return errors
 
 
+def journey_errors(registry: dict) -> list[str]:
+    """``journeys`` steps must point at existing public entries whose
+    ``audiences`` declare the journey's audience key. (Unknown audience
+    keys are already rejected by the schema's ``properties`` map.)"""
+    errors: list[str] = []
+    repositories = registry.get("repositories") if isinstance(registry, dict) else None
+    entries = {e.get("name"): e for e in repositories or [] if isinstance(e, dict)}
+    journeys = registry.get("journeys")
+    if not isinstance(journeys, dict):
+        return errors
+    for audience, steps in journeys.items():
+        for step in steps or []:
+            if not isinstance(step, dict):
+                continue
+            name = step.get("repo")
+            entry = entries.get(name)
+            if entry is None:
+                errors.append(f"$.journeys.{audience}: unknown repo {name!r}")
+            elif entry.get("visibility") != "public" or entry.get("public") is False:
+                errors.append(f"$.journeys.{audience}: repo {name!r} is not public")
+            elif audience not in (entry.get("audiences") or []):
+                errors.append(
+                    f"$.journeys.{audience}: {name!r} does not declare audience {audience!r}"
+                )
+    return errors
+
+
 def semantic_errors(registry: dict) -> list[str]:
     """Cross-entry rules that JSON Schema cannot express."""
     errors: list[str] = []
@@ -293,6 +320,7 @@ def semantic_errors(registry: dict) -> list[str]:
             errors.append(
                 f"$.repositories[{name}]: distribution_status {actual!r} disagrees with devkit.tools status {tool.get('status')!r}"
             )
+    errors.extend(journey_errors(registry))
     return errors
 
 

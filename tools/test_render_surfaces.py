@@ -99,6 +99,60 @@ class TestToolBlock(unittest.TestCase):
         self.assertIn("awesome-devin", out)
 
 
+def journey_registry(journeys: dict) -> dict:
+    import copy
+    reg = copy.deepcopy(REGISTRY)
+    reg["journeys"] = journeys
+    return reg
+
+
+class TestJourneys(unittest.TestCase):
+    JOURNEYS = {
+        "qa": [
+            {"repo": "devin-evals", "why": "Replay sessions against graders"},
+            {"repo": "devin-metrics", "why": "Roll up what changed"},
+        ],
+    }
+
+    def test_renders_numbered_steps_with_reasons(self):
+        out = rs.render_journeys(journey_registry(self.JOURNEYS))
+        self.assertIn("**QA engineers**", out)
+        self.assertIn("1. [`devin-evals`]", out)
+        self.assertIn("Replay sessions against graders", out)
+        self.assertLess(out.index("devin-evals"), out.index("devin-metrics"))
+
+    def test_deterministic_output(self):
+        reg = journey_registry(self.JOURNEYS)
+        self.assertEqual(rs.render_journeys(reg), rs.render_journeys(reg))
+
+    def test_rejects_unknown_repo(self):
+        reg = journey_registry({"qa": [{"repo": "nope", "why": "x"}]})
+        errors = rs.validate_journeys(reg)
+        self.assertTrue(any("nope" in e for e in errors))
+        with self.assertRaises(ValueError):
+            rs.render_journeys(reg)
+
+    def test_rejects_private_repo(self):
+        reg = journey_registry(
+            {"qa": [{"repo": "private-thing", "why": "x"}]})
+        self.assertTrue(rs.validate_journeys(reg))
+
+    def test_rejects_undeclared_audience(self):
+        reg = journey_registry(
+            {"security": [{"repo": "devin-evals", "why": "x"}]})
+        errors = rs.validate_journeys(reg)
+        self.assertTrue(any("audience" in e for e in errors))
+
+    def test_rejects_unknown_audience_key(self):
+        reg = journey_registry({"wizards": [{"repo": "devin-evals", "why": "x"}]})
+        errors = rs.validate_journeys(reg)
+        self.assertTrue(any("wizards" in e for e in errors))
+
+    def test_empty_journeys_render_header_only(self):
+        reg = journey_registry({})
+        self.assertEqual(rs.render_journeys(reg), "## Paths by audience")
+
+
 class TestCounts(unittest.TestCase):
     def test_counts(self):
         c = rs.counts(REGISTRY)

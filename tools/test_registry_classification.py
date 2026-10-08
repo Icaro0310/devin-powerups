@@ -284,8 +284,7 @@ def test_distribution_status_is_declared_on_public_products_and_fixtures():
         if e["nature"] in ("product", "fixture"):
             assert e.get("distribution_status") in VOCABULARY["distribution_status"], e["name"]
     assert {e["name"] for e in PUBLIC_ENTRIES if e.get("distribution_status") == "source_only"} == {
-        "devin-backup", "devin-evals", "devin-graph", "devin-janitor",
-        "devin-metrics", "devin-search", "devin-skill-catalog", "devin-switch",
+        "devin-graph", "devin-janitor", "devin-skill-catalog", "devin-switch",
         "devin-office", "qwenpaw-suite"}
 
 

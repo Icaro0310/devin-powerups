@@ -188,12 +188,17 @@ def structure(registry: dict) -> dict:
         "public_repos": len(pub),
         "private_repos": len(registry["repositories"]) - len(pub),
         "entries": entries,
+        "journeys": {
+            a: [s.get("repo") for s in steps]
+            for a, steps in (registry.get("journeys") or {}).items()
+        },
     }
 
 
 def diff_structure(prev: dict, cur: dict) -> dict:
     """Compare two ``structure`` blocks; empty diff if either is missing."""
     pe, ce = (prev or {}).get("entries", {}), cur.get("entries", {})
+    pj, cj = (prev or {}).get("journeys", {}), (cur or {}).get("journeys", {})
     out = {
         "created_repos": sorted(set(ce) - set(pe)),
         "removed_repos": sorted(set(pe) - set(ce)),
@@ -208,6 +213,9 @@ def diff_structure(prev: dict, cur: dict) -> dict:
         "visibility_changed": sorted(
             n for n in set(pe) & set(ce)
             if pe[n].get("visibility") != ce[n].get("visibility")
+        ),
+        "journeys_changed": sorted(
+            a for a in set(pj) | set(cj) if pj.get(a) != cj.get(a)
         ),
     }
     return {k: v for k, v in out.items() if v}

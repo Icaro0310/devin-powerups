@@ -1937,5 +1937,109 @@
       "maturity": "usable",
       "description": "Learning-loop runtime (SessionEnd hooks → .devin/skills/learned-*, hook-fires.jsonl). Absorbed into devin-powerups — never had its own repo; entry exists so devin-pm verify reconciles session history."
     }
-  ]
+  ],
+  "journeys": {
+    "end-users": [
+      {
+        "repo": "awesome-devin",
+        "why": "Orient: what the ecosystem offers and what each tool is for"
+      },
+      {
+        "repo": "devin-devkit",
+        "why": "Install the tools you picked via a profile, one command"
+      },
+      {
+        "repo": "devin-doctor",
+        "why": "Diagnose the install if something looks wrong"
+      }
+    ],
+    "developers": [
+      {
+        "repo": "devin-devkit",
+        "why": "Install a profile and get working CLIs fast"
+      },
+      {
+        "repo": "devin-internals-spec",
+        "why": "Understand the stores before reading or writing them"
+      },
+      {
+        "repo": "devin-powerups",
+        "why": "Registry, scaffolder and conventions for extending the ecosystem"
+      }
+    ],
+    "operations": [
+      {
+        "repo": "devin-doctor",
+        "why": "Check store health first — schema, locks, disk"
+      },
+      {
+        "repo": "devin-backup",
+        "why": "Snapshot before any destructive or cleanup operation"
+      },
+      {
+        "repo": "devin-janitor",
+        "why": "Run lifecycle cleanup only with a verified fresh snapshot"
+      },
+      {
+        "repo": "devin-metrics",
+        "why": "Watch activity and context growth over time"
+      }
+    ],
+    "security": [
+      {
+        "repo": "devin-backup",
+        "why": "Snapshot before redaction or deletion so work is reversible"
+      },
+      {
+        "repo": "devin-redact",
+        "why": "Redact secrets/PII in place before sharing or exporting"
+      },
+      {
+        "repo": "devin-janitor",
+        "why": "Delete stale stores only after export+verify gates pass"
+      }
+    ],
+    "qa": [
+      {
+        "repo": "devin-qa-pack",
+        "why": "Audit what a session actually delivered vs claimed"
+      },
+      {
+        "repo": "devin-evals",
+        "why": "Replay sessions against rubric graders to lock the behavior"
+      },
+      {
+        "repo": "poordjaevin",
+        "why": "Get calibrated yes/no judgments when the verdict is fuzzy"
+      }
+    ],
+    "ai-engineers": [
+      {
+        "repo": "devin-bridge",
+        "why": "Drive ACP sessions programmatically with a permission policy"
+      },
+      {
+        "repo": "devin-orchestrator",
+        "why": "Fan out workers deterministically inside the policy caps"
+      },
+      {
+        "repo": "devin-memory",
+        "why": "Persist memory with provenance and quarantine gates"
+      }
+    ],
+    "maintainers": [
+      {
+        "repo": "devin-powerups",
+        "why": "The control plane: registry, governance, generated surfaces"
+      },
+      {
+        "repo": "devin-pm",
+        "why": "Per-repo rollups, milestones and status reports"
+      },
+      {
+        "repo": "devin-internals-spec",
+        "why": "Shared contracts the consumers depend on"
+      }
+    ]
+  }
 }
