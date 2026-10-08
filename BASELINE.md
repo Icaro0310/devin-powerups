@@ -2,10 +2,12 @@
 
 **Window:** 2026-10-08 → 2026-12-03 (8 weeks).
 
-P5 is a passive collection period, not an execution phase. No new
-architecture topics, no physical merges, no taxonomy changes, no targets
-or benchmarks — the plan explicitly bans inventing thresholds. The audit
-on 2026-12-03 reads this data; until then, only obvious incidents warrant
+P5 is a measurement window, not a work freeze. Product and
+discoverability work continues — it is what this baseline measures.
+Structural changes that would invalidate the series stay gated (merges,
+new repos, taxonomy, renames — see `GOVERNANCE.md`), and no targets or
+benchmarks get invented: the plan explicitly bans that. The audit on
+2026-12-03 reads this data; until then, only obvious incidents warrant
 attention (e.g. a tool that stops receiving clones due to a broken
 release).
 
@@ -47,10 +49,15 @@ Two measurement caveats learned at day 1:
 
 ## Working rules during the window
 
-- PRs touching baseline tooling or bugs stage **named files only** —
-  never `git add -A`. A stray taxonomy regrouping once nearly entered
-  `main` inside the baseline PR itself; that would have violated the
-  freeze and contaminated day-1 state. (Rule 5 in `GOVERNANCE.md`.)
+- Product work is allowed during the window — improving READMEs, the
+  site, topics, and publishing packages is exactly what the baseline
+  measures the impact of. Only structural changes are gated (merges,
+  new repos, taxonomy, renames — see `GOVERNANCE.md`).
+- Do not interpret the data before 2026-12-03. Collect, don't conclude.
+- All PRs stage **named files only** — never `git add -A`. A stray
+  taxonomy regrouping once nearly entered `main` inside the baseline
+  PR itself, which would have violated the window rules and
+  contaminated day-1 state. (Rule 5 in `GOVERNANCE.md`.)
 
 ## Day-1 snapshot (2026-10-08, registry v19)
 

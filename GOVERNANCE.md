@@ -34,21 +34,36 @@ now?"
    would have violated the P5 freeze — always check `git status` before
    committing.
 
-## P5 freeze (2026-10-08 → 2026-12-03)
+## P5 measurement window (2026-10-08 → 2026-12-03)
 
-During the baseline window:
+The baseline measures adoption signals: views, clones, package
+downloads, installs, stars, forks, issues, external PRs. It is a
+measurement window, not a work freeze.
 
-- allowed: bug fixes, the baseline tooling itself, documentation that
-  does not change taxonomy or architecture;
-- forbidden: new merges, taxonomy/registry reclassification, new product
-  surfaces, thresholds or benchmarks;
-- allowed but out of the freeze's scope: measuring, preparing, and
-  documenting — as long as nothing user-facing changes.
+**Still prohibited during the window** — because they would invalidate
+the measured series itself:
 
-The freeze ends on **2026-12-03** (issue #14 tracks it) or earlier only
-if a governance rule is triggered by new evidence — e.g. a distribution
-break, a security incident, or adoption data that makes a standing
-decision clearly wrong.
+- physical repository merges or new/deleted repositories (changes what
+  is counted),
+- registry taxonomy reclassification or public/private flips (changes
+  what is "public"),
+- renaming tools or repos (breaks links and historical series).
+
+**Explicitly allowed** — this work does not contaminate the baseline;
+it is what the baseline exists to measure the impact of:
+
+- UX and discoverability: README/profile improvements, site
+  reorganization, GitHub topics, rewriting `awesome-devin` as an
+  intent map;
+- backlog items that do not touch measured structure (D05/D07/D09
+  graders, `devin-evals` PyPI publication, …);
+- bug fixes, documentation, tooling.
+
+Interpreting the data before 2026-12-03 remains out of scope — collect,
+don't conclude. The window ends on **2026-12-03** (issue #14 tracks it)
+or earlier only if a governance rule is triggered by new evidence — e.g.
+a distribution break, a security incident, or adoption data that makes a
+standing decision clearly wrong.
 
 ## How changes happen
 

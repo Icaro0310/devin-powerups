@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `GOVERNANCE.md` + `BACKLOG.md`: central rules (P5 freeze, merge evidence rule, `@v1` caller pinning, named-file staging) and the parked-work tracker. `tools/fork_visibility.py` measures the upstream awesome-list PR funnel. `.github/workflows/baseline-snapshot.yml` automates weekly P5 collection (Mon 08:15 UTC, commits snapshots, opens an issue on failure).
+- `GOVERNANCE.md` + `BACKLOG.md`: central rules (measurement-window scope, merge evidence rule, `@v1` caller pinning, named-file staging) and the parked-work tracker. `tools/fork_visibility.py` measures the upstream awesome-list PR funnel. `.github/workflows/baseline-snapshot.yml` automates weekly P5 collection (Mon 08:15 UTC, commits snapshots, opens an issue on failure).
 
 - `tools/snapshot_baseline.py` + `BASELINE.md`: P5 adoption/reliability baseline — per-repo GitHub stats and traffic (14d), PyPI/npm downloads for published tools, day-1 snapshot at `snapshots/2026-10-08.json`. Collection window 2026-10-08 → 2026-12-03.
 
@@ -18,12 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Registry v17 classifies every entry with `track`, `role`, `nature`, `mode`, `maturity`, `public`, `official_overlap` and `overlap_note`, and marks `devin-powerups` as the control plane (`is_control_plane`). The structural `kind` is unchanged. Rules in `registry.schema.json` reject contradictory combinations and name the broken rule.
 - `tools/test_validate_registry.py` and `tools/test_registry_classification.py` check every validator keyword, the vocabulary, the consistency rules, the approved track membership and agreement with the `jsonschema` reference implementation (skipped when it is not installed).
 - `tools/new-repo.py` accepts `--track`, `--role`, `--nature`, `--mode` and `--maturity` and registers new entries with the least-claiming classification.
-- Registry v8 describes the DevKit install sources, Windows/Linux support, user profiles, and the separate `devin-devkit` distribution. `export_devkit_manifest.py` emits a pinned manifest; private/system entries are rejected.
-- `render_catalog.py` produces the profile README catalog and exact counts from `registry.json`.
-- `migrate_platform_docs.py` previews and refreshes Windows/Linux guides from the same registry; `--apply` removes the retired Portuguese README files.
 
 ### Changed
 
+- P5 reframed from a work freeze to a measurement window: product/discoverability work (READMEs, site, topics, `awesome-devin` rewrites, backlog graders, package publication) is allowed — it is what the baseline measures. Only structural changes that would invalidate the series remain gated: physical merges, new/deleted repos, registry taxonomy changes, renames. (`GOVERNANCE.md`, `BASELINE.md`, `BACKLOG.md`)
+- Registry v8 describes the DevKit install sources, Windows/Linux support, user profiles, and the separate `devin-devkit` distribution. `export_devkit_manifest.py` emits a pinned manifest; private/system entries are rejected.
+- `render_catalog.py` produces the profile README catalog and exact counts from `registry.json`.
+- `migrate_platform_docs.py` previews and refreshes Windows/Linux guides from the same registry; `--apply` removes the retired Portuguese README files.
 - `tools/validate_registry.py` enforces the whole schema vocabulary (`$ref`, `allOf`, `if`/`then`/`else`, `const`, `anyOf`, `not`), rejects a schema that uses a keyword it cannot check or malformed keyword operands, and requires exactly one control plane. The old validator silently skipped those keywords. `registry_errors` is now the single validation entry point (schema first, cross-entry rules on valid documents only) used by `new-repo.py` and `export_devkit_manifest.py`.
 - `tools/new-repo.py --kind system` now requires `--visibility private`.
 - The starter template now uses one shared README with separate Windows and Linux guides; macOS is marked planned/unverified.
