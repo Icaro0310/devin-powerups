@@ -24,7 +24,19 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Baseline window guard
+        id: window
+        run: |
+          # The Dec 3 cron repeats annually; make scheduled runs a no-op
+          # once the P5 window has ended. Manual dispatch always runs.
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$(date +%F)" \> "2026-12-03" ]; then
+            echo "active=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "active=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Collect baseline + fork visibility
+        if: steps.window.outputs.active == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -32,6 +44,7 @@ jobs:
           python3 tools/fork_visibility.py --json "snapshots/forks-$(date +%F).json"
 
       - name: Commit snapshots
+        if: steps.window.outputs.active == 'true'
         run: |
           if git diff --quiet snapshots/ 2>/dev/null && [ -z "$(git status --porcelain snapshots/)" ]; then
             echo "no changes"
@@ -44,6 +57,7 @@ jobs:
           git push
 
       - name: Fail if collectors recorded errors
+        if: steps.window.outputs.active == 'true'
         run: |
           # Partial data is committed above; a non-empty errors array means the
           # snapshot is incomplete, so fail the run to trigger the issue below.
@@ -55,7 +69,7 @@ jobs:
           fi
 
       - name: Open issue on collection failure
-        if: failure()
+        if: failure() && steps.window.outputs.active == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
