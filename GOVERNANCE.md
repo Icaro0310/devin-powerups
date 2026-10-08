@@ -16,9 +16,11 @@ now?"
 
 ## Standing rules
 
-1. **No physical merges without both technical and product signals.**
-   `devin-dream → devin-evals` is the only approved consolidation. The
-   following remain disallowed until evidence changes: backup+janitor,
+1. **Merges are decided by criteria, not by prohibition.** A merge is
+   approved only when both a technical signal and a product signal are
+   present (see "Consolidation" below). `devin-dream → devin-evals` is
+   the only consolidation that has met the bar. The following remain
+   disallowed until evidence changes: backup+janitor,
    graph+history+search, pm+metrics, bridge+orchestrator, and any
    consumer merging into `internals-spec`.
 2. **No thematic monorepos** (`devin-observe`, `devin-assure`, …).
@@ -65,9 +67,63 @@ or earlier only if a governance rule is triggered by new evidence — e.g.
 a distribution break, a security incident, or adoption data that makes a
 standing decision clearly wrong.
 
+## Lifecycle
+
+The ecosystem evolves; this section defines how each structural event
+is proposed, justified, recorded and measured. `registry.json` is the
+semantic source of truth — a structural change is not real until the
+registry reflects it.
+
+### Creation
+
+A new repository is justified only when it answers all three:
+
+- a job-to-be-done no existing tool covers (not a track slot that "looks
+  empty" — tracks are navigation, not quotas);
+- a boundary no existing tool can absorb without distorting its scope;
+- an audience or interface the existing tools do not serve.
+
+Forbidden regardless of justification: thematic monorepos
+(`devin-observe`-style holders) and repos created to fill a track.
+
+### Consolidation
+
+A merge candidate needs **both** signals:
+
+- *Technical*: real code duplication, direct dependency, shared runtime,
+  or joint release/install/test cycles.
+- *Product*: same user, same job-to-be-done, same issues, same journey —
+  or docs already presenting both as one solution.
+
+One signal alone is insufficient. The decision and the evidence go into
+`DECISIONS.md` before the merge, with the expected outcome; the result
+is recorded after.
+
+### Archival
+
+Archive when a repo is absorbed (post-merge), superseded upstream, or
+its function is demonstrably unused. Archival removes the repo from the
+registry (as `devin-dream`); `reconcile_registry.py` never reports a
+GitHub-archived repo as drift. The decision and its evidence stay in
+`DECISIONS.md` so the historical series remains interpretable.
+
+### Reclassification
+
+`track`, `role`, `nature`, `audiences`, `interfaces` may change when the
+product's actual use changes — each change is a small decision record.
+`mode` informs classification but never determines it alone; `track`
+describes intent, `mode` describes technical behavior.
+
+## Decision records
+
+Structural changes leave a record in `DECISIONS.md` with six fields:
+Decision, Date, Reason, Evidence, Expected outcome, Result. No decision
+is eternal — records exist so a future audit can revisit them with new
+evidence instead of guessing at intent.
+
 ## How changes happen
 
 Normal work: PR → CI green → Devin Review addressed → squash merge.
-Exceptions that skip the PR gate: none during P5; automation commits
-(`registry-refresh`, `baseline-snapshot`) push generated data directly
-to main by design.
+Automation commits (`registry-refresh`, `baseline-snapshot`) push
+generated data directly to main by design; everything else goes through
+a PR.
