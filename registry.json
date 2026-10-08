@@ -1676,7 +1676,7 @@
       "official_overlap": "none",
       "overlap_note": null,
       "stack": "python",
-      "local_dir": "../devin-office",
+      "local_dir": "devin-office",
       "description": "Local-first Devin session and subagent dashboard with standalone and optional split modes.",
       "version": "0.1.0",
       "tag": "v0.1.0",
