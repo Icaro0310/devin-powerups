@@ -1,6 +1,6 @@
 {
   "$schema": "https://github.com/Icaro0310/devin-powerups/registry.schema.json",
-  "version": 20,
+  "version": 21,
   "generated": "2026-10-08",
   "owner": "Icaro0310",
   "note": "Public maintainer toolkit: registry, template, scaffolder, and public-project report. Public Devin tools are listed below; the maintainer's private runtime remains kind=system and is excluded from public-project reports. Unrelated personal repositories are not part of this catalog. CI is inline per public project; see README.md.",
@@ -216,7 +216,7 @@
         ],
         "status": "source",
         "category": "memory",
-        "ref": "ebb8fc12e97dc6b1db28778c329da70767d4b502"
+        "ref": "0832cd735d6e6a98fcef5d68bb25656ccdf7fea8"
       },
       "devin-evals": {
         "manager": "uv",
@@ -270,7 +270,7 @@
         ],
         "status": "source",
         "category": "security",
-        "ref": "f9aee000205b8e5c29cfb407f177217be38790e3"
+        "ref": "0d61031c581c3dc04e5915f4cc46073c133417df"
       },
       "devin-bridge": {
         "manager": "npm",
@@ -336,7 +336,7 @@
         ],
         "status": "source",
         "category": "governance",
-        "ref": "cbae07fd0215b3c57235b2b02833a004721bec6f"
+        "ref": "b51ad45ec7fc845a4568781c2f0b196d7183c96e"
       },
       "devin-skill-catalog": {
         "manager": "uv",
@@ -353,7 +353,7 @@
         ],
         "status": "source",
         "category": "governance",
-        "ref": "cffb914365109fa93822c9abb1ced8bfaad01398"
+        "ref": "75c7dc0b921ae68374773a108c6a028b75916f81"
       },
       "poordjaevin": {
         "manager": "uv",
@@ -1781,7 +1781,7 @@
       "stack": "python",
       "local_dir": "../poordjaevin",
       "description": "Djævin: calibrated local-first decision layer with typed questions and honest confidence. The Devin ACP backend reuses the model your Devin CLI already runs (no extra download, no API key); the local NLI backend stays as a fully-offline fallback.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "tag": "v0.1.0",
       "distribution_status": "published"
     },
