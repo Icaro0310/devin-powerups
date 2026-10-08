@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `tools/snapshot_baseline.py` + `BASELINE.md`: P5 adoption/reliability baseline — per-repo GitHub stats and traffic (14d), PyPI/npm downloads for published tools, day-1 snapshot at `snapshots/2026-10-08.json`. Collection window 2026-10-08 → 2026-12-03.
+
 - `scorecard.yml` drops top-level `permissions: read-all`: a called workflow's requested scopes must be a subset of what the caller grants, and `read-all` demanded every scope (caused `startup_failure` in callers). The job now declares exactly `contents: read`, `security-events: write`, `id-token: write`; `VARIANTS.md` caller templates grant permissions at job level explicitly.
 - Reusable workflows for cross-repo consolidation (P3b): `labeler.yml`, `scorecard.yml` and the new `codeql.yml` (with `language` input) now accept `workflow_call`, and the new `secrets-scan.yml` carries the shared secret-shaped-string scan. Callers pin the `@v1` major tag; `.github/workflows/VARIANTS.md` documents the tagging convention, caller templates, migration gates and the intentionally non-consolidated `ci.yml` variants (`devin-bridge`, `devin-evals`, `devin-memory`, `devin-qa-pack`).
 - Registry v17 classifies every entry with `track`, `role`, `nature`, `mode`, `maturity`, `public`, `official_overlap` and `overlap_note`, and marks `devin-powerups` as the control plane (`is_control_plane`). The structural `kind` is unchanged. Rules in `registry.schema.json` reject contradictory combinations and name the broken rule.

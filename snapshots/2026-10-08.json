@@ -1,0 +1,326 @@
+{
+  "date": "2026-10-08",
+  "registry_version": 19,
+  "repos": {
+    "devin-powerups": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 0,
+      "open_prs": 0,
+      "views_14d": 14,
+      "unique_visitors_14d": 5,
+      "clones_14d": 486,
+      "unique_cloners_14d": 203
+    },
+    "devin-devkit": {
+      "stars": 0,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 0,
+      "open_prs": 0,
+      "views_14d": 3,
+      "unique_visitors_14d": 1,
+      "clones_14d": 256,
+      "unique_cloners_14d": 92
+    },
+    "homebrew-tap": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 0,
+      "open_prs": 0,
+      "views_14d": 6,
+      "unique_visitors_14d": 4,
+      "clones_14d": 96,
+      "unique_cloners_14d": 49
+    },
+    "scoop-bucket": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 0,
+      "open_prs": 0,
+      "views_14d": 6,
+      "unique_visitors_14d": 3,
+      "clones_14d": 125,
+      "unique_cloners_14d": 75
+    },
+    "devin-internals-spec": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 3,
+      "open_prs": 2,
+      "views_14d": 27,
+      "unique_visitors_14d": 16,
+      "clones_14d": 2578,
+      "unique_cloners_14d": 779
+    },
+    "devin-redact": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 1,
+      "open_prs": 1,
+      "views_14d": 17,
+      "unique_visitors_14d": 13,
+      "clones_14d": 874,
+      "unique_cloners_14d": 312
+    },
+    "devin-history": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 3,
+      "open_prs": 2,
+      "views_14d": 17,
+      "unique_visitors_14d": 10,
+      "clones_14d": 573,
+      "unique_cloners_14d": 154
+    },
+    "devin-doctor": {
+      "stars": 4,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 3,
+      "open_prs": 2,
+      "views_14d": 39,
+      "unique_visitors_14d": 25,
+      "clones_14d": 624,
+      "unique_cloners_14d": 171
+    },
+    "devin-pm": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 0,
+      "open_prs": 0,
+      "views_14d": 10,
+      "unique_visitors_14d": 5,
+      "clones_14d": 521,
+      "unique_cloners_14d": 185
+    },
+    "devin-qa-pack": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 1,
+      "open_issues": 5,
+      "open_prs": 0,
+      "views_14d": 46,
+      "unique_visitors_14d": 17,
+      "clones_14d": 943,
+      "unique_cloners_14d": 243
+    },
+    "devin-metrics": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 0,
+      "open_prs": 0,
+      "views_14d": 9,
+      "unique_visitors_14d": 4,
+      "clones_14d": 567,
+      "unique_cloners_14d": 178
+    },
+    "devin-backup": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 0,
+      "open_prs": 0,
+      "views_14d": 15,
+      "unique_visitors_14d": 9,
+      "clones_14d": 560,
+      "unique_cloners_14d": 175
+    },
+    "devin-search": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 0,
+      "open_prs": 0,
+      "views_14d": 12,
+      "unique_visitors_14d": 8,
+      "clones_14d": 478,
+      "unique_cloners_14d": 164
+    },
+    "devin-graph": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 0,
+      "open_prs": 0,
+      "views_14d": 12,
+      "unique_visitors_14d": 7,
+      "clones_14d": 531,
+      "unique_cloners_14d": 182
+    },
+    "devin-evals": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 4,
+      "open_prs": 2,
+      "views_14d": 15,
+      "unique_visitors_14d": 6,
+      "clones_14d": 680,
+      "unique_cloners_14d": 199
+    },
+    "devin-memory": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 3,
+      "open_prs": 2,
+      "views_14d": 34,
+      "unique_visitors_14d": 19,
+      "clones_14d": 678,
+      "unique_cloners_14d": 232
+    },
+    "devin-janitor": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 0,
+      "open_prs": 0,
+      "views_14d": 9,
+      "unique_visitors_14d": 4,
+      "clones_14d": 527,
+      "unique_cloners_14d": 169
+    },
+    "devin-bridge": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 2,
+      "open_prs": 2,
+      "views_14d": 17,
+      "unique_visitors_14d": 8,
+      "clones_14d": 620,
+      "unique_cloners_14d": 185
+    },
+    "devin-orchestrator": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 0,
+      "open_prs": 0,
+      "views_14d": 21,
+      "unique_visitors_14d": 14,
+      "clones_14d": 448,
+      "unique_cloners_14d": 156
+    },
+    "devin-office": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 1,
+      "open_prs": 0,
+      "views_14d": 20,
+      "unique_visitors_14d": 5,
+      "clones_14d": 443,
+      "unique_cloners_14d": 199
+    },
+    "qwenpaw-suite": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 1,
+      "open_issues": 0,
+      "open_prs": 0,
+      "views_14d": 9,
+      "unique_visitors_14d": 5,
+      "clones_14d": 180,
+      "unique_cloners_14d": 88
+    },
+    "poordjaevin": {
+      "stars": 6,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 2,
+      "open_prs": 0,
+      "views_14d": 33,
+      "unique_visitors_14d": 22,
+      "clones_14d": 521,
+      "unique_cloners_14d": 172
+    },
+    "awesome-devin": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 1,
+      "open_prs": 0,
+      "views_14d": 15,
+      "unique_visitors_14d": 10,
+      "clones_14d": 322,
+      "unique_cloners_14d": 137
+    },
+    "devin-switch": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 0,
+      "open_prs": 0,
+      "views_14d": 4,
+      "unique_visitors_14d": 2,
+      "clones_14d": 181,
+      "unique_cloners_14d": 72
+    },
+    "devin-skill-catalog": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 0,
+      "open_prs": 0,
+      "views_14d": 5,
+      "unique_visitors_14d": 2,
+      "clones_14d": 234,
+      "unique_cloners_14d": 105
+    }
+  },
+  "downloads": {
+    "devin-internals-spec": {
+      "pypi_last_month": 378,
+      "pypi_last_week": 879
+    },
+    "devin-redact": {
+      "pypi_last_month": 146,
+      "pypi_last_week": 153
+    },
+    "devin-history": {
+      "pypi_last_month": null,
+      "pypi_last_week": null
+    },
+    "devin-doctor": {
+      "pypi_last_month": 100,
+      "pypi_last_week": 107
+    },
+    "devin-pm": {
+      "pypi_last_month": null,
+      "pypi_last_week": null
+    },
+    "devin-qa-pack": {
+      "pypi_last_month": 109,
+      "pypi_last_week": 116
+    },
+    "devin-metrics": {
+      "pypi_last_month": null,
+      "pypi_last_week": null
+    },
+    "devin-memory": {
+      "pypi_last_month": 139,
+      "pypi_last_week": 145
+    },
+    "@icaro0310/devin-bridge": {
+      "npm_last_month": null
+    },
+    "devin-fanout": {
+      "pypi_last_month": 0,
+      "pypi_last_week": 81
+    },
+    "poordjaevin": {
+      "pypi_last_month": 0,
+      "pypi_last_week": 94
+    }
+  }
+}
