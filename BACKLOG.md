@@ -5,18 +5,37 @@ Parked work with priority and unblock conditions. The P5 window
 unblocked unless they touch measured structure (merges, new repos,
 taxonomy, renames — see `GOVERNANCE.md`).
 
+Tasks from the V4 report are tracked as GitHub issues in the owning
+repo (all prefixed `[V4]`); this file is the index.
+
 ## Open
 
-| Item | Priority | Notes |
+| Item | Priority | Tracking |
 |---|---|---|
-| D07 — grader for content inside `tool_call_update_json` (injected instructions in tool output are invisible today) | high | `devin-evals` corpus known gap; `corpus verify` documents it |
-| `devin-evals` PyPI publication | high | still `source_only`; `devin-qa-pack` demo pins it by git SHA — publish to drop the pin |
-| D05 — privacy/PII grader (`no_secrets` covers secret shapes only) | medium | `devin-evals` corpus known gap |
-| D09 — cross-call secret join (credentials split across outputs evade per-payload patterns) | medium | `devin-evals` corpus known gap |
-| Discoverability/UX pass: profile README, site by job-to-be-done, GitHub topics, `awesome-devin` as intent map | medium | baseline measures the impact — do it inside the window |
-| Fork visibility strategy — act on the upstream funnel metrics | low | `tools/fork_visibility.py` now measures open/merged/closed PRs weekly |
-| Meta-issue for PyPI publication backlog | optional | deliberately not created; registry `distribution_status` is the tracker |
-| Align generated-guide install format (tarball URL) with the `git+https` banner format | low | both are source-only installs; cosmetic divergence flagged in P2.x |
+| D07 — grader for content inside `tool_call_update_json` (injected instructions in tool output are invisible today) | high | devin-evals#18 |
+| `devin-evals` PyPI publication | high | devin-evals#21 |
+| D05 — privacy/PII grader | high | devin-evals#19 |
+| internals-spec downstream bump automation | high | devin-powerups#25 |
+| Governance lifecycle rules + decision records | high | devin-powerups#17 |
+| Snapshot structural-change ledger (registry version/SHA, counts, deltas) | high | devin-powerups#21 |
+| Fix stale site claims (`19 first-party`, `Start here`, `read-only by default`, `live sessions/work`) | high | Icaro0310.github.io#11 |
+| `awesome-devin`: catalog → intent map | high | awesome-devin#9 |
+| D09 — cross-call secret join | medium | devin-evals#20 |
+| Registry-driven generated surfaces (catalog, counts, related links) | medium | devin-powerups#18 |
+| Per-repo README "Part of the DEVIN ecosystem" block | medium | devin-powerups#19 |
+| Profile README: position the ecosystem by tracks | medium | Icaro0310#5 |
+| Site intent-first discovery UX | medium | Icaro0310.github.io#12 |
+| December analysis tooling (funnel joins, CI-vs-human attribution) | medium | devin-powerups#22 |
+| GitHub topics per repo (`devin` + `devin-{track}`) | medium | devin-powerups#20 |
+| Registry semantics docs (mode→track heuristic, multi-axis model) | medium | devin-powerups#23 |
+| Audit reconciliation: 27 cloned vs 28 registry entries | medium | devin-powerups#24 |
+| Evaluate shared infra extraction (identity.py / paths.py / vscdb.py) | medium | devin-powerups#26 |
+| backup+janitor shared helper contracts (only if evidence justifies) | medium | devin-powerups#27 |
+| pm+metrics product boundary — measure whether users treat them as one job | medium | devin-powerups#28 |
+| .gitleaksignore fixtures hygiene | low | devin-powerups#29 |
+| `poordjaevin.version` watchdog | low | devin-powerups#30 |
+| Meta-issue for PyPI publication backlog | optional | not created; registry `distribution_status` is the tracker |
+| Align generated-guide install format (tarball URL) with the `git+https` banner format | low | not filed; flagged in P2.x |
 
 ## Gated until the window ends (2026-12-03)
 
@@ -33,7 +52,7 @@ what unblocks.
 |---|---|---|
 | `fork-janitor` cron (04:45 daily) | daily | new PATH/`gh` failure → open issue |
 | `registry-drift` workflow | per push | real drift → fix like the devin-metrics incident |
-| `registry-refresh` (Mon 07:33 UTC) | weekly | `poordjaevin.version` stale → escalate to `refresh_devkit_refs.py` bug |
+| `registry-refresh` (Mon 07:33 UTC) | weekly | `poordjaevin.version` stale → escalate (devin-powerups#30) |
 | `check_dist_status` | per push | a README banner disagrees with the registry |
 | `baseline-snapshot` (Mon 08:15 UTC) | weekly | opens a GitHub issue automatically; missed windows are unrecoverable |
 
