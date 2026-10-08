@@ -184,7 +184,11 @@ _WINDOWS_CORPORATE_SPECIFICS = [
     "- **Offline/air-gapped:** `pip download <package> -d wheels\\` on a "
     "connected machine, copy the folder, then `pip install --no-index "
     "--find-links wheels\\` on the target (pure-Python tools; native "
-    "deps need a matching platform wheel).",
+    "deps need a matching platform wheel). For `source_only` tools "
+    "installed from a copied checkout, stage the build backend too "
+    "(`pip download setuptools wheel`), then install with `pip install "
+    "--no-index --find-links wheels\\ --no-build-isolation .` inside "
+    "the checkout.",
 ]
 
 
