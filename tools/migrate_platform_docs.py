@@ -196,6 +196,108 @@ _WINDOWS_CORPORATE_SPECIFICS = [
     "or force it off with `DEVIN_DOCTOR_OFFLINE=1`.",
 ]
 
+# Canonical recurring jobs per tool — real cadences, sanitized. Only tools
+# whose workflows benefit from a schedule get a concrete example; everything
+# else stays on-demand (the generic "Scheduling" bullet in the specifics
+# sections already says installation never creates jobs).
+_RECURRING_JOBS: dict[str, dict[str, str]] = {
+    "devin-backup": {
+        "cmd": "devin-backup create --out ~/backups",
+        "cron": "15 3 * * *",
+        "win": "devin-backup create --out %USERPROFILE%\\backups",
+        "note": "Nightly snapshot; pair with a weekly `devin-backup rotate --keep 10 --yes`. Or let the tool self-schedule with `devin-backup install` (cron / Task Scheduler / elapsed backends).",
+    },
+    "devin-janitor": {
+        "cmd": "devin-janitor run --apply",
+        "cron": "30 4 * * *",
+        "win": "devin-janitor run --apply",
+        "note": "Daily cleanup. `devin-janitor install` registers the built-in daily report job (cron / Task Scheduler / elapsed hook) — prefer it over hand-rolled entries.",
+    },
+    "devin-doctor": {
+        "cmd": "devin-doctor check",
+        "cron": "0 9 * * 1",
+        "win": "devin-doctor check",
+        "note": "Weekly health sweep — read-only, safe to leave on.",
+    },
+    "devin-history": {
+        "cmd": "devin-history export",
+        "cron": "0 5 * * 0",
+        "win": "devin-history export",
+        "note": "Weekly archive of sessions to notes; run before janitor cleanup.",
+    },
+    "devin-memory": {
+        "cmd": "devin-memory extract --latest",
+        "cron": "0 7 * * 0",
+        "win": "devin-memory extract --latest",
+        "note": "Weekly knowledge extraction from recent sessions (proposed entries, human-approved).",
+    },
+    "devin-evals": {
+        "cmd": "devin-evals run --sessions-db ~/.local/share/devin/cli/sessions.db",
+        "cron": "0 6 * * 0",
+        "win": "devin-evals run --sessions-db %APPDATA%\\devin\\cli\\sessions.db",
+        "note": "Weekly regression replay; corpus stays deterministic and offline.",
+    },
+    "devin-metrics": {
+        "cmd": "devin-metrics summary",
+        "cron": "45 4 * * *",
+        "win": "devin-metrics summary",
+        "note": "Daily usage summary; `watch` is the advisory context guard.",
+    },
+    "devin-graph": {
+        "cmd": "devin-graph build",
+        "cron": "0 6 * * 0",
+        "win": "devin-graph build",
+        "note": "Weekly rebuild of graph.db so downstream tools see fresh linkage.",
+    },
+    "devin-office": {
+        "cmd": "python daemon.py --port 8788",
+        "cron": "@reboot",
+        "win": "py daemon.py --port 8788",
+        "note": "Long-running daemon — prefer `systemd --user` service on Linux or a logon trigger (`/sc onlogon`) on Windows, not an interval.",
+    },
+    "devin-dashboard": {
+        "cmd": "python tools/laptop_reporter.py",
+        "cron": "*/5 * * * *",
+        "win": "py tools\\laptop_reporter_win.py",
+        "note": "Client-side reporter posts local metrics to the dashboard; the server side is a long-running process (see devin-office pattern).",
+    },
+}
+
+
+def _render_recurring(name: str, platform: str, environment: str) -> list[str]:
+    job = _RECURRING_JOBS.get(name)
+    if job is None:
+        return []
+    lines = ["## Recurring runs (optional)", ""]
+    lines.append(f"_{job['note']}_")
+    lines.append("")
+    if platform == "linux":
+        lines.extend([
+            "```cron",
+            f"{job['cron']} {job['cmd']}",
+            "```",
+            "",
+            "Equivalent `systemd --user` timer works too; enable lingering if it must run without a login session.",
+        ])
+    elif environment == "corporate_windows":
+        lines.extend([
+            "```powershell",
+            f'schtasks /create /tn "{name}" /tr "{job["win"]}" /sc daily /st 04:00 /f',
+            "```",
+            "",
+            "User-scope `schtasks` needs no admin. If Group Policy disables Task Scheduler, run the command manually or use the tool's own `install` subcommand where available.",
+        ])
+    else:
+        lines.extend([
+            "```powershell",
+            f'schtasks /create /tn "{name}" /tr "{job["win"]}" /sc daily /st 04:00 /f',
+            "```",
+            "",
+            "Runs under your account — no admin needed. Adjust `/sc`/`/st` (or `/sc onlogon` for daemons) to taste.",
+        ])
+    lines.append("")
+    return lines
+
 
 def render_guide(entry: dict[str, Any], tool: dict[str, Any] | None, platform: str, environment: str | None = None) -> str:
     name = entry["name"]
@@ -297,6 +399,9 @@ def render_guide(entry: dict[str, Any], tool: dict[str, Any] | None, platform: s
         specifics = _LINUX_SPECIFICS
     lines.extend(["", f"## {label} specifics", ""])
     lines.extend(specifics)
+    recurring = _render_recurring(name, platform, environment)
+    if recurring:
+        lines.extend(["", *recurring])
     lines.extend(["", "## Troubleshooting", ""])
     if tool and tool["manager"] == "uv":
         if platform == "windows":
