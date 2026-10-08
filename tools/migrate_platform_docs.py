@@ -115,6 +115,79 @@ def _install_line(entry: dict[str, Any], tool: dict[str, Any] | None, platform: 
     return [tool.get("manual_note", "See the main README for manual setup.")]
 
 
+# Environment deep-dives — identical for every tool because the
+# constraints live in the platform, not the package. Per-tool details
+# (install spec, manager quirks) stay in the generated sections.
+_LINUX_SPECIFICS = [
+    "- **Installer choice:** `uv tool install` is the recommended path "
+    "(isolated environment, managed Python). `pipx install` works "
+    "identically for PyPI packages; `pip install --user` is the "
+    "last-resort fallback — no isolation, watch dependency conflicts.",
+    "- **PATH:** executables land in `~/.local/bin`. If a command is not "
+    "found, add `export PATH=\"$HOME/.local/bin:$PATH\"` to "
+    "`~/.bashrc`/`~/.zshrc` and open a new shell.",
+    "- **Distros:** tested on Ubuntu; Debian, Fedora and Arch follow the "
+    "same steps — only `uv`/Python acquisition differs (distro package "
+    "or the uv installer script).",
+    "- **Headless and minimal environments:** no display is needed — "
+    "every CLI is text-only. In containers or WSL, install `uv` and Git "
+    "and follow the same steps; `XDG_*` paths resolve normally.",
+    "- **Permissions:** tools read Devin data under `$XDG_DATA_HOME/devin` "
+    "and write only their own config/state — no root or sudo is required.",
+    "- **Scheduling:** optional recurring work belongs to `systemd "
+    "--user` timers or cron; installation never creates jobs.",
+]
+
+_WINDOWS_PERSONAL_SPECIFICS = [
+    "- **Python:** `uv` manages its own Python, which also avoids the "
+    "Microsoft Store `python.exe` alias stub (it opens the Store instead "
+    "of running). If you install Python from python.org anyway, tick "
+    "\"Add python.exe to PATH\".",
+    "- **Shell:** PowerShell 7 + Windows Terminal is the recommended "
+    "setup; every command also works in `cmd.exe` and Windows "
+    "PowerShell 5.1 — none require admin.",
+    "- **Install location:** executables live under "
+    "`%USERPROFILE%\\.local\\bin`; data under `%APPDATA%\\devin`. "
+    "Nothing touches `Program Files` or the registry.",
+    "- **WSL:** treat it as a Linux machine — follow "
+    "[README.linux.md](README.linux.md) inside it.",
+    "- **Uninstall:** `uv tool uninstall <package>` (or `npm uninstall -g` "
+    "for a Node.js tool) removes the CLI; delete `%APPDATA%\\devin` to "
+    "remove local data. No services or scheduled tasks are left behind.",
+]
+
+_WINDOWS_CORPORATE_SPECIFICS = [
+    "- **No admin rights needed:** `uv` and every tool install under "
+    "`%LOCALAPPDATA%`/`%APPDATA%` — nothing writes to `Program Files`, "
+    "the registry, or requires elevation.",
+    "- **Proxy:** set `HTTPS_PROXY`/`HTTP_PROXY` before installing. Per "
+    "session: `$env:HTTPS_PROXY=\"http://proxy:port\"`; persistently: "
+    "`setx HTTPS_PROXY \"http://proxy:port\"`. `uv`, `pip` and `npm` "
+    "honor them.",
+    "- **TLS inspection:** if the corporate proxy intercepts TLS, point "
+    "the installer at the company CA bundle: "
+    "`$env:REQUESTS_CA_BUNDLE=\"C:\\path\\corp-root.pem\"`. Certificate "
+    "errors at install time mean the proxy, not the package.",
+    "- **Execution policy:** installed CLIs are real executables — "
+    "`Set-ExecutionPolicy` only matters for `.ps1` scripts from a "
+    "checkout; `-Scope CurrentUser RemoteSigned` suffices, no admin.",
+    "- **Blocked installers:** if winget/Store are disabled by policy, "
+    "`uv` installs as a standalone binary — download the GitHub release "
+    "zip, extract to `%LOCALAPPDATA%\\bin`, add it to PATH.",
+    "- **Long paths:** keep checkout/install roots short (`C:\\dev`) — "
+    "MAX_PATH (260 chars) can still bite inside virtualenvs; "
+    "`LongPathsEnabled` needs admin, short roots do not.",
+    "- **EDR/antivirus:** if a scan kills the install, retry with an "
+    "exclusion or ask IT to allowlist `%LOCALAPPDATA%\\uv` and "
+    "`%USERPROFILE%\\.local\\bin`. These tools never elevate or listen "
+    "on the network by default.",
+    "- **Offline/air-gapped:** `pip download <package> -d wheels\\` on a "
+    "connected machine, copy the folder, then `pip install --no-index "
+    "--find-links wheels\\` on the target (pure-Python tools; native "
+    "deps need a matching platform wheel).",
+]
+
+
 def render_guide(entry: dict[str, Any], tool: dict[str, Any] | None, platform: str, environment: str | None = None) -> str:
     name = entry["name"]
     environment = environment or ("linux" if platform == "linux" else "personal_windows")
@@ -207,8 +280,14 @@ def render_guide(entry: dict[str, Any], tool: dict[str, Any] | None, platform: s
             "- Linux can use additional compute or Linux-compatible delegated tooling when available.",
         ])
     lines.append("- macOS is planned but not claimed as tested.")
-    if platform == "linux" and name in {"devin-janitor", "devin-office"}:
-        lines.extend(["- Optional scheduling uses `systemd --user` or cron; installation does not create jobs automatically."])
+    if environment == "corporate_windows":
+        specifics = _WINDOWS_CORPORATE_SPECIFICS
+    elif environment == "personal_windows":
+        specifics = _WINDOWS_PERSONAL_SPECIFICS
+    else:
+        specifics = _LINUX_SPECIFICS
+    lines.extend(["", f"## {label} specifics", ""])
+    lines.extend(specifics)
     lines.extend(["", "## Troubleshooting", ""])
     if tool and tool["manager"] == "uv":
         if platform == "windows":

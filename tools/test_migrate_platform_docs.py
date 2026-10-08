@@ -82,7 +82,14 @@ def test_apply_creates_os_guides_and_removes_legacy_translation(tmp_path: Path):
     assert "%APPDATA%" in windows
     assert "Personal Windows" in windows and "extended runtime" in windows
     assert "Corporate Windows" in corporate and "local-only environment" in corporate
+    assert "## Corporate Windows specifics" in corporate
+    assert "TLS inspection" in corporate and "No admin rights" in corporate
+    assert "Offline/air-gapped" in corporate
+    assert "## Personal Windows specifics" in windows
+    assert "Microsoft Store" in windows and "Uninstall" in windows
     assert "uv tool install" in linux and "XDG_DATA_HOME" in linux
+    assert "## Linux specifics" in linux and "Distros" in linux
+    assert "systemd" in linux
     assert "## Troubleshooting" in linux and "uv` tools directory" in linux
     assert "https://github.com/TestOwner/devin-alpha/archive/" in linux
     migration.migrate(_registry(), tmp_path, apply=True)
