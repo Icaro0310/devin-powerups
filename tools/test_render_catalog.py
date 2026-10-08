@@ -44,7 +44,7 @@ def test_catalog_labels_related_artifacts_instead_of_calling_them_tools():
     registry = json.loads(REGISTRY.read_text(encoding="utf-8"))
     rendered = render_catalog.render_profile_catalog(registry)
 
-    assert "| **Governance** | [`poordjaevin`]" in rendered
+    assert "| **Verify** | [`poordjaevin`]" in rendered
     assert "| **Related Suite** | [`qwenpaw-suite`]" in rendered
     assert "| **Related Resource** | [`awesome-devin`]" in rendered
 
