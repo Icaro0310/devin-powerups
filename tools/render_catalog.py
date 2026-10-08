@@ -39,7 +39,8 @@ def render_profile_catalog(registry: dict) -> str:
         "guard": "Control",
         "platform": "Build",
         "navigation": "Navigate",
-        "related": "Related",
+        # "related" intentionally falls back to the devkit category —
+        # a first-party tool labeled Related reads as external.
     }
     entry_count = len(tools) + len(hubs) + len(distributions) + len(related)
     plural = lambda n: "" if n == 1 else "s"  # noqa: E731
