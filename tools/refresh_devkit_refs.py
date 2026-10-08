@@ -112,23 +112,25 @@ def refresh(registry_path: Path, owner: str) -> dict:
                 errors.append(f"{name}: tag check failed: {exc}")
         elif source == "pypi":
             newest = _pypi_newest_version(tool.get("package", name))
-        if newest is None:
-            continue
+        # The per-repo `version` field must track the tool's resulting
+        # pin — it drifted to 0.1.0 for poordjaevin while devkit.tools
+        # said 0.1.1 (devin-powerups#30). Sync the entry to the pin even
+        # when the fetch failed, so the two never diverge.
         current = _norm_version(tool.get("version", ""))
-        if current is None or _version_key(newest) > _version_key(current):
+        if newest is not None and (
+            current is None or _version_key(newest) > _version_key(current)
+        ):
             changes.append(f"{name}.version: {tool.get('version')} -> {newest}")
             tool["version"] = newest
-        # The per-repo `version` field must track the same release — it
-        # drifted to 0.1.0 for poordjaevin while devkit.tools said 0.1.1
-        # (devin-powerups#30).
+        target = _norm_version(tool.get("version", ""))
         entry = repo_entries.get(name)
-        if entry is not None:
+        if entry is not None and target is not None:
             entry_version = _norm_version(entry.get("version", ""))
-            if entry_version is None or _version_key(newest) > _version_key(entry_version):
+            if entry_version is None or _version_key(target) > _version_key(entry_version):
                 changes.append(
-                    f"{name} (repo entry).version: {entry.get('version')} -> {newest}"
+                    f"{name} (repo entry).version: {entry.get('version')} -> {target}"
                 )
-                entry["version"] = newest
+                entry["version"] = target
 
     report = {"changes": changes, "errors": errors}
     if changes:

@@ -56,6 +56,32 @@ def test_repo_entry_never_downgrades(tmp_path, monkeypatch):
     assert not any("repo entry" in c for c in report["changes"])
 
 
+def test_repo_entry_syncs_to_pin_ahead_of_upstream(tmp_path, monkeypatch):
+    # Tool pin ahead of the fetched release: the repo entry still follows
+    # the pin, not the (older) release.
+    monkeypatch.setattr(r, "_pypi_newest_version", lambda pkg: "0.1.0")
+    reg = registry(
+        {"poordjaevin": {"source": "pypi", "package": "poordjaevin", "version": "0.1.1"}},
+        [{"name": "poordjaevin", "version": "0.1.0"}],
+    )
+    path = tmp_path / "registry.json"
+    path.write_text(json.dumps(reg))
+    r.refresh(path, "owner")
+    assert json.loads(path.read_text())["repositories"][0]["version"] == "0.1.1"
+
+
+def test_repo_entry_syncs_when_fetch_fails(tmp_path, monkeypatch):
+    monkeypatch.setattr(r, "_pypi_newest_version", lambda pkg: None)
+    reg = registry(
+        {"poordjaevin": {"source": "pypi", "package": "poordjaevin", "version": "0.1.1"}},
+        [{"name": "poordjaevin", "version": "0.1.0"}],
+    )
+    path = tmp_path / "registry.json"
+    path.write_text(json.dumps(reg))
+    r.refresh(path, "owner")
+    assert json.loads(path.read_text())["repositories"][0]["version"] == "0.1.1"
+
+
 def test_devkit_tool_without_repo_entry_is_untouched(tmp_path, monkeypatch):
     monkeypatch.setattr(r, "_pypi_newest_version", lambda pkg: "1.0.0")
     reg = registry(
