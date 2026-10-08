@@ -125,11 +125,13 @@ def render_tool_block(repo: dict) -> str:
     interfaces = " / ".join(
         INTERFACE_LABELS.get(i, i) for i in repo.get("interfaces") or []
     ) or "—"
+    # trailing two spaces = hard line breaks; plain `>` lines would fold
+    # into one paragraph in rendered Markdown
     return "\n".join(
         [
-            "> **Part of the [DEVIN ecosystem](https://github.com/Icaro0310/awesome-devin)**",
-            f"> Track: {track_line} · Nature: {repo.get('nature', 'product')}",
-            f"> For: {audiences}",
+            "> **Part of the [DEVIN ecosystem](https://github.com/Icaro0310/awesome-devin)**  ",
+            f"> Track: {track_line} · Nature: {repo.get('nature', 'product')}  ",
+            f"> For: {audiences}  ",
             f"> Interface: {interfaces}",
         ]
     )
