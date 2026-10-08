@@ -412,6 +412,15 @@
           "poordjaevin"
         ]
       },
+      "explore": {
+        "label": "Explore",
+        "description": "Navigate the Devin session universe — history, full-text search and relationship graph over the same local stores. P6 co-install probe for the explore family.",
+        "tools": [
+          "devin-history",
+          "devin-search",
+          "devin-graph"
+        ]
+      },
       "operations": {
         "label": "Operations",
         "description": "Inspect, back up, export, and maintain Devin data and projects.",
