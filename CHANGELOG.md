@@ -25,9 +25,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Registry v8 describes the DevKit install sources, Windows/Linux support, user profiles, and the separate `devin-devkit` distribution. `export_devkit_manifest.py` emits a pinned manifest; private/system entries are rejected.
 - `render_catalog.py` produces the profile README catalog and exact counts from `registry.json`.
 - `migrate_platform_docs.py` previews and refreshes Windows/Linux guides from the same registry; `--apply` removes the retired Portuguese README files.
-
-### Changed
-
 - `tools/validate_registry.py` enforces the whole schema vocabulary (`$ref`, `allOf`, `if`/`then`/`else`, `const`, `anyOf`, `not`), rejects a schema that uses a keyword it cannot check or malformed keyword operands, and requires exactly one control plane. The old validator silently skipped those keywords. `registry_errors` is now the single validation entry point (schema first, cross-entry rules on valid documents only) used by `new-repo.py` and `export_devkit_manifest.py`.
 - `tools/new-repo.py --kind system` now requires `--visibility private`.
 - The starter template now uses one shared README with separate Windows and Linux guides; macOS is marked planned/unverified.

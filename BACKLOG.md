@@ -22,8 +22,10 @@ taxonomy, renames — see `GOVERNANCE.md`).
 
 Anything that would invalidate the measured series: physical merges,
 new or deleted repositories, registry taxonomy changes, renames, and
-reinterpreting the baseline itself. These need evidence *and* the end
-of the window, not just approval.
+reinterpreting the baseline itself. These stay gated until the window
+ends on 2026-12-03 — or until a governance trigger ends it early, in
+which case the triggering evidence is itself the review that decides
+what unblocks.
 
 ## Watchdogs (running)
 
