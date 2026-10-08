@@ -103,16 +103,20 @@ def main() -> int:
     for e in sorted(entries, key=lambda x: x["name"]):
         candidates = []
         if e.get("local_dir"):
-            # local_dir is recorded relative to the hub clone; layouts vary,
-            # so try both the registry dir and --root as bases
-            candidates += [
-                (registry_dir / e["local_dir"]).resolve() / "README.md",
-                (args.root / e["local_dir"]).resolve() / "README.md",
-            ]
+            # local_dir is recorded relative to the hub clone; an explicit
+            # --root selects a different workspace, so resolve there first
+            candidates.append(
+                (args.root / e["local_dir"]).resolve() / "README.md"
+            )
         candidates += [
             base / e["name"] / "README.md",
             args.root / e["name"] / "README.md",
         ]
+        if e.get("local_dir"):
+            # last resort: the checkout beside the registry itself
+            candidates.append(
+                (registry_dir / e["local_dir"]).resolve() / "README.md"
+            )
         readme = next((c for c in candidates if c.is_file()), candidates[-1])
         if not readme.is_file():
             missing.append(e["name"])
