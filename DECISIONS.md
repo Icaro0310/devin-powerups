@@ -27,6 +27,21 @@ Result. Records are not eternal — revisit when new evidence arrives.
   either justify a merge proposal or record the boundary as confirmed.
 - **Result:** open — measuring.
 
+## D-2026-10-08 — Shared infra (paths/identity/vscdb) → internals-spec (V4 §25)
+
+- **Decision:** extract the vendored helpers into `devin-internals-spec`
+  rather than a new package; migrate consumers per-repo afterwards.
+- **Reason:** 11 drifted `paths.py`, 4 `identity.py` (3 identical),
+  3 `vscdb.py` readers duplicate what the spec already partly owns; a
+  new package would add a repo, a dependency and a release channel for
+  ~500 LOC.
+- **Evidence:** `docs/shared-infra-eval.md` — duplication map and API
+  fit; internals-spec already parses `state.vscdb` but lacks the locator
+  layer every consumer rewrites.
+- **Expected outcome:** spec 0.4.0 ships `paths`/`identity`; vendored
+  copies deprecate as consumers migrate.
+- **Result:** open — proposal, not yet implemented.
+
 ## D-2026-10-08 — P5 is a measurement window, not a work freeze
 
 - **Decision:** lift the blanket freeze; gate only changes that
@@ -103,17 +118,3 @@ Result. Records are not eternal — revisit when new evidence arrives.
 | bridge + orchestrator | rejected | transport vs scheduling are different layers |
 | consumers → internals-spec | rejected | foundation stays a dependency, not a host |
 
-## D-2026-10-08 — Shared infra (paths/identity/vscdb) → internals-spec (V4 §25)
-
-- **Decision:** extract the vendored helpers into `devin-internals-spec`
-  rather than a new package; migrate consumers per-repo afterwards.
-- **Reason:** 11 drifted `paths.py`, 4 `identity.py` (3 identical),
-  3 `vscdb.py` readers duplicate what the spec already partly owns; a
-  new package would add a repo, a dependency and a release channel for
-  ~500 LOC.
-- **Evidence:** `docs/shared-infra-eval.md` — duplication map and API
-  fit; internals-spec already parses `state.vscdb` but lacks the locator
-  layer every consumer rewrites.
-- **Expected outcome:** spec 0.4.0 ships `paths`/`identity`; vendored
-  copies deprecate as consumers migrate.
-- **Result:** open — proposal, not yet implemented.
