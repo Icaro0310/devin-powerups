@@ -105,6 +105,16 @@ def test_apply_creates_os_guides_and_removes_legacy_translation(tmp_path: Path):
     assert any("README.corporate-windows.md is missing or stale" in item for item in migration.check_platform_docs(_registry(), tmp_path))
 
 
+def test_recurring_jobs_render() -> None:
+    linux = "\n".join(migration._render_recurring("devin-backup", "linux", "linux"))
+    corp = "\n".join(migration._render_recurring("devin-backup", "windows", "corporate_windows"))
+    win = "\n".join(migration._render_recurring("devin-janitor", "windows", "personal_windows"))
+    assert "## Recurring runs" in linux and "15 3 * * *" in linux and "systemd --user" in linux
+    assert "schtasks /create" in corp and "Group Policy" in corp
+    assert "schtasks /create" in win and "no admin" in win
+    assert migration._render_recurring("devin-search", "linux", "linux") == []
+
+
 def test_bridge_archive_guides_need_node_but_not_git():
     entry = {"name": "devin-bridge", "url": "https://github.com/Icaro0310/devin-bridge"}
     tool = {"manager": "npm", "source": "github", "package": "@icaro0310/devin-bridge", "version": "0.1.0", "ref": "a" * 40, "requires_git": False}
