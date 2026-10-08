@@ -4,6 +4,97 @@ Structural decisions about the ecosystem, newest first. Format per
 `GOVERNANCE.md`: Decision / Date / Reason / Evidence / Expected outcome /
 Result. Records are not eternal — revisit when new evidence arrives.
 
+## D-2026-10-09 — Consolidation of the ecosystem into 7 products
+
+- **Decision:** consolidate the 19 first-party tools into 7 products
+  (monorepo workspaces with independent packages), grouped under 4
+  public jobs. Renames preserve stars via GitHub redirects; PyPI/npm
+  package names and `console_scripts` are preserved unchanged.
+- **Reason:** the P6 rubric (5 preregistered signals) was applied to
+  every candidate family instead of waiting for the December window —
+  the maintainer's earlier correction stands: structural work needs a
+  criterion, not a calendar. Verdicts below.
+- **Evidence:** rubric scores on job / audience / blast radius /
+  single-identity plausibility / technical harm (thresholds: ≥4/5
+  merge, 3/5 hold for data, ≤2/5 keep), plus the maintainer's
+  post-rubric corrections listed in §3.
+
+### Rubric verdicts (signal count out of 5)
+
+| Family | Job | Audience | Blast radius | Identity | No harm | Score | Verdict |
+|---|---|---|---|---|---|---|---|
+| redact + backup + janitor → state | ✓ | ✓ | ✓ | ✓ | ✓ | 5/5 | MERGE |
+| qa-pack + evals → assure | ✓ | ✓ | ✓ | ✓ | ✓ | 5/5 | MERGE |
+| doctor + history + search + graph → explore | ✓ | ~ | ✓ | ✓ | ✓ | 4/5 | MERGE |
+| bridge + orchestrator + switch + office → control | ✓ | ~ | ✓ | ✓ | ~ | 4/5 | MERGE |
+| skill-catalog → devkit | ✗ | ✗ | ~ | ✗ | ✓ | 2/5 | maintainer override → devkit (supply chain = Build) |
+| memory → brain (standalone) | — | — | — | — | — | n/a | rename, no merge candidate |
+| poordjaevin → judge (standalone) | — | — | — | — | — | n/a | rename; vs assure = 3/5, watch |
+| office → explore | ✓ | ✓ | ✗ | ✓ | ~ | 3/5 | redirected to control (mode: mixed) |
+| pm → explore | ~ | ~ | ✓ | ~ | ✓ | 3/5 | maintainer reclassified to understand |
+| metrics → assure | ~ | ~ | ✓ | ~ | ✓ | 3/5 | maintainer mapped "Measure" → Verify |
+
+### Post-rubric corrections (maintainer)
+
+- `devin-office` is `mode: mixed` (spawn/kill/kanban endpoints) — illegal
+  under `understand ⇒ read`; lands in `devin-control` (job: control),
+  where mixed is legal.
+- `devin-pm` (P0's `related`) reclassified to understand/explore.
+- `devin-metrics` "Measure" maps to Verify → `devin-assure`.
+- `devin-skill-catalog` "supply chain" maps to Build → `devin-devkit`
+  (overrides the 2/5 KEEP score — recorded as maintainer override).
+- bridge + orchestrator + switch do **not** go to `devin-powerups`
+  (rubric 1.5/5: different audience, highest blast radius in the
+  ecosystem); they form `devin-control` with `devin-office`.
+
+### Superseded standing decisions
+
+The 7-product consolidation supersedes these earlier negative calls —
+recorded here because records are not eternal:
+
+- `graph + history + search` — was "rejected" (distinct jobs) → now
+  merging under one Understand product; the rubric found shared job and
+  blast radius (all read-only over `sessions.db`).
+- `backup + janitor` — was "contracts first" → merging; the tested
+  snapshot→cleanup contract plus duplicated `install.py` (~141 LOC)
+  are the technical signal.
+- `pm + metrics` — was "measure" → resolved without merging them to
+  each other: pm → explore, metrics → assure.
+- `bridge + orchestrator` — was "rejected" (different layers) → both
+  land in `devin-control` as independent packages of one product;
+  the layers stay separate at package level.
+
+### Removals
+
+- `homebrew-tap`, `scoop-bucket`: repos deleted 2026-10-08 — orphaned
+  artifacts, manual 2/14 package coverage, false "release automation"
+  claim, zero external demand. Install story stays pipx/uv +
+  `devin-devkit`.
+
+### Externals
+
+- `awesome-devin` (navigation surface) and `qwenpaw-suite` (optional
+  self-hosted add-on): outside the first-party product count.
+
+### Final architecture
+
+7 products: `devin-explore`, `devin-assure`, `devin-judge`,
+`devin-control`, `devin-state`, `devin-devkit`, `devin-brain`.
+1 Foundation: `devin-internals-spec`. 1 Infra/control-plane:
+`devin-powerups` (not renamed — protects ~70 `@v1` workflow callers).
+2 Externals: `awesome-devin`, `qwenpaw-suite`.
+
+### Product cap
+
+Maximum 7 first-party products. An 8th requires merging or removing
+one, recorded as a D-record.
+
+- **Expected outcome:** one product identity per job cluster; all
+  package names, CLIs, stars and redirects preserved; the baseline
+  series continues per repo via the old→new alias map.
+- **Result:** pending — recorded as phases complete (F0 tap cleanup:
+  done).
+
 ## D-2026-10-08 — Product Boundary Reassessment (P6): measure families before merging
 
 - **Decision:** reopen consolidation evaluation at the product-family
@@ -132,11 +223,11 @@ Result. Records are not eternal — revisit when new evidence arrives.
 
 ## Standing negative decisions (until evidence changes)
 
+Superseded by `D-2026-10-09` (7-product consolidation): backup+janitor,
+graph+history+search, pm+metrics, bridge+orchestrator — see that record's
+"Superseded standing decisions" section for the reversal evidence.
+
 | Candidate | State | Reason |
 |---|---|---|
-| backup + janitor | contracts first | adjacent lifecycle jobs, no product signal yet |
-| graph + history + search | rejected | distinct jobs; search is not a storage layer |
-| pm + metrics | measure | unclear product boundary — under observation |
-| bridge + orchestrator | rejected | transport vs scheduling are different layers |
 | consumers → internals-spec | rejected | foundation stays a dependency, not a host |
 

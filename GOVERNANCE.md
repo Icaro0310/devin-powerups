@@ -141,3 +141,21 @@ Normal work: PR → CI green → Devin Review addressed → squash merge.
 Automation commits (`registry-refresh`, `baseline-snapshot`) push
 generated data directly to main by design; everything else goes through
 a PR.
+
+## Product cap and composition (D-2026-10-09)
+
+- Maximum **7 first-party products**. An 8th requires removing or
+  merging one first, recorded as a D-record.
+- A package enters a product when it shares **job, audience and blast
+  radius** with the product's members (the P6 rubric signals).
+- `mode` is the package's most irreversible capability. Products in
+  `understand` or `verify` jobs never carry `mixed` members.
+- A new repository is justified only as: a new product (justified in a
+  D-record), a Foundation repo, or a distribution repo.
+- A future merge requires both a technical signal and a product signal.
+- `DECISIONS.md` is mandatory per decision: date, decision, reason,
+  evidence, expected outcome, real outcome.
+- Vendoring between products only with a parity test; a pinned
+  dependency is preferred.
+- `ownership` is explicit. Nothing is first-party without
+  `ownership: first_party`.
