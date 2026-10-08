@@ -461,7 +461,8 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"created {dest}")
     visibility_flag = "--private" if args.visibility == "private" else "--public"
-    print(f"next: cd {dest} && git add -A && git commit -m init && "
+    staged = " ".join(shlex.quote(rel) for _, rel in files)
+    print(f"next: cd {dest} && git add {staged} && git commit -m init && "
           f"gh repo create Icaro0310/devin-{name} {visibility_flag} --source=. --push")
     return 0
 

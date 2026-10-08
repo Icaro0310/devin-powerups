@@ -6,7 +6,8 @@ name: baseline-snapshot (weekly)
 
 on:
   schedule:
-    - cron: "15 8 * * 1"   # Mondays 08:15 UTC
+    - cron: "15 8 * * 1"     # Mondays 08:15 UTC
+    - cron: "15 8 3 12 *"    # Dec 3: final snapshot on the audit day
   workflow_dispatch:
 
 permissions:
@@ -41,6 +42,17 @@ jobs:
           git add "snapshots/$(date +%F).json" "snapshots/forks-$(date +%F).json"
           git commit -m "chore: weekly baseline snapshot $(date +%F)"
           git push
+
+      - name: Fail if collectors recorded errors
+        run: |
+          # Partial data is committed above; a non-empty errors array means the
+          # snapshot is incomplete, so fail the run to trigger the issue below.
+          n=$(python3 -c "import json;print(len(json.load(open('snapshots/$(date +%F).json')).get('errors') or []))")
+          m=$(python3 -c "import json;print(len(json.load(open('snapshots/forks-$(date +%F).json')).get('errors') or []))")
+          if [ "$n" -gt 0 ] || [ "$m" -gt 0 ]; then
+            echo "snapshot has $n baseline + $m fork-visibility collection error(s)"
+            exit 1
+          fi
 
       - name: Open issue on collection failure
         if: failure()
