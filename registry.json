@@ -332,22 +332,6 @@
         "category": "governance",
         "ref": "75c7dc0b921ae68374773a108c6a028b75916f81"
       },
-      "poordjaevin": {
-        "manager": "uv",
-        "source": "pypi",
-        "package": "poordjaevin",
-        "version": "0.1.1",
-        "commands": [
-          "poordjaevin"
-        ],
-        "runtime": "python>=3.10",
-        "platforms": [
-          "windows",
-          "linux"
-        ],
-        "status": "published",
-        "category": "governance"
-      },
       "devin-brain": {
         "manager": "uv",
         "source": "pypi",
@@ -368,6 +352,22 @@
         "extras": [
           "mcp"
         ]
+      },
+      "devin-judge": {
+        "manager": "uv",
+        "source": "pypi",
+        "package": "poordjaevin",
+        "version": "0.1.1",
+        "commands": [
+          "poordjaevin"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "published",
+        "category": "governance"
       }
     },
     "profiles": {
@@ -407,12 +407,12 @@
           "devin-brain",
           "devin-graph",
           "devin-search",
-          "poordjaevin"
+          "devin-judge"
         ]
       },
       "explore": {
         "label": "Explore",
-        "description": "Navigate the Devin session universe — history, full-text search and relationship graph over the same local stores. P6 co-install probe for the explore family.",
+        "description": "Navigate the Devin session universe \u2014 history, full-text search and relationship graph over the same local stores. P6 co-install probe for the explore family.",
         "tools": [
           "devin-history",
           "devin-search",
@@ -444,7 +444,7 @@
           "devin-brain",
           "devin-graph",
           "devin-search",
-          "poordjaevin"
+          "devin-judge"
         ],
         "alias_of": "memory"
       },
@@ -479,7 +479,7 @@
           "devin-orchestrator",
           "devin-switch",
           "devin-skill-catalog",
-          "poordjaevin"
+          "devin-judge"
         ],
         "manual": [
           "devin-office"
@@ -506,7 +506,7 @@
           "devin-orchestrator",
           "devin-switch",
           "devin-skill-catalog",
-          "poordjaevin"
+          "devin-judge"
         ],
         "manual": [
           "devin-office"
@@ -830,7 +830,7 @@
       "stack": "python",
       "ci": "inline",
       "tests": 44,
-      "description": "Export and audit Devin session history — markdown notes, JSON, CSV, Obsidian-ready.",
+      "description": "Export and audit Devin session history \u2014 markdown notes, JSON, CSV, Obsidian-ready.",
       "distribution_status": "published",
       "ownership": "first_party",
       "job": "understand",
@@ -897,7 +897,7 @@
       "stack": "python",
       "ci": "inline",
       "tests": 53,
-      "description": "Diagnose a Devin Desktop installation: stores, schema, locks, config, disk — with fix suggestions.",
+      "description": "Diagnose a Devin Desktop installation: stores, schema, locks, config, disk \u2014 with fix suggestions.",
       "distribution_status": "published",
       "ownership": "first_party",
       "job": "understand",
@@ -1303,7 +1303,7 @@
       "stack": "python",
       "ci": "inline",
       "tests": 57,
-      "description": "Knowledge graph: sessions, projects, files touched, tools used — queryable edges.",
+      "description": "Knowledge graph: sessions, projects, files touched, tools used \u2014 queryable edges.",
       "distribution_status": "published",
       "ownership": "first_party",
       "job": "understand",
@@ -1863,8 +1863,8 @@
       "legacy": null
     },
     {
-      "name": "poordjaevin",
-      "url": "https://github.com/Icaro0310/poordjaevin",
+      "name": "devin-judge",
+      "url": "https://github.com/Icaro0310/devin-judge",
       "kind": "project",
       "artifact": "tool",
       "interfaces": [
@@ -1913,8 +1913,8 @@
       "official_overlap": "none",
       "overlap_note": null,
       "stack": "python",
-      "local_dir": "../poordjaevin",
-      "description": "Djævin: calibrated local-first decision layer with typed questions and honest confidence. The Devin ACP backend reuses the model your Devin CLI already runs (no extra download, no API key); the local NLI backend stays as a fully-offline fallback.",
+      "local_dir": "../devin-judge",
+      "description": "Dj\u00e6vin: calibrated local-first decision layer with typed questions and honest confidence. The Devin ACP backend reuses the model your Devin CLI already runs (no extra download, no API key); the local NLI backend stays as a fully-offline fallback.",
       "version": "0.1.1",
       "tag": "v0.1.0",
       "distribution_status": "published",
@@ -1929,7 +1929,11 @@
       "entrypoints": [
         "poordjaevin"
       ],
-      "legacy": null
+      "legacy": {
+        "repo": "poordjaevin",
+        "status": "renamed",
+        "redirect": true
+      }
     },
     {
       "name": "awesome-devin",
@@ -2080,7 +2084,7 @@
       "stack": "python",
       "ci": "inline",
       "tests": 68,
-      "description": "Lifecycle + quality gates for .devin skills/rules: scan, lint, diff, G1/G2 gates, quarantined→approved→active lifecycle, sha256-verified export/import bundles (imports land quarantined).",
+      "description": "Lifecycle + quality gates for .devin skills/rules: scan, lint, diff, G1/G2 gates, quarantined\u2192approved\u2192active lifecycle, sha256-verified export/import bundles (imports land quarantined).",
       "distribution_status": "source_only",
       "ownership": "first_party",
       "job": "build",
@@ -2111,7 +2115,7 @@
       "status": "delivered",
       "public": false,
       "maturity": "usable",
-      "description": "Learning-loop runtime (SessionEnd hooks → .devin/skills/learned-*, hook-fires.jsonl). Absorbed into devin-powerups — never had its own repo; entry exists so devin-pm verify reconciles session history.",
+      "description": "Learning-loop runtime (SessionEnd hooks \u2192 .devin/skills/learned-*, hook-fires.jsonl). Absorbed into devin-powerups \u2014 never had its own repo; entry exists so devin-pm verify reconciles session history.",
       "ownership": "related",
       "job": null,
       "product_id": null,
@@ -2152,7 +2156,7 @@
     "operations": [
       {
         "repo": "devin-doctor",
-        "why": "Check store health first — schema, locks, disk"
+        "why": "Check store health first \u2014 schema, locks, disk"
       },
       {
         "repo": "devin-backup",
@@ -2191,7 +2195,7 @@
         "why": "Replay sessions against rubric graders to lock the behavior"
       },
       {
-        "repo": "poordjaevin",
+        "repo": "devin-judge",
         "why": "Get calibrated yes/no judgments when the verdict is fuzzy"
       }
     ],

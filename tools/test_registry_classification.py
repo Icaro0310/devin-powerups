@@ -214,7 +214,7 @@ def test_every_combination_agrees_with_the_jsonschema_reference():
 # governance decision: update this table in the same pull request.
 APPROVED_TRACKS = {
     "observe": ["devin-internals-spec", "devin-doctor", "devin-history", "devin-search", "devin-graph", "devin-office"],
-    "assure": ["devin-qa-pack", "devin-evals", "devin-metrics", "poordjaevin"],
+    "assure": ["devin-qa-pack", "devin-evals", "devin-metrics", "devin-judge"],
     "guard": ["devin-bridge", "devin-orchestrator", "devin-switch", "devin-redact", "devin-backup", "devin-janitor", "devin-brain"],
     "platform": ["devin-devkit", "devin-powerups", "devin-skill-catalog"],
     "navigation": ["awesome-devin"],

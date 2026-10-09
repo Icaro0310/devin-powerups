@@ -233,3 +233,22 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
 |---|---|---|
 | consumers → internals-spec | rejected | foundation stays a dependency, not a host |
 
+
+## D-2026-10-09 — Post-rename publication checklist (F3 standing rule)
+
+- **Decision:** every repo rename must be followed by the same publication
+  checklist before the next release: update the PyPI Trusted Publisher
+  (exact `owner/repo/workflow/environment` match — GitHub redirects do not
+  apply), then validate with a manual `workflow_dispatch` of `publish.yml`.
+- **Reason:** the shared publish workflow uses `PYPI_API_TOKEN` when
+  present and OIDC as fallback. A rename silently breaks the OIDC path —
+  the token masks it until it expires or is revoked. Applied to
+  `devin-memory -> devin-brain` and `poordjaevin -> devin-judge`
+  (2026-10-09); required again for the Fase-4 renames
+  (`devin-redact`, `devin-qa-pack`, `devin-doctor`).
+- **Checklist:** identify publish workflow -> rename repo -> verify 301 ->
+  update Trusted Publisher on PyPI -> `workflow_dispatch` publish ->
+  registry entry + `legacy` -> `snapshot_baseline.py` RENAMES -> sweep
+  repo URLs (never package/console/MCP identifiers).
+- **Expected outcome:** no release ever fails on a stale OIDC publisher.
+- **Result:** pending for Fase-4 renames.
