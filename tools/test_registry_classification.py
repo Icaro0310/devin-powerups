@@ -210,12 +210,12 @@ def test_every_combination_agrees_with_the_jsonschema_reference():
 # --- the committed registry ------------------------------------------------------
 
 # Approved classification (execution plan P0.2, 2026-10-07; devin-pm and
-# devin-memory placed by the maintainer the same day). Changing a track is a
+# devin-brain (ex devin-memory) placed by the maintainer the same day). Changing a track is a
 # governance decision: update this table in the same pull request.
 APPROVED_TRACKS = {
     "observe": ["devin-internals-spec", "devin-doctor", "devin-history", "devin-search", "devin-graph", "devin-office"],
     "assure": ["devin-qa-pack", "devin-evals", "devin-metrics", "poordjaevin"],
-    "guard": ["devin-bridge", "devin-orchestrator", "devin-switch", "devin-redact", "devin-backup", "devin-janitor", "devin-memory"],
+    "guard": ["devin-bridge", "devin-orchestrator", "devin-switch", "devin-redact", "devin-backup", "devin-janitor", "devin-brain"],
     "platform": ["devin-devkit", "devin-powerups", "devin-skill-catalog"],
     "navigation": ["awesome-devin"],
     "related": ["qwenpaw-suite", "devin-pm"],
@@ -254,7 +254,7 @@ def test_devin_powerups_is_the_only_control_plane():
 
 def test_official_overlap_is_declared_only_where_the_repository_documents_it():
     partial = {e["name"] for e in PUBLIC_ENTRIES if e["official_overlap"] == "partial"}
-    assert partial == {"devin-memory", "devin-evals", "devin-skill-catalog"}
+    assert partial == {"devin-brain", "devin-evals", "devin-skill-catalog"}
     assert not [e for e in PUBLIC_ENTRIES if e["official_overlap"] == "high"]
     for e in PUBLIC_ENTRIES:
         if e["official_overlap"] == "none":
@@ -275,7 +275,7 @@ def test_mode_matches_documented_mutating_commands():
     mixed = {e["name"] for e in PUBLIC_ENTRIES if e["mode"] == "mixed"}
     # explicit, guarded mutations: --apply / --yes / restore / redact / swap / promote / install / control endpoints
     assert mixed == {"devin-powerups", "devin-devkit", "devin-redact", "devin-backup", "devin-janitor", "devin-switch",
-                     "devin-skill-catalog", "devin-memory", "devin-bridge", "devin-office", "qwenpaw-suite"}
+                     "devin-skill-catalog", "devin-brain", "devin-bridge", "devin-office", "qwenpaw-suite"}
     assert not [e for e in PUBLIC_ENTRIES if e["mode"] == "write"]
 
 

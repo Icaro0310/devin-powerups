@@ -47,6 +47,16 @@ Two measurement caveats learned at day 1:
   separates them. Downloads are API requests, not installations; CI,
   cache misses and crawlers all count.
 
+## Rename aliases
+
+Series continuity across GitHub renames — metric keys use the current
+name; snapshots before the rename use the old one. `snapshot_baseline.py`
+carries the same map (`RENAMES`).
+
+| new name | former name | renamed |
+|---|---|---|
+| `devin-brain` | `devin-memory` | 2026-10-09 |
+
 ## Working rules during the window
 
 - Product work is allowed during the window — improving READMEs, the

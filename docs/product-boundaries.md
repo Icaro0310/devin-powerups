@@ -141,7 +141,7 @@ decision, not an omission.
 | `devin-redact` | security boundary (audience + failure mode); excluded from F3 by rule, not inertia |
 | `devin-switch` | config profiles — single-job tool |
 | `devin-skill-catalog` | capability vs product question parked (see secondary candidate above) |
-| `devin-memory` | foundation-adjacent persistence, no candidate sibling |
+| `devin-brain` (ex `devin-memory`) | foundation-adjacent persistence, no candidate sibling |
 | `devin-pm` / `devin-office` / `devin-metrics` | evaluated *as F1 members*, not as their own families (pm/metrics has its own D-record) |
 | `devin-bridge` + `devin-orchestrator` | merge explicitly disallowed — different runtime contracts |
 | `devin-powerups` / `devin-internals-spec` / `awesome-devin` | control plane / foundation / navigation — structural layers, not products |

@@ -371,7 +371,8 @@ def test_legacy_renamed_must_not_point_at_a_live_entry():
     renamed["legacy"] = {"repo": "devin-memory", "status": "renamed", "redirect": True}
     assert not any("legacy" in e for e in vr.semantic_errors(
         doc(entry("devin-powerups"), renamed)))
-    stale = doc(entry("devin-powerups"), renamed, entry("devin-memory"))
+    ghost = _member("devin-memory", "devin-brain", "build")
+    stale = doc(entry("devin-powerups"), renamed, ghost)
     assert any("still exists" in e for e in vr.semantic_errors(stale))
 
 
