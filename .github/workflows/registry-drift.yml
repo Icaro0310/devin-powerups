@@ -91,3 +91,9 @@ jobs:
               sys.exit(f"error: site does not link: {missing}")
           print("ok: site links every public registry repo")
           PY
+
+      - name: Site llms.txt blocks match the registry
+        working-directory: workspace/devin-ecosystem/devin-powerups
+        run: |
+          python3 tools/render_llms.py index --check "$(pwd)/../../site/llms.txt"
+          python3 tools/render_llms.py full --check "$(pwd)/../../site/llms-full.txt"
