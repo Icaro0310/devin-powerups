@@ -30,7 +30,7 @@ jobs:
     steps:
       - name: Open PR as github-actions[bot]
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PR_BOT_TOKEN || secrets.GITHUB_TOKEN }}
           HEAD_BRANCH: ${{ inputs.head }}
           BASE_BRANCH: ${{ inputs.base }}
           PR_TITLE: ${{ inputs.title }}
