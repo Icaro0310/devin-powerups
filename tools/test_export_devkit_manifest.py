@@ -64,8 +64,8 @@ def test_manifest_uses_pypi_names_and_real_cli_entrypoints():
     assert tools["devin-control"]["manager"] == "npm"
     assert tools["devin-control"]["runtime"] == "node>=20"
     assert tools["devin-brain"]["install_spec"].startswith("devin-memory[mcp]==")
-    assert manifest["git_required_tools"] == []
-    assert all(tool["requires_git"] is False for tool in tools.values())
+    assert manifest["git_required_tools"] == ["devin-skill-catalog"]
+    assert {t["id"] for t in manifest["tools"] if t["requires_git"]} == {"devin-skill-catalog"}
     assert tools["devin-office"]["install_spec"] is None
     assert tools["devin-office"]["status"] == "manual"
 

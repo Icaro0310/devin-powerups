@@ -33,9 +33,18 @@ def validate_devkit(registry: dict) -> list[str]:
     repos = _repository_index(registry)
     devkit = registry["devkit"]
     tools = devkit["tools"]
-    unknown_git_tools = set(devkit.get("git_required_tools", [])) - set(tools)
-    if unknown_git_tools:
-        errors.append(f"devkit.git_required_tools: unknown tools {sorted(unknown_git_tools)}")
+    spec_git = {
+        name
+        for name, tool in tools.items()
+        if (repo := repos.get(name)) is not None and _needs_git(tool, repo)
+    }
+    declared_git = set(devkit.get("git_required_tools", []))
+    if declared_git != spec_git:
+        errors.append(
+            "devkit.git_required_tools must match the tools whose install spec "
+            f"needs Git: missing={sorted(spec_git - declared_git)}, "
+            f"extra={sorted(declared_git - spec_git)}"
+        )
     for name, tool in tools.items():
         repo = repos.get(name)
         if repo is None:
@@ -102,6 +111,15 @@ def _install_spec(tool: dict, repo: dict) -> str | None:
     return f"{repo['url']}/archive/{tool['ref']}.tar.gz"
 
 
+def _needs_git(tool: dict, repo: dict) -> bool:
+    # Skip spec derivation when the ref is missing or invalid — validate_devkit
+    # already reports that error; indexing tool["ref"] here would KeyError first.
+    if tool.get("source") == "github" and not _SHA.fullmatch(tool.get("ref", "")):
+        return False
+    spec = _install_spec(tool, repo)
+    return bool(spec) and spec.startswith("git+")
+
+
 def build_manifest(registry: dict) -> dict:
     errors = validate_devkit(registry)
     if errors:
@@ -113,6 +131,7 @@ def build_manifest(registry: dict) -> dict:
     tools = []
     for name, tool in devkit["tools"].items():
         repo = repos[name]
+        install_spec = _install_spec(tool, repo)
         tools.append({
             "id": name,
             "label": name,
@@ -129,11 +148,11 @@ def build_manifest(registry: dict) -> dict:
             "commands": tool["commands"],
             "runtime": tool["runtime"],
             "platforms": tool["platforms"],
-            "requires_git": name in git_required,
+            "requires_git": bool(install_spec) and install_spec.startswith("git+"),
             "status": tool["status"],
             "extras": tool.get("extras", []),
             "manual_note": tool.get("manual_note"),
-            "install_spec": _install_spec(tool, repo),
+            "install_spec": install_spec,
         })
 
     public_repos = [r for r in registry["repositories"] if r.get("visibility") == "public"]

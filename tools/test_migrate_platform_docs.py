@@ -28,7 +28,7 @@ def _registry() -> dict:
             },
         ],
         "devkit": {
-            "git_required_tools": ["devin-alpha"],
+            "git_required_tools": [],
             "tools": {
                 "devin-alpha": {
                     "manager": "uv", "source": "github", "package": "devin-alpha",
@@ -77,7 +77,7 @@ def test_apply_creates_os_guides_and_removes_legacy_translation(tmp_path: Path):
     linux = (repo / "README.linux.md").read_text(encoding="utf-8")
     assert "uv tool install" in windows and "powershell" in windows
     assert "https://github.com/TestOwner/devin-alpha/archive/" in windows
-    assert "Git on `PATH` for a Git dependency" in windows
+    assert "Git on `PATH` for a Git dependency" not in windows
     assert "## Troubleshooting" in windows and "reopen PowerShell" in windows
     assert "%APPDATA%" in windows
     assert "Personal Windows" in windows and "extended runtime" in windows
@@ -136,10 +136,11 @@ def test_monorepo_member_install_points_at_package_subdirectory():
         "package": {"ecosystem": "pypi", "name": "devin-skill-catalog", "path": "packages/skill-catalog"},
     }
     tool = {"manager": "uv", "source": "github", "package": "devin-skill-catalog",
-            "version": "0.1.0", "ref": "a" * 40, "requires_git": False}
+            "version": "0.1.0", "ref": "a" * 40, "requires_git": True}
     linux = migration.render_guide(entry, tool, "linux")
 
     assert "git+https://github.com/Icaro0310/devin-devkit.git#subdirectory=packages/skill-catalog" in linux
+    assert "Git on `PATH`" in linux
     assert "archive/" not in linux
 
 

@@ -54,7 +54,7 @@
     "planned_platforms": [
       "macos"
     ],
-    "git_required_tools": [],
+    "git_required_tools": ["devin-skill-catalog"],
     "tools": {
       "devin-internals-spec": {
         "manager": "uv",

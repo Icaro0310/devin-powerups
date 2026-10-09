@@ -82,10 +82,16 @@ jobs:
           from pathlib import Path
           reg = json.loads(Path("registry.json").read_text())
           site = Path("../../site/index.html").read_text()
+          # Members are reached through their product holder card — an entry
+          # counts as linked when its own repo OR its holder repo is linked.
+          def linked(e):
+              if f"github.com/Icaro0310/{e['name']}" in site:
+                  return True
+              holder = e.get("product_id")
+              return bool(holder) and holder != e["name"] and f"github.com/Icaro0310/{holder}" in site
           missing = [
               e["name"] for e in reg["repositories"]
-              if e.get("visibility") == "public"
-              and f"github.com/Icaro0310/{e['name']}" not in site
+              if e.get("visibility") == "public" and not linked(e)
           ]
           if missing:
               sys.exit(f"error: site does not link: {missing}")
