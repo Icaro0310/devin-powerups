@@ -785,7 +785,7 @@
     },
     {
       "name": "devin-history",
-      "url": "https://github.com/Icaro0310/devin-history",
+      "url": "https://github.com/Icaro0310/devin-explore",
       "kind": "project",
       "artifact": "tool",
       "interfaces": [
@@ -843,12 +843,14 @@
       "package": {
         "ecosystem": "pypi",
         "name": "devin-history",
-        "path": "."
+        "path": "packages/history"
       },
+      "local_dir": "devin-explore",
       "entrypoints": [
         "devin-history"
       ],
-      "legacy": null
+      "legacy": null,
+      "note": "Absorbed into the devin-explore monorepo (F4.3); the devin-history PyPI package and CLI are unchanged, released from packages/history. Original repo archived with MOVED banner."
     },
     {
       "name": "devin-explore",
@@ -902,7 +904,7 @@
       "stack": "python",
       "ci": "inline",
       "tests": 53,
-      "description": "Diagnose a Devin Desktop installation: stores, schema, locks, config, disk — with fix suggestions.",
+      "description": "Understand Devin sessions: diagnose the local installation (stores, schema, locks, config, disk — with fix suggestions), export and audit session history, run FTS5 full-text search, query a knowledge graph of sessions/projects/files/tools, and roll sessions into per-repo milestones and status reports. All local, no telemetry.",
       "distribution_status": "published",
       "ownership": "first_party",
       "job": "understand",
@@ -910,7 +912,7 @@
       "package": {
         "ecosystem": "pypi",
         "name": "devin-doctor",
-        "path": "."
+        "path": "packages/doctor"
       },
       "entrypoints": [
         "devin-doctor"
@@ -919,11 +921,12 @@
         "repo": "devin-doctor",
         "status": "renamed",
         "redirect": true
-      }
+      },
+      "note": "uv workspace monorepo since F4.3: packages/doctor (this entry, ex devin-doctor), packages/history, packages/search, packages/graph, packages/pm. Package-specific tags: <pkg>-v*."
     },
     {
       "name": "devin-pm",
-      "url": "https://github.com/Icaro0310/devin-pm",
+      "url": "https://github.com/Icaro0310/devin-explore",
       "kind": "project",
       "artifact": "tool",
       "interfaces": [
@@ -963,7 +966,7 @@
       "status": "delivered",
       "public": true,
       "nature": "product",
-      "track": "related",
+      "track": "observe",
       "role": "module",
       "mode": "read",
       "maturity": "usable",
@@ -982,13 +985,14 @@
       "package": {
         "ecosystem": "pypi",
         "name": "devin-pm",
-        "path": "."
+        "path": "packages/pm"
       },
+      "local_dir": "devin-explore",
       "entrypoints": [
         "devin-pm"
       ],
       "legacy": null,
-      "note": "track=related is the deliberate pre-absorption state (P0 measurement window); moves to track=observe when devin-pm is absorbed into devin-explore in F4.3."
+      "note": "Absorbed into the devin-explore monorepo (F4.3); the devin-pm PyPI package and CLI are unchanged, released from packages/pm. Track moved related->observe on absorption, as pre-announced. Original repo archived with MOVED banner."
     },
     {
       "name": "devin-assure",
@@ -1204,7 +1208,7 @@
     },
     {
       "name": "devin-search",
-      "url": "https://github.com/Icaro0310/devin-search",
+      "url": "https://github.com/Icaro0310/devin-explore",
       "kind": "project",
       "artifact": "tool",
       "interfaces": [
@@ -1262,16 +1266,18 @@
       "package": {
         "ecosystem": "pypi",
         "name": "devin-search",
-        "path": "."
+        "path": "packages/search"
       },
+      "local_dir": "devin-explore",
       "entrypoints": [
         "devin-search"
       ],
-      "legacy": null
+      "legacy": null,
+      "note": "Absorbed into the devin-explore monorepo (F4.3); the devin-search PyPI package and CLI are unchanged, released from packages/search. Original repo archived with MOVED banner."
     },
     {
       "name": "devin-graph",
-      "url": "https://github.com/Icaro0310/devin-graph",
+      "url": "https://github.com/Icaro0310/devin-explore",
       "kind": "project",
       "artifact": "tool",
       "interfaces": [
@@ -1330,12 +1336,14 @@
       "package": {
         "ecosystem": "pypi",
         "name": "devin-graph",
-        "path": "."
+        "path": "packages/graph"
       },
+      "local_dir": "devin-explore",
       "entrypoints": [
         "devin-graph"
       ],
-      "legacy": null
+      "legacy": null,
+      "note": "Absorbed into the devin-explore monorepo (F4.3); the devin-graph PyPI package and CLI are unchanged, released from packages/graph. Original repo archived with MOVED banner."
     },
     {
       "name": "devin-evals",
