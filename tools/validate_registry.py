@@ -305,10 +305,18 @@ def _checkout(entry: dict, root: Path) -> Path | None:
     return path if path.is_dir() else None
 
 
-def _declared_entrypoints(checkout: Path) -> set[str] | None:
-    """console_scripts / bin names declared by the checkout's manifest."""
-    pyproject = checkout / "pyproject.toml"
-    package_json = checkout / "package.json"
+def _declared_entrypoints(checkout: Path, package: dict | None) -> set[str] | None:
+    """console_scripts / bin names declared by the checkout's manifest.
+
+    ``package.path`` selects the manifest inside the checkout (workspace
+    monorepos keep each package below the root). None = the manifest
+    could not be parsed; the caller must fail rather than skip.
+    """
+    manifest_dir = checkout
+    if isinstance(package, dict) and package.get("path"):
+        manifest_dir = (checkout / package["path"]).resolve()
+    pyproject = manifest_dir / "pyproject.toml"
+    package_json = manifest_dir / "package.json"
     if pyproject.exists():
         try:
             import tomllib
@@ -375,8 +383,12 @@ def product_errors(registry: dict, root: Path | None = None) -> list[str]:
         if root is not None and eps:
             co = _checkout(e, root)
             if co is not None:
-                real = _declared_entrypoints(co)
-                if real is not None:
+                real = _declared_entrypoints(co, pkg)
+                if real is None:
+                    errors.append(
+                        f"$.repositories[{name}]: cannot parse {co.name}'s package manifest"
+                    )
+                else:
                     missing = sorted(set(eps) - real)
                     if missing:
                         errors.append(
@@ -420,60 +432,67 @@ def product_errors(registry: dict, root: Path | None = None) -> list[str]:
             if isinstance(pkg, dict):
                 pname = pkg.get("name")
                 holder = pkg_names.get(pname)
-                if holder is not None and holder != pid:
+                # package names are globally unique — a second claimant
+                # in the *same* product is just as ambiguous as cross-product
+                if holder is not None and holder != m.get("name"):
                     errors.append(
-                        f"package {pname!r} claimed by both {holder!r} and {pid!r}"
+                        f"package {pname!r} claimed by both {holder!r} and {m.get('name')!r}"
                     )
-                pkg_names[pname] = pid
+                pkg_names[pname] = m.get("name")
 
-    # cross-product deps must go through published packages, acyclic
+    # deps resolve on package names; cycles are checked per package, and
+    # the published-package requirement only applies across products
+    pkg_owner: dict[str, dict] = {}
+    for e in entries:
+        pkg = e.get("package")
+        if isinstance(pkg, dict):
+            pkg_owner[pkg.get("name")] = e
     dep_edges: dict[str, set[str]] = {}
     for e in entries:
         pkg = e.get("package")
         if not isinstance(pkg, dict):
             continue
         for dep in pkg.get("depends_on") or []:
-            owner_entry = next(
-                (x for x in entries
-                 if isinstance(x.get("package"), dict) and x["package"].get("name") == dep),
-                None,
-            )
+            owner_entry = pkg_owner.get(dep)
             if owner_entry is None:
                 errors.append(
                     f"$.repositories[{e.get('name')}]: depends_on {dep!r} is not a package in the registry"
                 )
                 continue
-            if owner_entry.get("distribution_status") != "published":
+            dep_edges.setdefault(pkg.get("name"), set()).add(dep)
+            if (
+                owner_entry.get("product_id") != e.get("product_id")
+                and owner_entry.get("distribution_status") != "published"
+            ):
                 errors.append(
-                    f"$.repositories[{e.get('name')}]: depends_on {dep!r} but that package is {owner_entry.get('distribution_status')!r} (cross-product deps need a published package)"
+                    f"$.repositories[{e.get('name')}]: cross-product depends_on {dep!r} but that package is {owner_entry.get('distribution_status')!r} (cross-product deps need a published package)"
                 )
-            dep_edges.setdefault(e.get("product_id") or e.get("name"), set()).add(
-                owner_entry.get("product_id") or owner_entry.get("name")
-            )
-    # cycle check on the product dependency graph
     for start in dep_edges:
         seen, stack = set(), [start]
         while stack:
             node = stack.pop()
             for nxt in dep_edges.get(node, ()):
                 if nxt == start:
-                    errors.append(f"product dependency cycle through {start!r}")
+                    errors.append(f"package dependency cycle through {start!r}")
                     stack.clear()
                     break
                 if nxt not in seen:
                     seen.add(nxt)
                     stack.append(nxt)
 
-    # devkit tool commands must be declared entrypoints
+    # devkit tool commands must be declared entrypoints — for package-managed
+    # tools; 'manual' tools carry invocation instructions, not console scripts
     devkit = registry.get("devkit")
     tools = devkit.get("tools") if isinstance(devkit, dict) else None
     for name, tool in (tools or {}).items():
         entry = by_name.get(name)
         if not entry or not isinstance(tool, dict):
             continue
+        if tool.get("manager") not in ("uv", "npm"):
+            continue
         declared = set(entry.get("entrypoints") or [])
         for cmd in tool.get("commands") or []:
-            if declared and cmd not in declared:
+            if cmd not in declared:
                 errors.append(
                     f"$.devkit.tools[{name}]: command {cmd!r} not in entrypoints {sorted(declared)}"
                 )

@@ -391,7 +391,49 @@ def test_entrypoints_are_checked_against_the_real_manifest(tmp_path):
 def test_devkit_commands_must_be_declared_entrypoints():
     document = doc(entry("devin-powerups"), entry("devin-doctor"))
     document["devkit"] = {
-        "tools": {"devin-doctor": {"commands": ["devin-doctor", "devin-ghost"]}}
+        "tools": {"devin-doctor": {"manager": "uv", "commands": ["devin-doctor", "devin-ghost"]}}
     }
     errors = vr.semantic_errors(document)
     assert any("devin-ghost" in e for e in errors)
+
+
+def test_same_product_dependency_is_not_a_cycle():
+    dep = _member("devin-y", "devin-explore", "understand")
+    dep["distribution_status"] = "source_only"
+    a = _member("devin-x", "devin-explore", "understand")
+    a["package"]["depends_on"] = ["devin-y"]
+    errors = vr.semantic_errors(doc(entry("devin-powerups"), a, dep))
+    assert not any("cycle" in e or "published" in e for e in errors)
+
+
+def test_duplicate_package_inside_one_product_is_rejected():
+    a = _member("devin-x", "devin-explore", "understand")
+    b = _member("devin-y", "devin-explore", "understand")
+    b["package"] = {"ecosystem": "pypi", "name": "devin-x", "path": "pkg-b"}
+    errors = vr.semantic_errors(doc(entry("devin-powerups"), a, b))
+    assert any("claimed by both" in e for e in errors)
+
+
+def test_devkit_commands_fail_when_entrypoints_empty():
+    document = doc(entry("devin-powerups"))
+    document["repositories"].append({
+        "name": "devin-x", "ownership": "related", "job": None,
+        "product_id": None, "package": None, "entrypoints": [],
+        "legacy": None,
+    })
+    document["devkit"] = {
+        "tools": {"devin-x": {"manager": "uv", "commands": ["devin-x"]}}
+    }
+    errors = vr.semantic_errors(document)
+    assert any("devin-x" in e and "entrypoints" in e for e in errors)
+
+
+def test_entrypoints_check_follows_package_path(tmp_path):
+    checkout = tmp_path / "devin-x"
+    (checkout / "packages" / "x").mkdir(parents=True)
+    (checkout / "packages" / "x" / "pyproject.toml").write_text(
+        '[project]\nname = "devin-x"\n[project.scripts]\ndevin-x = "devin_x.cli:main"\n'
+    )
+    e = _member("devin-x", "devin-explore", "understand")
+    e["package"] = {"ecosystem": "pypi", "name": "devin-x", "path": "packages/x"}
+    assert vr.semantic_errors(doc(entry("devin-powerups"), e), root=tmp_path) == []
