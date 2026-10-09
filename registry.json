@@ -412,7 +412,7 @@
       },
       "explore": {
         "label": "Explore",
-        "description": "Navigate the Devin session universe \u2014 history, full-text search and relationship graph over the same local stores. P6 co-install probe for the explore family.",
+        "description": "Navigate the Devin session universe — history, full-text search and relationship graph over the same local stores. P6 co-install probe for the explore family.",
         "tools": [
           "devin-history",
           "devin-search",
@@ -771,7 +771,7 @@
       "package": {
         "ecosystem": "pypi",
         "name": "devin-redact",
-        "path": "."
+        "path": "packages/redact"
       },
       "entrypoints": [
         "devin-redact"
@@ -834,7 +834,7 @@
       "stack": "python",
       "ci": "inline",
       "tests": 44,
-      "description": "Export and audit Devin session history \u2014 markdown notes, JSON, CSV, Obsidian-ready.",
+      "description": "Export and audit Devin session history — markdown notes, JSON, CSV, Obsidian-ready.",
       "distribution_status": "published",
       "ownership": "first_party",
       "job": "understand",
@@ -901,7 +901,7 @@
       "stack": "python",
       "ci": "inline",
       "tests": 53,
-      "description": "Diagnose a Devin Desktop installation: stores, schema, locks, config, disk \u2014 with fix suggestions.",
+      "description": "Diagnose a Devin Desktop installation: stores, schema, locks, config, disk — with fix suggestions.",
       "distribution_status": "published",
       "ownership": "first_party",
       "job": "understand",
@@ -1315,7 +1315,7 @@
       "stack": "python",
       "ci": "inline",
       "tests": 57,
-      "description": "Knowledge graph: sessions, projects, files touched, tools used \u2014 queryable edges.",
+      "description": "Knowledge graph: sessions, projects, files touched, tools used — queryable edges.",
       "distribution_status": "published",
       "ownership": "first_party",
       "job": "understand",
@@ -1456,7 +1456,7 @@
       "description": "Anti-poisoning memory store: provenance, versioning, quarantine gate, and session-learning utilities.",
       "distribution_status": "published",
       "ownership": "first_party",
-      "job": "build",
+      "job": "control",
       "product_id": "devin-brain",
       "package": {
         "ecosystem": "pypi",
@@ -1794,7 +1794,7 @@
       "status": "active",
       "public": true,
       "nature": "product",
-      "track": "observe",
+      "track": "guard",
       "role": "module",
       "mode": "mixed",
       "maturity": "experimental",
@@ -1926,7 +1926,7 @@
       "overlap_note": null,
       "stack": "python",
       "local_dir": "../devin-judge",
-      "description": "Dj\u00e6vin: calibrated local-first decision layer with typed questions and honest confidence. The Devin ACP backend reuses the model your Devin CLI already runs (no extra download, no API key); the local NLI backend stays as a fully-offline fallback.",
+      "description": "Djævin: calibrated local-first decision layer with typed questions and honest confidence. The Devin ACP backend reuses the model your Devin CLI already runs (no extra download, no API key); the local NLI backend stays as a fully-offline fallback.",
       "version": "0.1.1",
       "tag": "v0.1.0",
       "distribution_status": "published",
@@ -2096,7 +2096,7 @@
       "stack": "python",
       "ci": "inline",
       "tests": 68,
-      "description": "Lifecycle + quality gates for .devin skills/rules: scan, lint, diff, G1/G2 gates, quarantined\u2192approved\u2192active lifecycle, sha256-verified export/import bundles (imports land quarantined).",
+      "description": "Lifecycle + quality gates for .devin skills/rules: scan, lint, diff, G1/G2 gates, quarantined→approved→active lifecycle, sha256-verified export/import bundles (imports land quarantined).",
       "distribution_status": "source_only",
       "ownership": "first_party",
       "job": "build",
@@ -2127,7 +2127,7 @@
       "status": "delivered",
       "public": false,
       "maturity": "usable",
-      "description": "Learning-loop runtime (SessionEnd hooks \u2192 .devin/skills/learned-*, hook-fires.jsonl). Absorbed into devin-powerups \u2014 never had its own repo; entry exists so devin-pm verify reconciles session history.",
+      "description": "Learning-loop runtime (SessionEnd hooks → .devin/skills/learned-*, hook-fires.jsonl). Absorbed into devin-powerups — never had its own repo; entry exists so devin-pm verify reconciles session history.",
       "ownership": "related",
       "job": null,
       "product_id": null,
@@ -2168,7 +2168,7 @@
     "operations": [
       {
         "repo": "devin-explore",
-        "why": "Check store health first \u2014 schema, locks, disk"
+        "why": "Check store health first — schema, locks, disk"
       },
       {
         "repo": "devin-backup",

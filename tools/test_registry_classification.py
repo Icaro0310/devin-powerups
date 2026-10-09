@@ -213,9 +213,9 @@ def test_every_combination_agrees_with_the_jsonschema_reference():
 # devin-brain (ex devin-memory) placed by the maintainer the same day). Changing a track is a
 # governance decision: update this table in the same pull request.
 APPROVED_TRACKS = {
-    "observe": ["devin-internals-spec", "devin-explore", "devin-history", "devin-search", "devin-graph", "devin-office"],
+    "observe": ["devin-internals-spec", "devin-explore", "devin-history", "devin-search", "devin-graph"],
     "assure": ["devin-assure", "devin-evals", "devin-metrics", "devin-judge"],
-    "guard": ["devin-bridge", "devin-orchestrator", "devin-switch", "devin-state", "devin-backup", "devin-janitor", "devin-brain"],
+    "guard": ["devin-bridge", "devin-orchestrator", "devin-switch", "devin-state", "devin-backup", "devin-janitor", "devin-brain", "devin-office"],
     "platform": ["devin-devkit", "devin-powerups", "devin-skill-catalog"],
     "navigation": ["awesome-devin"],
     "related": ["qwenpaw-suite", "devin-pm"],
