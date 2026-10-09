@@ -225,7 +225,7 @@ _RECURRING_JOBS: dict[str, dict[str, str]] = {
         "win": "devin-history export",
         "note": "Weekly archive of sessions to notes; run before janitor cleanup.",
     },
-    "devin-memory": {
+    "devin-brain": {
         "cmd": "devin-memory extract --latest",
         "cron": "0 7 * * 0",
         "win": "devin-memory extract --latest",

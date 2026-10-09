@@ -233,27 +233,6 @@
         "status": "published",
         "category": "evaluation"
       },
-      "devin-memory": {
-        "manager": "uv",
-        "source": "pypi",
-        "package": "devin-memory",
-        "version": "0.3.0",
-        "commands": [
-          "devin-memory",
-          "devin-learning",
-          "devin-memory-mcp"
-        ],
-        "runtime": "python>=3.10",
-        "platforms": [
-          "windows",
-          "linux"
-        ],
-        "status": "published",
-        "category": "memory",
-        "extras": [
-          "mcp"
-        ]
-      },
       "devin-janitor": {
         "manager": "uv",
         "source": "pypi",
@@ -368,6 +347,27 @@
         ],
         "status": "published",
         "category": "governance"
+      },
+      "devin-brain": {
+        "manager": "uv",
+        "source": "pypi",
+        "package": "devin-memory",
+        "version": "0.3.0",
+        "commands": [
+          "devin-memory",
+          "devin-learning",
+          "devin-memory-mcp"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "published",
+        "category": "memory",
+        "extras": [
+          "mcp"
+        ]
       }
     },
     "profiles": {
@@ -404,7 +404,7 @@
         "label": "Memory",
         "description": "Search, connect, and preserve agent knowledge with optional ACP integrations.",
         "tools": [
-          "devin-memory",
+          "devin-brain",
           "devin-graph",
           "devin-search",
           "poordjaevin"
@@ -441,7 +441,7 @@
         "label": "Agent",
         "description": "Convenience alias for the memory and decision tools.",
         "tools": [
-          "devin-memory",
+          "devin-brain",
           "devin-graph",
           "devin-search",
           "poordjaevin"
@@ -473,7 +473,7 @@
           "devin-search",
           "devin-graph",
           "devin-evals",
-          "devin-memory",
+          "devin-brain",
           "devin-janitor",
           "devin-bridge",
           "devin-orchestrator",
@@ -500,7 +500,7 @@
           "devin-search",
           "devin-graph",
           "devin-evals",
-          "devin-memory",
+          "devin-brain",
           "devin-janitor",
           "devin-bridge",
           "devin-orchestrator",
@@ -1387,8 +1387,8 @@
       "legacy": null
     },
     {
-      "name": "devin-memory",
-      "url": "https://github.com/Icaro0310/devin-memory",
+      "name": "devin-brain",
+      "url": "https://github.com/Icaro0310/devin-brain",
       "kind": "project",
       "artifact": "tool",
       "interfaces": [
@@ -1456,7 +1456,11 @@
         "devin-memory",
         "devin-memory-mcp"
       ],
-      "legacy": null
+      "legacy": {
+        "repo": "devin-memory",
+        "status": "renamed",
+        "redirect": true
+      }
     },
     {
       "name": "devin-janitor",
@@ -2201,7 +2205,7 @@
         "why": "Fan out workers deterministically inside the policy caps"
       },
       {
-        "repo": "devin-memory",
+        "repo": "devin-brain",
         "why": "Persist memory with provenance and quarantine gates"
       }
     ],

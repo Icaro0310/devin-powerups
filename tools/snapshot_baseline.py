@@ -260,13 +260,25 @@ def structure(registry: dict) -> dict:
     }
 
 
+# Repo renames: new name -> former name. Keeps the per-repo time series
+# continuous across GitHub renames (redirects keep the old URL live).
+RENAMES = {
+    "devin-brain": "devin-memory",
+}
+
+
 def diff_structure(prev: dict, cur: dict) -> dict:
     """Compare two ``structure`` blocks; empty diff if either is missing."""
     pe, ce = (prev or {}).get("entries", {}), cur.get("entries", {})
     pj, cj = (prev or {}).get("journeys", {}), (cur or {}).get("journeys", {})
+    renamed = {
+        new: old for new, old in RENAMES.items()
+        if old in pe and new in ce
+    }
     out = {
-        "created_repos": sorted(set(ce) - set(pe)),
-        "removed_repos": sorted(set(pe) - set(ce)),
+        "created_repos": sorted(set(ce) - set(pe) - set(renamed)),
+        "removed_repos": sorted(set(pe) - set(ce) - set(renamed.values())),
+        "renamed_repos": renamed,
         "reclassified": sorted(
             n for n in set(pe) & set(ce)
             if any(
