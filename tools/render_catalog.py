@@ -43,9 +43,10 @@ def render_profile_catalog(registry: dict) -> str:
         # a first-party tool labeled Related reads as external.
     }
     entry_count = len(tools) + len(hubs) + len(distributions) + len(related)
+    product_count = len({r["product_id"] for r in tools if r.get("product_id")})
     plural = lambda n: "" if n == 1 else "s"  # noqa: E731
     lines = [
-        f"<summary><b>The ecosystem — {len(tools)} first-party tools · {len(distributions)} distribution layer{plural(len(distributions))} · {len(hubs)} registry hub{plural(len(hubs))} · {len(related)} related artifact{plural(len(related))} ({entry_count} entries)</b></summary>",
+        f"<summary><b>The ecosystem — {product_count} products · {len(tools)} first-party tools · {len(distributions)} distribution layer{plural(len(distributions))} · {len(hubs)} registry hub{plural(len(hubs))} · {len(related)} related artifact{plural(len(related))} ({entry_count} entries)</b></summary>",
         "",
         "<br/>",
         "",

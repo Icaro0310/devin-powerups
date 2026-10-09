@@ -362,6 +362,10 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
 
 ## D-2026-11-14 — devin-brain stays in Control, not Build
 
+> **Superseded by D-2026-10-09b** — owner reversal moved `devin-brain` to
+> `job: build` / `track: platform`. Kept for history; do not read as
+> current policy.
+
 - **Question:** P6 surfaced an ambiguity — one consolidated report grouped
   `devin-brain` visually under a different job; confirm against the
   registry before changing surfaces.

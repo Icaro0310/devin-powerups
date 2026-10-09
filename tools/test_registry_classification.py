@@ -213,12 +213,12 @@ def test_every_combination_agrees_with_the_jsonschema_reference():
 # devin-brain (ex devin-memory) placed by the maintainer the same day). Changing a track is a
 # governance decision: update this table in the same pull request.
 APPROVED_TRACKS = {
-    "observe": ["devin-internals-spec", "devin-explore", "devin-history", "devin-search", "devin-graph"],
-    "assure": ["devin-assure", "devin-evals", "devin-metrics", "devin-judge"],
-    "guard": ["devin-bridge", "devin-orchestrator", "devin-switch", "devin-state", "devin-backup", "devin-janitor", "devin-brain", "devin-office"],
-    "platform": ["devin-devkit", "devin-powerups", "devin-skill-catalog"],
+    "observe": ["devin-internals-spec", "devin-explore", "devin-history", "devin-search", "devin-graph", "devin-pm"],
+    "assure": ["devin-assure", "devin-evals", "devin-metrics"],
+    "guard": ["devin-control", "devin-orchestrator", "devin-switch", "devin-state", "devin-backup", "devin-janitor", "devin-office", "devin-judge"],
+    "platform": ["devin-devkit", "devin-powerups", "devin-skill-catalog", "devin-brain"],
     "navigation": ["awesome-devin"],
-    "related": ["qwenpaw-suite", "devin-pm"],
+    "related": ["qwenpaw-suite"],
 }
 BY_NAME = {e["name"]: e for e in REGISTRY["repositories"]}
 PUBLIC_ENTRIES = [e for e in REGISTRY["repositories"] if e["visibility"] == "public"]
@@ -275,7 +275,7 @@ def test_mode_matches_documented_mutating_commands():
     mixed = {e["name"] for e in PUBLIC_ENTRIES if e["mode"] == "mixed"}
     # explicit, guarded mutations: --apply / --yes / restore / redact / swap / promote / install / control endpoints
     assert mixed == {"devin-powerups", "devin-devkit", "devin-state", "devin-backup", "devin-janitor", "devin-switch",
-                     "devin-skill-catalog", "devin-brain", "devin-bridge", "devin-office", "qwenpaw-suite"}
+                     "devin-skill-catalog", "devin-brain", "devin-control", "devin-office", "qwenpaw-suite"}
     assert not [e for e in PUBLIC_ENTRIES if e["mode"] == "write"]
 
 
@@ -284,7 +284,7 @@ def test_distribution_status_is_declared_on_public_products_and_fixtures():
         if e["nature"] in ("product", "fixture"):
             assert e.get("distribution_status") in VOCABULARY["distribution_status"], e["name"]
     assert {e["name"] for e in PUBLIC_ENTRIES if e.get("distribution_status") == "source_only"} == {
-        "devin-skill-catalog", "devin-switch",
+        "devin-skill-catalog",
         "devin-office", "qwenpaw-suite"}
 
 

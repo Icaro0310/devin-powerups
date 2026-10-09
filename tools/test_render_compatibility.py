@@ -20,7 +20,7 @@ def test_matrix_uses_registry_environment_metadata():
     rendered = render_compatibility.render_compatibility_matrix(registry)
 
     assert "| Artifact | Linux | Personal Windows | Corporate Windows |" in rendered
-    assert "`devin-history`](https://github.com/Icaro0310/devin-history) | Extended | Extended | Local only |" in rendered
+    assert "`devin-history`](https://github.com/Icaro0310/devin-explore) | Extended | Extended | Local only |" in rendered
     assert "`qwenpaw-suite`](https://github.com/Icaro0310/qwenpaw-suite) | Extended | Extended | Unsupported |" in rendered
 
 

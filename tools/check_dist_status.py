@@ -29,14 +29,17 @@ def errors_for(entry: dict, root: Path) -> list[str]:
     if not repo.is_dir():
         return []
     readme = repo / "README.md"
+    subdir = None
     pkg = entry.get("package")
     if isinstance(pkg, dict) and pkg.get("path"):
         readme = repo / pkg["path"] / "README.md"
+        subdir = pkg["path"]
     elif entry.get("product_id") and entry.get("product_id") != name:
         short = name.removeprefix("devin-")
         member = repo / "packages" / short / "README.md"
         if member.is_file():
             readme = member
+            subdir = f"packages/{short}"
     if not readme.is_file():
         return [f"{name}: checkout exists but {readme.relative_to(repo)} is missing"]
     text = readme.read_text(encoding="utf-8", errors="replace")
@@ -47,6 +50,16 @@ def errors_for(entry: dict, root: Path) -> list[str]:
     if status == "source_only":
         if not has_block:
             problems.append(f"{name}: source_only but {readme.relative_to(repo)} lacks a DIST-STATUS block")
+        elif subdir:
+            block = text[begin.start():end.end()]
+            installs_pkg = re.search(
+                r"uv tool install|pipx install|pip install|npm install", block
+            )
+            if installs_pkg and f"#subdirectory={subdir}" not in block:
+                problems.append(
+                    f"{name}: DIST-STATUS block must point at the package subdirectory "
+                    f"(#subdirectory={subdir}); a bare {repo.name} URL installs the monorepo root"
+                )
         elif not any(
             GIT_URL.format(name=n) in text[begin.start():end.end()]
             for n in {name, repo.name}
