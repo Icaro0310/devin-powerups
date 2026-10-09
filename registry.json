@@ -252,7 +252,7 @@
       },
       "devin-switch": {
         "manager": "uv",
-        "source": "github",
+        "source": "pypi",
         "package": "devin-switch",
         "version": "0.1.0",
         "commands": [
@@ -264,8 +264,7 @@
           "linux"
         ],
         "status": "published",
-        "category": "governance",
-        "ref": "2e4844d7510a0370e519c7e7fb626278269febe7"
+        "category": "governance"
       },
       "devin-skill-catalog": {
         "manager": "uv",
@@ -1417,13 +1416,13 @@
       "mode": "read",
       "maturity": "usable",
       "official_overlap": "partial",
-      "overlap_note": "Complements official Devin Dreaming with deterministic, seed-controlled synthetic sessions carrying known defects (D01-D09) for reproducibility and agent assurance evaluation.",
+      "overlap_note": "Complements official Devin Dreaming with deterministic, seed-controlled synthetic sessions carrying known defects (D01-D10) for reproducibility and agent assurance evaluation.",
       "version": "0.2.0",
       "session": "chemical-jury",
       "stack": "python",
       "ci": "inline",
       "tests": 195,
-      "description": "Deterministic eval harness: replay recorded sessions against rubric graders; the `dream` subgroup generates synthetic sessions with known verdicts (D01-D09, absorbs devin-dream).",
+      "description": "Deterministic eval harness: replay recorded sessions against rubric graders; the `dream` subgroup generates synthetic sessions with known verdicts (D01-D10, absorbs devin-dream).",
       "distribution_status": "published",
       "ownership": "first_party",
       "job": "verify",

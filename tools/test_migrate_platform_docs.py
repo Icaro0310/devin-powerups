@@ -127,6 +127,22 @@ def test_bridge_archive_guides_need_node_but_not_git():
     assert "archive/" in linux
 
 
+def test_monorepo_member_install_points_at_package_subdirectory():
+    # Source-only members of a monorepo must not install the repo root:
+    # the git URL carries #subdirectory=<package.path>.
+    entry = {
+        "name": "devin-skill-catalog",
+        "url": "https://github.com/Icaro0310/devin-devkit",
+        "package": {"ecosystem": "pypi", "name": "devin-skill-catalog", "path": "packages/skill-catalog"},
+    }
+    tool = {"manager": "uv", "source": "github", "package": "devin-skill-catalog",
+            "version": "0.1.0", "ref": "a" * 40, "requires_git": False}
+    linux = migration.render_guide(entry, tool, "linux")
+
+    assert "git+https://github.com/Icaro0310/devin-devkit.git#subdirectory=packages/skill-catalog" in linux
+    assert "archive/" not in linux
+
+
 def test_office_guides_use_native_python_commands():
     entry = {"name": "devin-office", "description": "Dashboard"}
     windows = migration.render_guide(entry, {"manager": "manual"}, "windows")

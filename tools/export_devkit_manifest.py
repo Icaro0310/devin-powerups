@@ -12,7 +12,7 @@ from pathlib import Path
 import validate_registry
 
 HUB = Path(__file__).resolve().parent.parent
-DEFAULT_OUT = HUB.parent / "devin-devkit" / "src" / "devin_devkit" / "manifest.json"
+DEFAULT_OUT = HUB.parent / "devin-devkit" / "packages" / "devkit" / "src" / "devin_devkit" / "manifest.json"
 _SHA = re.compile(r"^[0-9a-f]{40}$")
 
 
@@ -96,6 +96,9 @@ def _install_spec(tool: dict, repo: dict) -> str | None:
         return f"{tool['package']}{suffix}=={tool['version']}"
     if source == "npm":
         return f"{tool['package']}@{tool['version']}"
+    pkg_path = (repo.get("package") or {}).get("path")
+    if pkg_path:
+        return f"git+{repo['url']}.git@{tool['ref']}#subdirectory={pkg_path}"
     return f"{repo['url']}/archive/{tool['ref']}.tar.gz"
 
 

@@ -61,8 +61,8 @@ def test_manifest_uses_pypi_names_and_real_cli_entrypoints():
     assert tools["devin-assure"]["commands"] == ["devin-qa-pack"]
     assert tools["devin-orchestrator"]["package"] == "devin-fanout"
     assert tools["devin-orchestrator"]["commands"] == ["devin-orchestrator"]
-    assert tools["devin-bridge"]["manager"] == "npm"
-    assert tools["devin-bridge"]["runtime"] == "node>=20"
+    assert tools["devin-control"]["manager"] == "npm"
+    assert tools["devin-control"]["runtime"] == "node>=20"
     assert tools["devin-brain"]["install_spec"].startswith("devin-memory[mcp]==")
     assert manifest["git_required_tools"] == []
     assert all(tool["requires_git"] is False for tool in tools.values())
@@ -86,7 +86,11 @@ def test_install_spec_follows_the_registry_source():
         elif declared["source"] == "npm":
             assert spec == f"{declared['package']}@{declared['version']}"
         elif declared["source"] == "github":
-            assert spec == f"{repos[tool['id']]['url']}/archive/{declared['ref']}.tar.gz"
+            pkg_path = (repos[tool["id"]].get("package") or {}).get("path")
+            if pkg_path:
+                assert spec == f"git+{repos[tool['id']]['url']}.git@{declared['ref']}#subdirectory={pkg_path}"
+            else:
+                assert spec == f"{repos[tool['id']]['url']}/archive/{declared['ref']}.tar.gz"
         else:
             assert spec is None
     assert {"pypi", "npm", "manual"} <= seen
@@ -107,13 +111,13 @@ def test_manifest_carries_artifact_interfaces_audiences_and_platforms():
 
     assert tools["devin-office"]["artifact"] == "tool"
     assert tools["devin-office"]["interfaces"] == ["service", "dashboard"]
-    assert tools["devin-bridge"]["artifact"] == "tool"
-    assert "bridge" in tools["devin-bridge"]["interfaces"]
-    assert "ai-engineers" in tools["devin-bridge"]["audiences"]
+    assert tools["devin-control"]["artifact"] == "tool"
+    assert "bridge" in tools["devin-control"]["interfaces"]
+    assert "ai-engineers" in tools["devin-control"]["audiences"]
     assert tools["devin-assure"]["audiences"] == ["qa", "developers"]
     assert tools["devin-assure"]["platforms"] == ["windows", "linux"]
     assert tools["devin-assure"]["environments"]["corporate_windows"]["runtime"] == "local-only"
-    assert tools["devin-bridge"]["environments"]["corporate_windows"]["delegation"] == "forbidden"
+    assert tools["devin-control"]["environments"]["corporate_windows"]["delegation"] == "forbidden"
     assert tools["devin-judge"]["artifact"] == "tool"
 
 

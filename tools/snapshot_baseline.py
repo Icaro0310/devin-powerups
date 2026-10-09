@@ -268,6 +268,7 @@ RENAMES = {
     "devin-state": "devin-redact",
     "devin-assure": "devin-qa-pack",
     "devin-explore": "devin-doctor",
+    "devin-control": "devin-bridge",
 }
 
 

@@ -64,6 +64,9 @@ def _install_spec(entry: dict[str, Any], tool: dict[str, Any]) -> str:
         suffix = f"[{','.join(extras)}]" if extras else ""
         return tool["package"] + suffix
     if tool["source"] == "github":
+        pkg_path = (entry.get("package") or {}).get("path")
+        if pkg_path:
+            return f"git+{entry['url']}.git#subdirectory={pkg_path}"
         return f"{entry['url']}/archive/refs/heads/main.tar.gz"
     if tool["source"] == "npm":
         return tool["package"]
