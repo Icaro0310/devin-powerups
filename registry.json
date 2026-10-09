@@ -201,7 +201,7 @@
         "status": "published",
         "category": "security"
       },
-      "devin-bridge": {
+      "devin-control": {
         "manager": "npm",
         "source": "npm",
         "package": "@icaro0310/devin-bridge",
@@ -396,7 +396,7 @@
         "description": "Reduce risk around secrets, policy-gated actions, and noisy sessions.",
         "tools": [
           "devin-state",
-          "devin-bridge",
+          "devin-control",
           "devin-janitor"
         ]
       },
@@ -453,7 +453,7 @@
         "description": "Convenience alias for security tooling.",
         "tools": [
           "devin-state",
-          "devin-bridge",
+          "devin-control",
           "devin-janitor"
         ],
         "alias_of": "security"
@@ -475,7 +475,7 @@
           "devin-evals",
           "devin-brain",
           "devin-janitor",
-          "devin-bridge",
+          "devin-control",
           "devin-orchestrator",
           "devin-switch",
           "devin-skill-catalog",
@@ -502,7 +502,7 @@
           "devin-evals",
           "devin-brain",
           "devin-janitor",
-          "devin-bridge",
+          "devin-control",
           "devin-orchestrator",
           "devin-switch",
           "devin-skill-catalog",
@@ -1562,8 +1562,8 @@
       "note": "Absorbed into the devin-state monorepo (F4.1); the devin-janitor PyPI package and CLI are unchanged, released from packages/janitor. Original repo archived with MOVED banner."
     },
     {
-      "name": "devin-bridge",
-      "url": "https://github.com/Icaro0310/devin-bridge",
+      "name": "devin-control",
+      "url": "https://github.com/Icaro0310/devin-control",
       "kind": "project",
       "artifact": "tool",
       "interfaces": [
@@ -1626,7 +1626,7 @@
       "stack": "node",
       "ci": "inline",
       "tests": 55,
-      "description": "Policy-gated ACP client (Node.js, CI matrix Node 22 + 24): isolated sessions per repo with allow/deny/ask permission policy.",
+      "description": "Control how Devin runs: a policy-gated ACP bridge (Node.js, isolated sessions per repo with allow/deny/ask rules), a deterministic background-worker fan-out planner (devin-fanout), config profile switching with snapshot and rollback, and a live activity board (office, source-only).",
       "distribution_status": "published",
       "ownership": "first_party",
       "job": "control",
@@ -1634,16 +1634,21 @@
       "package": {
         "ecosystem": "npm",
         "name": "@icaro0310/devin-bridge",
-        "path": "."
+        "path": "packages/bridge"
       },
       "entrypoints": [
         "devin-bridge"
       ],
-      "legacy": null
+      "legacy": {
+        "repo": "devin-bridge",
+        "status": "renamed",
+        "redirect": true
+      },
+      "note": "uv+npm workspace monorepo since F4.4: packages/bridge (this entry, ex devin-bridge repo; npm package @icaro0310/devin-bridge unchanged), packages/orchestrator, packages/switch, packages/office (source-only). Package-specific tags: <pkg>-v*."
     },
     {
       "name": "devin-orchestrator",
-      "url": "https://github.com/Icaro0310/devin-orchestrator",
+      "url": "https://github.com/Icaro0310/devin-control",
       "kind": "project",
       "artifact": "tool",
       "interfaces": [
@@ -1694,7 +1699,7 @@
       "ci": "inline",
       "tests": 29,
       "description": "Background-worker fan-out policy: deterministic planner enforcing worker caps (max 3), no nesting, read-only profiles for review, collect-before-report. Skill + always-on rule.",
-      "note": "PyPI distribution is devin-fanout because devin-orchestrator is occupied; console command remains devin-orchestrator. Absorbed devin-subagent-orchestrator draft (never published).",
+      "note": "PyPI distribution is devin-fanout because devin-orchestrator is occupied; console command remains devin-orchestrator. Absorbed devin-subagent-orchestrator draft (never published). Absorbed into the devin-control monorepo (F4.3-F4.4), released from packages/orchestrator. Original repo archived with MOVED banner.",
       "distribution_status": "published",
       "ownership": "first_party",
       "job": "control",
@@ -1702,8 +1707,9 @@
       "package": {
         "ecosystem": "pypi",
         "name": "devin-fanout",
-        "path": "."
+        "path": "packages/orchestrator"
       },
+      "local_dir": "devin-control",
       "entrypoints": [
         "devin-orchestrator"
       ],
@@ -1773,7 +1779,7 @@
     },
     {
       "name": "devin-office",
-      "url": "https://github.com/Icaro0310/devin-office",
+      "url": "https://github.com/Icaro0310/devin-control",
       "kind": "project",
       "artifact": "tool",
       "interfaces": [
@@ -1820,7 +1826,7 @@
       "official_overlap": "none",
       "overlap_note": null,
       "stack": "python",
-      "local_dir": "devin-office",
+      "local_dir": "devin-control",
       "description": "Local-first Devin session and subagent dashboard with standalone and optional split modes.",
       "version": "0.1.0",
       "tag": "v0.1.0",
@@ -1830,7 +1836,8 @@
       "product_id": "devin-control",
       "package": null,
       "entrypoints": [],
-      "legacy": null
+      "legacy": null,
+      "note": "Absorbed into the devin-control monorepo (F4.4); stays source-only at packages/office (mode mixed). Original repo archived with MOVED banner."
     },
     {
       "name": "qwenpaw-suite",
@@ -1999,7 +2006,7 @@
     },
     {
       "name": "devin-switch",
-      "url": "https://github.com/Icaro0310/devin-switch",
+      "url": "https://github.com/Icaro0310/devin-control",
       "kind": "project",
       "artifact": "tool",
       "interfaces": [
@@ -2056,12 +2063,14 @@
       "package": {
         "ecosystem": "pypi",
         "name": "devin-switch",
-        "path": "."
+        "path": "packages/switch"
       },
+      "local_dir": "devin-control",
       "entrypoints": [
         "devin-switch"
       ],
-      "legacy": null
+      "legacy": null,
+      "note": "Absorbed into the devin-control monorepo (F4.4); the devin-switch PyPI package and CLI are unchanged, released from packages/switch. Original repo archived with MOVED banner."
     },
     {
       "name": "devin-skill-catalog",
@@ -2232,7 +2241,7 @@
     ],
     "ai-engineers": [
       {
-        "repo": "devin-bridge",
+        "repo": "devin-control",
         "why": "Drive ACP sessions programmatically with a permission policy"
       },
       {
