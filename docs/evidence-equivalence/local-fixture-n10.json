@@ -1,0 +1,312 @@
+{
+ "zinc-crabapple": {
+  "class": "gui",
+  "title": "Pypi_A_Z_0",
+  "working_directory": "/home/ikaros/devin",
+  "workspace_dirs": [],
+  "model": "swe-2-high",
+  "agent_mode": "bypass",
+  "message_turns": {
+   "system": 23,
+   "user": 5,
+   "assistant": 12,
+   "tool": 6
+  },
+  "num_tokens_rows": 28,
+  "tool_calls": 6,
+  "tool_kinds": {
+   "search": 2,
+   "?": 2,
+   "read": 1,
+   "execute": 1
+  },
+  "permission_update_rows": 0,
+  "cost_meta": {
+   "total_credit_cost": 0,
+   "total_acu_cost": 0.0
+  },
+  "client_meta": {
+   "cognition.ai/requestingTabId": "new-1791502057290-iibpk48r4"
+  },
+  "subagent_heads": 0,
+  "state": "running",
+  "last_activity_age_h": 3.6
+ },
+ "cool-exoplanet": {
+  "class": "gui",
+  "title": "An\u00e1lise das \u00faltimas 40 sess\u00f5es pendentes de autoriza\u00e7\u00e3o",
+  "working_directory": "/home/ikaros/devin",
+  "workspace_dirs": [],
+  "model": "swe-2-high",
+  "agent_mode": "bypass",
+  "message_turns": {
+   "system": 103,
+   "user": 22,
+   "assistant": 1507,
+   "tool": 907
+  },
+  "num_tokens_rows": 1249,
+  "tool_calls": 628,
+  "tool_kinds": {
+   "?": 78,
+   "execute": 516,
+   "edit": 16,
+   "read": 16,
+   "fetch": 2
+  },
+  "permission_update_rows": 28,
+  "cost_meta": {
+   "total_credit_cost": 0,
+   "total_acu_cost": 0.0
+  },
+  "client_meta": {
+   "cognition.ai/requestingTabId": "new-1791502057290-iibpk48r4"
+  },
+  "subagent_heads": 0,
+  "state": "running",
+  "last_activity_age_h": 0.6
+ },
+ "evergreen-pair": {
+  "class": "gui",
+  "title": "Polui\u00e7\u00e3o de email com dezenas de mensagens di\u00e1rias - ajuste ",
+  "working_directory": "/home/ikaros/devin",
+  "workspace_dirs": [],
+  "model": "swe-2-high",
+  "agent_mode": "bypass",
+  "message_turns": {
+   "system": 22,
+   "user": 4,
+   "assistant": 56,
+   "tool": 35
+  },
+  "num_tokens_rows": 50,
+  "tool_calls": 35,
+  "tool_kinds": {
+   "?": 18,
+   "execute": 16,
+   "edit": 1
+  },
+  "permission_update_rows": 0,
+  "cost_meta": {
+   "total_credit_cost": 0,
+   "total_acu_cost": 0.0
+  },
+  "client_meta": {
+   "cognition.ai/requestingTabId": "new-1791364515418-ovigbq35k"
+  },
+  "subagent_heads": 0,
+  "state": "running",
+  "last_activity_age_h": 32.7
+ },
+ "deep-adverb": {
+  "class": "gui",
+  "title": "Execute_Final_Devin_V1",
+  "working_directory": "/home/ikaros/devin",
+  "workspace_dirs": [],
+  "model": "swe-2-high",
+  "agent_mode": "bypass",
+  "message_turns": {
+   "system": 360,
+   "user": 179,
+   "assistant": 8980,
+   "tool": 5228
+  },
+  "num_tokens_rows": 6045,
+  "tool_calls": 4297,
+  "tool_kinds": {
+   "?": 491,
+   "execute": 3133,
+   "edit": 518,
+   "read": 143,
+   "search": 9,
+   "fetch": 3
+  },
+  "permission_update_rows": 118,
+  "cost_meta": {
+   "total_credit_cost": 0,
+   "total_acu_cost": 0.0
+  },
+  "client_meta": {
+   "cognition.ai/requestingTabId": "new-1791364515418-ovigbq35k"
+  },
+  "subagent_heads": 0,
+  "state": "running",
+  "last_activity_age_h": 0.0
+ },
+ "aspiring-glove": {
+  "class": "cli",
+  "title": "Firefox abre sozinho e cmd spawna ao reiniciar o Windows",
+  "working_directory": "/home/ikaros/devin/personal-agent-system",
+  "workspace_dirs": [],
+  "model": "swe-2-high",
+  "agent_mode": "accept-edits",
+  "message_turns": {
+   "system": 26,
+   "user": 12,
+   "assistant": 18
+  },
+  "num_tokens_rows": 34,
+  "tool_calls": 0,
+  "tool_kinds": {},
+  "permission_update_rows": 0,
+  "cost_meta": {
+   "total_credit_cost": 0,
+   "total_acu_cost": 0.0
+  },
+  "client_meta": null,
+  "subagent_heads": 0,
+  "state": "running",
+  "last_activity_age_h": 88.2
+ },
+ "silicon-sweater": {
+  "class": "cli",
+  "title": "Verifica\u00e7\u00e3o do protocolo heartbeat e reflex\u00e3o de aprendizage",
+  "working_directory": "/home/ikaros/devin/personal-agent-system",
+  "workspace_dirs": [],
+  "model": "swe-2-high",
+  "agent_mode": "accept-edits",
+  "message_turns": {
+   "system": 2690,
+   "user": 11836,
+   "assistant": 28400,
+   "tool": 30240
+  },
+  "num_tokens_rows": 72635,
+  "tool_calls": 222,
+  "tool_kinds": {
+   "execute": 214,
+   "edit": 2,
+   "?": 3,
+   "read": 3
+  },
+  "permission_update_rows": 0,
+  "cost_meta": {
+   "total_credit_cost": 0,
+   "total_acu_cost": 0.0
+  },
+  "client_meta": null,
+  "subagent_heads": 0,
+  "state": "running",
+  "last_activity_age_h": 77.6
+ },
+ "fearless-bead": {
+  "class": "automation",
+  "title": "functions.ReadFile:0{\"file_path\": \"HEARTBEAT.md\"}functions.R",
+  "working_directory": "/home/ikaros/devin/personal-agent-system",
+  "workspace_dirs": [],
+  "model": "swe-2-high",
+  "agent_mode": "accept-edits",
+  "message_turns": {
+   "system": 135,
+   "user": 50,
+   "assistant": 526,
+   "tool": 568
+  },
+  "num_tokens_rows": 1164,
+  "tool_calls": 55,
+  "tool_kinds": {
+   "execute": 34,
+   "edit": 9,
+   "?": 6,
+   "read": 6
+  },
+  "permission_update_rows": 0,
+  "cost_meta": {
+   "total_credit_cost": 0,
+   "total_acu_cost": 0.0
+  },
+  "client_meta": null,
+  "subagent_heads": 0,
+  "state": "running",
+  "last_activity_age_h": 0.2
+ },
+ "paint-echium": {
+  "class": "automation",
+  "title": "Strict Entailment Judge Scoring Request",
+  "working_directory": "/home/ikaros/devin/personal-agent-system",
+  "workspace_dirs": [],
+  "model": "swe-2-high",
+  "agent_mode": "accept-edits",
+  "message_turns": {
+   "system": 26,
+   "user": 10,
+   "assistant": 14
+  },
+  "num_tokens_rows": 32,
+  "tool_calls": 0,
+  "tool_kinds": {},
+  "permission_update_rows": 0,
+  "cost_meta": {
+   "total_credit_cost": 0,
+   "total_acu_cost": 0.0
+  },
+  "client_meta": null,
+  "subagent_heads": 0,
+  "state": "running",
+  "last_activity_age_h": 16.1
+ },
+ "sleet-borogovia": {
+  "class": "automation",
+  "title": "SLACK-BRAIN (n\u00e3o apagar) \u2014 sleet-borogovia",
+  "working_directory": "/home/ikaros/devin/personal-agent-system",
+  "workspace_dirs": [],
+  "model": "swe-2-high",
+  "agent_mode": "accept-edits",
+  "message_turns": {
+   "system": 2792,
+   "user": 5746,
+   "assistant": 24598,
+   "tool": 19393
+  },
+  "num_tokens_rows": 51693,
+  "tool_calls": 341,
+  "tool_kinds": {
+   "execute": 264,
+   "edit": 41,
+   "read": 28,
+   "?": 7,
+   "fetch": 1
+  },
+  "permission_update_rows": 0,
+  "cost_meta": {
+   "total_credit_cost": 0,
+   "total_acu_cost": 0.0
+  },
+  "client_meta": null,
+  "subagent_heads": 0,
+  "state": "running",
+  "last_activity_age_h": 0.0
+ },
+ "adorable-potato": {
+  "class": "automation",
+  "title": "Repo_Hub_Devin_Powerups",
+  "working_directory": "C:\\Users\\Utilizador\\Desktop\\feat\\devin-ecosystem\\devin-powerups",
+  "workspace_dirs": [],
+  "model": "swe-2-high",
+  "agent_mode": "accept-edits",
+  "message_turns": {
+   "system": 300,
+   "user": 64,
+   "assistant": 823,
+   "tool": 1212
+  },
+  "num_tokens_rows": 2056,
+  "tool_calls": 192,
+  "tool_kinds": {
+   "execute": 52,
+   "edit": 42,
+   "read": 61,
+   "?": 29,
+   "search": 8
+  },
+  "permission_update_rows": 0,
+  "cost_meta": {
+   "total_credit_cost": 0,
+   "total_acu_cost": 0.0
+  },
+  "client_meta": null,
+  "subagent_heads": 0,
+  "state": "running",
+  "last_activity_age_h": 55.6
+ }
+}
