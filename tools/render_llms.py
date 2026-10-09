@@ -88,10 +88,17 @@ def _related(registry: dict) -> list[str]:
 def render_index(registry: dict) -> str:
     names = _by_name(registry)
     lines = ["## What do you want to do?", ""]
+    job_to_track = {"understand": "observe", "verify": "assure",
+                    "control": "guard", "build": "platform"}
+    categories = registry.get("devkit", {}).get("tools", {})
     by_track: dict[str, list[str]] = {}
     for r in public_entries(registry):
-        if r.get("track"):
-            by_track.setdefault(r["track"], []).append(r["name"])
+        track = job_to_track.get(r.get("job"))
+        # Foundation-category tools (e.g. internals-spec) are not a job.
+        if track is None and categories.get(r["name"], {}).get("category") != "foundation":
+            track = r.get("track")
+        if track:
+            by_track.setdefault(track, []).append(r["name"])
     for track in sorted(by_track, key=lambda t: TRACK_META.get(t, (90, "", ""))[0]):
         _, verb, promise = TRACK_META.get(track, (90, track.title(), ""))
         suffix = f" ({promise})" if promise else ""
