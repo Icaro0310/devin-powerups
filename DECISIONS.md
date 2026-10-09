@@ -252,3 +252,21 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   repo URLs (never package/console/MCP identifiers).
 - **Expected outcome:** no release ever fails on a stale OIDC publisher.
 - **Result:** pending for Fase-4 renames.
+
+## D-2026-10-09 — Manifest classification depends on the `devin-*` prefix
+
+- **Decision:** record, not change — the devkit manifest classifies a
+  public project as `tool` iff its repo name starts with `devin-`
+  (`export_devkit_manifest.py`). Everything else lands in `related`.
+- **Reason:** discovered during F3b — renaming `poordjaevin` to
+  `devin-judge` reclassified it automatically (18+3 -> 19+2) with no
+  schema or intent change. The taxonomy surface is coupled to the naming
+  convention, not to `nature`/`kind` fields.
+- **Implication:** any future product named without the `devin-` prefix
+  silently moves out of the tool count; any related project renamed to
+  `devin-*` silently becomes a first-party tool. If that coupling ever
+  becomes a problem, the fix is to classify by `nature`/`ownership`
+  instead of the name prefix.
+- **Expected outcome:** no silent reclassification goes unnoticed —
+  `test_export_devkit_manifest` pins the counts.
+- **Result:** met (counts pinned at 19 tools + 2 related).
