@@ -81,7 +81,7 @@ jobs:
             | jq -s --arg sha "$HEAD_SHA" '
                 [ add[] | select(
                     .user.login == "devin-ai-integration[bot]"
-                    and (.commit_id == $sha or .original_commit_id == $sha)
+                    and .original_commit_id == $sha
                     and (.body | test("\"kind\": \"(bug|security)\""))
                 ) ] | length')
           echo "blocking findings on $HEAD_SHA: $blocking"
