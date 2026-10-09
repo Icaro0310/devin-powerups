@@ -763,7 +763,7 @@
       "ci": "inline",
       "tests": 23,
       "tag": "v0.2.0",
-      "description": "Secret/PII redaction that understands Devin tool-call semantics, in-place in SQLite, with a verification gate.",
+      "description": "Devin state lifecycle monorepo: secret/PII redaction (devin-redact), store snapshot backup/restore (devin-backup) and session janitor (devin-janitor), sharing the devin-install-scheduler package.",
       "distribution_status": "published",
       "ownership": "first_party",
       "job": "control",
@@ -780,7 +780,8 @@
         "repo": "devin-redact",
         "status": "renamed",
         "redirect": true
-      }
+      },
+      "note": "uv workspace monorepo since F4.1: packages/redact (this entry, ex devin-redact), packages/backup, packages/janitor, shared/install-scheduler. Package-specific tags <pkg>-v* publish each package independently."
     },
     {
       "name": "devin-history",
@@ -1131,7 +1132,7 @@
     },
     {
       "name": "devin-backup",
-      "url": "https://github.com/Icaro0310/devin-backup",
+      "url": "https://github.com/Icaro0310/devin-state",
       "kind": "project",
       "artifact": "tool",
       "interfaces": [
@@ -1189,12 +1190,14 @@
       "package": {
         "ecosystem": "pypi",
         "name": "devin-backup",
-        "path": "."
+        "path": "packages/backup"
       },
       "entrypoints": [
         "devin-backup"
       ],
-      "legacy": null
+      "legacy": null,
+      "local_dir": "devin-state",
+      "note": "Absorbed into the devin-state monorepo (F4.1); the devin-backup PyPI package and CLI are unchanged, released from packages/backup. Original repo archived with MOVED banner."
     },
     {
       "name": "devin-search",
@@ -1477,7 +1480,7 @@
     },
     {
       "name": "devin-janitor",
-      "url": "https://github.com/Icaro0310/devin-janitor",
+      "url": "https://github.com/Icaro0310/devin-state",
       "kind": "project",
       "artifact": "tool",
       "interfaces": [
@@ -1536,12 +1539,14 @@
       "package": {
         "ecosystem": "pypi",
         "name": "devin-janitor",
-        "path": "."
+        "path": "packages/janitor"
       },
       "entrypoints": [
         "devin-janitor"
       ],
-      "legacy": null
+      "legacy": null,
+      "local_dir": "devin-state",
+      "note": "Absorbed into the devin-state monorepo (F4.1); the devin-janitor PyPI package and CLI are unchanged, released from packages/janitor. Original repo archived with MOVED banner."
     },
     {
       "name": "devin-bridge",
