@@ -29,8 +29,16 @@ def errors_for(entry: dict, root: Path) -> list[str]:
     if not repo.is_dir():
         return []
     readme = repo / "README.md"
+    pkg = entry.get("package")
+    if isinstance(pkg, dict) and pkg.get("path"):
+        readme = repo / pkg["path"] / "README.md"
+    elif entry.get("product_id") and entry.get("product_id") != name:
+        short = name.removeprefix("devin-")
+        member = repo / "packages" / short / "README.md"
+        if member.is_file():
+            readme = member
     if not readme.is_file():
-        return [f"{name}: checkout exists but README.md is missing"]
+        return [f"{name}: checkout exists but {readme.relative_to(repo)} is missing"]
     text = readme.read_text(encoding="utf-8", errors="replace")
     begin = BEGIN.search(text)
     end = END.search(text)
@@ -38,9 +46,12 @@ def errors_for(entry: dict, root: Path) -> list[str]:
     problems = []
     if status == "source_only":
         if not has_block:
-            problems.append(f"{name}: source_only but README lacks a DIST-STATUS block")
-        elif GIT_URL.format(name=name) not in text[begin.start():end.end()]:
-            problems.append(f"{name}: DIST-STATUS block lacks this repo's github.com install URL")
+            problems.append(f"{name}: source_only but {readme.relative_to(repo)} lacks a DIST-STATUS block")
+        elif not any(
+            GIT_URL.format(name=n) in text[begin.start():end.end()]
+            for n in {name, repo.name}
+        ):
+            problems.append(f"{name}: DIST-STATUS block lacks a github.com install URL")
     elif status == "published" and (begin or end):
         problems.append(f"{name}: published but README still carries a DIST-STATUS marker")
     return problems

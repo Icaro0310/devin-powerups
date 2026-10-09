@@ -438,8 +438,16 @@ def plan_migration(registry: dict[str, Any], root: Path) -> list[dict[str, Any]]
         repo = repo_path(entry, root)
         if not repo.is_dir():
             continue
-        legacy = repo / "README.pt-BR.md"
-        if not (repo / "README.md").is_file():
+        pkg = entry.get("package")
+        docs = repo
+        if isinstance(pkg, dict) and pkg.get("path"):
+            docs = repo / pkg["path"]
+        elif entry.get("product_id") and entry["product_id"] != entry["name"]:
+            member = repo / "packages" / entry["name"].removeprefix("devin-")
+            if member.is_dir():
+                docs = member
+        legacy = docs / "README.pt-BR.md"
+        if not (docs / "README.md").is_file():
             raise ValueError(f"{entry['name']}: README.md is missing")
         tool = tool_map.get(entry["name"])
         if tool:
@@ -448,10 +456,10 @@ def plan_migration(registry: dict[str, Any], root: Path) -> list[dict[str, Any]]
             "name": entry["name"],
             "repo": repo,
             "legacy": legacy,
-            "readme": repo / "README.md",
-            "windows": repo / "README.windows.md",
-            "corporate_windows": repo / "README.corporate-windows.md",
-            "linux": repo / "README.linux.md",
+            "readme": docs / "README.md",
+            "windows": docs / "README.windows.md",
+            "corporate_windows": docs / "README.corporate-windows.md",
+            "linux": docs / "README.linux.md",
             "tool": tool,
             "entry": entry,
         })

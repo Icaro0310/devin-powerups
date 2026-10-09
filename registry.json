@@ -1,6 +1,6 @@
 {
   "$schema": "https://github.com/Icaro0310/devin-powerups/registry.schema.json",
-  "version": 23,
+  "version": 24,
   "generated": "2026-10-09",
   "owner": "Icaro0310",
   "note": "Public maintainer toolkit: registry, template, scaffolder, and public-project report. Public Devin tools are listed below; the maintainer's private runtime remains kind=system and is excluded from public-project reports. Unrelated personal repositories are not part of this catalog. CI is inline per public project; see README.md.",
@@ -263,9 +263,9 @@
           "windows",
           "linux"
         ],
-        "status": "source",
+        "status": "published",
         "category": "governance",
-        "ref": "b51ad45ec7fc845a4568781c2f0b196d7183c96e"
+        "ref": "2e4844d7510a0370e519c7e7fb626278269febe7"
       },
       "devin-skill-catalog": {
         "manager": "uv",
@@ -282,7 +282,7 @@
         ],
         "status": "source",
         "category": "governance",
-        "ref": "75c7dc0b921ae68374773a108c6a028b75916f81"
+        "ref": "8d234ca40d6496b6930c15726d629e1bc97f4c81"
       },
       "devin-brain": {
         "manager": "uv",
@@ -845,7 +845,9 @@
         "ecosystem": "pypi",
         "name": "devin-history",
         "path": "packages/history",
-        "depends_on": ["devin-internals-spec"]
+        "depends_on": [
+          "devin-internals-spec"
+        ]
       },
       "local_dir": "devin-explore",
       "entrypoints": [
@@ -915,7 +917,9 @@
         "ecosystem": "pypi",
         "name": "devin-doctor",
         "path": "packages/doctor",
-        "depends_on": ["devin-internals-spec"]
+        "depends_on": [
+          "devin-internals-spec"
+        ]
       },
       "entrypoints": [
         "devin-doctor"
@@ -989,7 +993,9 @@
         "ecosystem": "pypi",
         "name": "devin-pm",
         "path": "packages/pm",
-        "depends_on": ["devin-internals-spec"]
+        "depends_on": [
+          "devin-internals-spec"
+        ]
       },
       "local_dir": "devin-explore",
       "entrypoints": [
@@ -1059,7 +1065,9 @@
         "ecosystem": "pypi",
         "name": "devin-qa-pack",
         "path": "packages/qa-pack",
-        "depends_on": ["devin-internals-spec"]
+        "depends_on": [
+          "devin-internals-spec"
+        ]
       },
       "entrypoints": [
         "devin-qa-pack"
@@ -1133,7 +1141,9 @@
         "ecosystem": "pypi",
         "name": "devin-metrics",
         "path": "packages/metrics",
-        "depends_on": ["devin-internals-spec"]
+        "depends_on": [
+          "devin-internals-spec"
+        ]
       },
       "entrypoints": [
         "devin-dashboard",
@@ -1204,7 +1214,9 @@
         "ecosystem": "pypi",
         "name": "devin-backup",
         "path": "packages/backup",
-        "depends_on": ["devin-internals-spec"]
+        "depends_on": [
+          "devin-internals-spec"
+        ]
       },
       "entrypoints": [
         "devin-backup"
@@ -1274,7 +1286,9 @@
         "ecosystem": "pypi",
         "name": "devin-search",
         "path": "packages/search",
-        "depends_on": ["devin-internals-spec"]
+        "depends_on": [
+          "devin-internals-spec"
+        ]
       },
       "local_dir": "devin-explore",
       "entrypoints": [
@@ -1345,7 +1359,9 @@
         "ecosystem": "pypi",
         "name": "devin-graph",
         "path": "packages/graph",
-        "depends_on": ["devin-internals-spec"]
+        "depends_on": [
+          "devin-internals-spec"
+        ]
       },
       "local_dir": "devin-explore",
       "entrypoints": [
@@ -1416,7 +1432,9 @@
         "ecosystem": "pypi",
         "name": "devin-evals",
         "path": "packages/evals",
-        "depends_on": ["devin-internals-spec"]
+        "depends_on": [
+          "devin-internals-spec"
+        ]
       },
       "entrypoints": [
         "devin-evals"
@@ -1469,7 +1487,7 @@
       "status": "delivered",
       "public": true,
       "nature": "product",
-      "track": "guard",
+      "track": "platform",
       "role": "module",
       "mode": "mixed",
       "maturity": "usable",
@@ -1483,13 +1501,15 @@
       "description": "Anti-poisoning memory store: provenance, versioning, quarantine gate, and session-learning utilities.",
       "distribution_status": "published",
       "ownership": "first_party",
-      "job": "control",
+      "job": "build",
       "product_id": "devin-brain",
       "package": {
         "ecosystem": "pypi",
         "name": "devin-memory",
         "path": ".",
-        "depends_on": ["devin-internals-spec"]
+        "depends_on": [
+          "devin-internals-spec"
+        ]
       },
       "entrypoints": [
         "devin-learning",
@@ -1564,7 +1584,9 @@
         "ecosystem": "pypi",
         "name": "devin-janitor",
         "path": "packages/janitor",
-        "depends_on": ["devin-internals-spec"]
+        "depends_on": [
+          "devin-internals-spec"
+        ]
       },
       "entrypoints": [
         "devin-janitor"
@@ -1956,7 +1978,7 @@
       "status": "active",
       "public": true,
       "nature": "product",
-      "track": "assure",
+      "track": "guard",
       "role": "module",
       "mode": "read",
       "maturity": "usable",
@@ -1969,7 +1991,7 @@
       "tag": "v0.1.0",
       "distribution_status": "published",
       "ownership": "first_party",
-      "job": "verify",
+      "job": "control",
       "product_id": "devin-judge",
       "package": {
         "ecosystem": "pypi",
@@ -2068,7 +2090,7 @@
       "ci": "inline",
       "tests": 70,
       "description": "Switch between Devin configuration profiles (hooks, MCP, models) with snapshot, sha256 verify, atomic write, journal and rollback. Dry-run by default; secrets never printed.",
-      "distribution_status": "source_only",
+      "distribution_status": "published",
       "ownership": "first_party",
       "job": "control",
       "product_id": "devin-control",
