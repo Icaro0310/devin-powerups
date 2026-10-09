@@ -297,6 +297,15 @@ _MODE_ORDER = {"read": 0, "mixed": 1, "write": 2}
 _MAX_PRODUCTS = 7
 _READ_ONLY_JOBS = {"understand", "verify"}
 _PRODUCT_JOBS = {"understand", "verify", "control", "build"}
+# job and track are the same axis at two granularities: job classifies the
+# product, track selects the rendered intent row. navigation/foundation/
+# related tracks are supporting layers and exempt from the mapping.
+_JOB_TRACK = {
+    "understand": "observe",
+    "verify": "assure",
+    "control": "guard",
+    "build": "platform",
+}
 
 
 def _checkout(entry: dict, root: Path) -> Path | None:
@@ -375,6 +384,13 @@ def product_errors(registry: dict, root: Path | None = None) -> list[str]:
         # job is a product property: set together with product_id, null together
         if (job is None) != (pid is None):
             errors.append(f"$.repositories[{name}]: job {job!r} and product_id {pid!r} must both be set or both be null")
+        # job and track must agree when both sit on the product axis
+        track = e.get("track")
+        if job in _JOB_TRACK and track in _JOB_TRACK.values():
+            if _JOB_TRACK[job] != track:
+                errors.append(
+                    f"$.repositories[{name}]: job {job!r} conflicts with track {track!r} (expected {_JOB_TRACK[job]!r})"
+                )
         # entrypoints require a package; a package implies declared entrypoints exist on disk
         if pkg is None and eps:
             errors.append(f"$.repositories[{name}]: entrypoints {eps} declared but package is null")
