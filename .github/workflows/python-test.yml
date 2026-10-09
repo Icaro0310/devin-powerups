@@ -9,6 +9,16 @@ on:
       package-dir:
         type: string
         default: "."
+      pre-install:
+        description: Extra pip install args run before the package install
+          (e.g. "-e shared/install-scheduler" for workspace deps not yet on PyPI)
+        type: string
+        default: ""
+      skip-install:
+        description: Skip `pip install -e package-dir[dev]` — for test dirs
+          that are not themselves installable packages
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -27,7 +37,12 @@ jobs:
         with:
           python-version: ${{ inputs.python-version }}
 
+      - name: Pre-install workspace deps
+        if: inputs.pre-install != ''
+        run: pip install ${{ inputs.pre-install }}
+
       - name: Install
+        if: ${{ !inputs.skip-install }}
         run: pip install -e "${{ inputs.package-dir }}[dev]"
 
       - name: Test
