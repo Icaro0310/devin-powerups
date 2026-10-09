@@ -224,7 +224,13 @@
           "wave",
           "status",
           "maturity",
-          "description"
+          "description",
+          "ownership",
+          "job",
+          "product_id",
+          "package",
+          "entrypoints",
+          "legacy"
         ],
         "properties": {
           "name": {
@@ -387,6 +393,51 @@
             "type": "string",
             "minLength": 1,
             "description": "Directory holding tests for non-standard layouts."
+          },
+          "ownership": {
+            "enum": ["first_party", "foundation", "distribution", "related", "external", "community"],
+            "description": "Relationship to the first-party product surface. first_party = maintained product code (needs product_id unless it is the control plane); foundation = spec layer other entries rely on; distribution = install channel; related = maintainer-adjacent but not a product; external/community = outside the first-party inventory."
+          },
+          "job": {
+            "enum": ["understand", "verify", "control", "build", null],
+            "description": "Public job grouping from D-2026-10-09; null for entries outside the product jobs (infra, foundation, external, private)."
+          },
+          "product_id": {
+            "type": ["string", "null"],
+            "pattern": "^devin-[a-z0-9-]+$",
+            "description": "Product this entry's packages belong to (devin-explore, devin-assure, devin-judge, devin-control, devin-state, devin-devkit, devin-brain). null for non-product entries."
+          },
+          "package": {
+            "type": ["object", "null"],
+            "additionalProperties": false,
+            "required": ["ecosystem", "name", "path"],
+            "properties": {
+              "ecosystem": {"enum": ["pypi", "npm", "internal"]},
+              "name": {"type": "string", "minLength": 1},
+              "path": {"type": "string", "minLength": 1},
+              "depends_on": {
+                "type": "array",
+                "items": {"type": "string", "minLength": 1}
+              }
+            },
+            "description": "Publishable package carried by this entry (name may differ from the repo, e.g. devin-orchestrator publishes as devin-fanout). null for repos that ship no package."
+          },
+          "entrypoints": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1},
+            "description": "Console scripts / bin names declared by the package ([project.scripts] or package.json bin). [] when the entry ships no executable."
+          },
+          "legacy": {
+            "type": ["object", "null"],
+            "additionalProperties": false,
+            "required": ["repo", "status", "redirect"],
+            "properties": {
+              "repo": {"type": "string", "minLength": 1},
+              "status": {"enum": ["renamed", "archived", "superseded"]},
+              "redirect": {"type": "boolean"},
+              "to": {"type": "string", "minLength": 1}
+            },
+            "description": "Rename/archive lineage: repo = former repository name, redirect = GitHub serves a redirect, to = destination repo for archived/superseded entries. null for never-renamed entries."
           }
         },
         "allOf": [
