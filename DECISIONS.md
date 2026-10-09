@@ -270,3 +270,25 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
 - **Expected outcome:** no silent reclassification goes unnoticed —
   `test_export_devkit_manifest` pins the counts.
 - **Result:** met (counts pinned at 19 tools + 2 related).
+
+## D-2026-10-09 — First consolidation-created runtime dependency: devin-install-scheduler
+
+- **Decision:** publish `devin-install-scheduler` as its own PyPI package
+  inside the `devin-state` workspace (`shared/install-scheduler`), rather
+  than inlining the shared installer per package or folding it into
+  `devin-internals-spec`.
+- **Reason:** `devin-backup` and `devin-janitor` carried near-identical
+  installers (142/141 lines). Extraction removed the drift; placing it in
+  internals-spec would mix foundation spec with a product-family utility;
+  inlining would recreate the duplication the monorepo exists to remove.
+  The extraction also surfaced a latent inconsistency (redundant
+  `sys.platform` guard in the backup cron path) fixed by adopting the
+  janitor variant.
+- **Cost:** one new PyPI project + one new Trusted Publisher binding
+  (`Icaro0310/devin-state`, workflow `publish-scheduler.yml`). API
+  changes must stay backwards compatible within `>=0.1.0,<1.0` until a
+  coordinated bump.
+- **Expected outcome:** future devin-state packages reuse the installer
+  without copying it; scheduler bugs get fixed once.
+- **Result:** pending — package not yet published; Trusted Publisher to
+  create when it is.
