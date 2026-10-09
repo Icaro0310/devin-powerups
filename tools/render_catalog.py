@@ -33,14 +33,13 @@ def render_profile_catalog(registry: dict) -> str:
     tools, hubs, distributions, related = catalog_sections(registry)
     categories = registry["devkit"]["tools"]
     category_labels = {"qa": "QA", "evaluation": "Evaluation", "security": "Security", "memory": "Memory", "operations": "Operations", "governance": "Governance", "foundation": "Foundation"}
-    track_labels = {
-        "observe": "Understand",
-        "assure": "Verify",
-        "guard": "Control",
-        "platform": "Build",
-        "navigation": "Navigate",
-        # "related" intentionally falls back to the devkit category —
-        # a first-party tool labeled Related reads as external.
+    job_labels = {
+        "understand": "Understand",
+        "verify": "Verify",
+        "control": "Control",
+        "build": "Build",
+        # missing job (e.g. the Foundation) falls back to the devkit
+        # category — a first-party tool labeled Related reads as external.
     }
     entry_count = len(tools) + len(hubs) + len(distributions) + len(related)
     product_count = len({r["product_id"] for r in tools if r.get("product_id")})
@@ -58,7 +57,7 @@ def render_profile_catalog(registry: dict) -> str:
     ]
     for repo in tools:
         name = repo["name"]
-        group = track_labels.get(repo.get("track"))
+        group = job_labels.get(repo.get("job"))
         if group is None:
             group = category_labels[categories[name]["category"]]
         lines.append(

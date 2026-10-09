@@ -77,10 +77,17 @@ def _line(repo: dict) -> str:
 
 
 def render_intent_map(registry: dict) -> str:
-    """'What do you want to do?' — tracks as intents, tools underneath."""
+    """'What do you want to do?' — jobs as intents, tools underneath."""
+    job_to_track = {"understand": "observe", "verify": "assure",
+                    "control": "guard", "build": "platform"}
+    categories = registry.get("devkit", {}).get("tools", {})
     by_track: dict[str, list[dict]] = defaultdict(list)
     for repo in public_entries(registry):
-        track = repo.get("track")
+        track = job_to_track.get(repo.get("job"))
+        # Foundation-category tools (e.g. internals-spec) are not a job;
+        # track fallback stays for non-product entries (hub, related, nav).
+        if track is None and categories.get(repo["name"], {}).get("category") != "foundation":
+            track = repo.get("track")
         if track:
             by_track[track].append(repo)
     lines = ["## What do you want to do?", ""]
