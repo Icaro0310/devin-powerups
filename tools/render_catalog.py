@@ -38,8 +38,15 @@ def render_profile_catalog(registry: dict) -> str:
         "verify": "Verify",
         "control": "Control",
         "build": "Build",
-        # missing job (e.g. the Foundation) falls back to the devkit
-        # category — a first-party tool labeled Related reads as external.
+    }
+    track_labels = {
+        "observe": "Understand",
+        "assure": "Verify",
+        "guard": "Control",
+        "platform": "Build",
+        "navigation": "Navigate",
+        # "related" intentionally falls through — a first-party tool
+        # labeled Related reads as external.
     }
     entry_count = len(tools) + len(hubs) + len(distributions) + len(related)
     product_count = len({r["product_id"] for r in tools if r.get("product_id")})
@@ -58,8 +65,14 @@ def render_profile_catalog(registry: dict) -> str:
     for repo in tools:
         name = repo["name"]
         group = job_labels.get(repo.get("job"))
+        if group is None and categories.get(name, {}).get("category") == "foundation":
+            group = "Foundation"
         if group is None:
+            group = track_labels.get(repo.get("track"))
+        if group is None and name in categories:
             group = category_labels[categories[name]["category"]]
+        if group is None:
+            group = "Related"
         lines.append(
             f"| **{group}** | [`{name}`]({repo['url']}) | {_escape(repo['description'])} |"
         )
