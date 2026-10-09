@@ -137,8 +137,8 @@ decision, not an omission.
 
 | Entry | Why not a hypothesis |
 |---|---|
-| `devin-doctor` | environment health — no sibling shares its job |
-| `devin-redact` | security boundary (audience + failure mode); excluded from F3 by rule, not inertia |
+| `devin-explore` (ex `devin-doctor`) | environment health — no sibling shares its job |
+| `devin-state` (ex `devin-redact`) | security boundary (audience + failure mode); excluded from F3 by rule, not inertia |
 | `devin-switch` | config profiles — single-job tool |
 | `devin-skill-catalog` | capability vs product question parked (see secondary candidate above) |
 | `devin-brain` (ex `devin-memory`) | foundation-adjacent persistence, no candidate sibling |

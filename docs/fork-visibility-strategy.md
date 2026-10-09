@@ -32,7 +32,7 @@ audit is whether referral traffic moves.
   atinfo, awesome-obsidian). Each resubmission needs list-specific
   copy for its category, not the campaign template — "Add devin-X"
   titles read as self-promotion and get ignored.
-- **Prioritize by fit.** devin-qa-pack belongs in test-automation and
+- **Prioritize by fit.** devin-assure belongs in test-automation and
   ai-coding lists; poordjaevin (the only merged entry) fits MCP-server
   lists; devin-evals now has a PyPI release, strengthening it where it
   was withdrawn (e2b-dev).

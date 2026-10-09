@@ -135,7 +135,7 @@ def collect_repo(name: str) -> dict:
 # the 2026-12-03 audit (see docs/product-boundaries.md).
 BOUNDARY_FAMILIES = {
     "f1-explore": ("devin-history", "devin-search", "devin-graph"),
-    "f2-assure": ("devin-qa-pack", "devin-evals"),
+    "f2-assure": ("devin-assure", "devin-evals"),
     "f3-data": ("devin-backup", "devin-janitor"),
 }
 
@@ -265,6 +265,9 @@ def structure(registry: dict) -> dict:
 RENAMES = {
     "devin-brain": "devin-memory",
     "devin-judge": "poordjaevin",
+    "devin-state": "devin-redact",
+    "devin-assure": "devin-qa-pack",
+    "devin-explore": "devin-doctor",
 }
 
 

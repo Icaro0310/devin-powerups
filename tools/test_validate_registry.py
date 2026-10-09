@@ -134,16 +134,16 @@ def test_main_exits_1_on_validation_errors_and_2_on_unreadable_input(tmp_path):
 
 
 def test_duplicate_names_are_a_semantic_error():
-    twin = entry("devin-redact")
+    twin = entry("devin-state")
     assert vr.semantic_errors(doc(entry("devin-powerups"), twin, copy.deepcopy(twin))) == [
-        "$.repositories: duplicate name 'devin-redact'"
+        "$.repositories: duplicate name 'devin-state'"
     ]
 
 
 def test_exactly_one_control_plane_is_required():
     plane = entry("devin-powerups")
     assert vr.semantic_errors(doc(plane)) == []
-    assert any("found 0" in e for e in vr.semantic_errors(doc(entry("devin-redact"))))
+    assert any("found 0" in e for e in vr.semantic_errors(doc(entry("devin-state"))))
     second = {**entry("devin-devkit"), "is_control_plane": True}
     assert any("found 2" in e for e in vr.semantic_errors(doc(plane, second)))
 
@@ -213,7 +213,7 @@ def test_corporate_windows_rule_is_now_enforced():
 
 
 def test_public_tools_must_declare_platforms_and_environments():
-    broken = entry("devin-redact")
+    broken = entry("devin-state")
     del broken["platforms"]
     assert any("'platforms'" in e for e in errors_for(broken))
 
@@ -390,9 +390,9 @@ def test_entrypoints_are_checked_against_the_real_manifest(tmp_path):
 
 
 def test_devkit_commands_must_be_declared_entrypoints():
-    document = doc(entry("devin-powerups"), entry("devin-doctor"))
+    document = doc(entry("devin-powerups"), entry("devin-explore"))
     document["devkit"] = {
-        "tools": {"devin-doctor": {"manager": "uv", "commands": ["devin-doctor", "devin-ghost"]}}
+        "tools": {"devin-explore": {"manager": "uv", "commands": ["devin-doctor", "devin-ghost"]}}
     }
     errors = vr.semantic_errors(document)
     assert any("devin-ghost" in e for e in errors)

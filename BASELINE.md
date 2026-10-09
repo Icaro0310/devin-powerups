@@ -57,6 +57,9 @@ carries the same map (`RENAMES`).
 |---|---|---|
 | `devin-brain` | `devin-memory` | 2026-10-09 |
 | `devin-judge` | `poordjaevin` | 2026-10-09 |
+| `devin-state` | `devin-redact` | 2026-10-09 |
+| `devin-assure` | `devin-qa-pack` | 2026-10-09 |
+| `devin-explore` | `devin-doctor` | 2026-10-09 |
 
 ## Working rules during the window
 

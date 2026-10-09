@@ -62,9 +62,9 @@ def test_public_executable_artifacts_declare_platforms_and_environments():
 def test_catalog_table_uses_registry_descriptions_and_urls():
     registry = json.loads(REGISTRY.read_text(encoding="utf-8"))
     rendered = render_catalog.render_profile_catalog(registry)
-    repo = next(r for r in registry["repositories"] if r["name"] == "devin-qa-pack")
+    repo = next(r for r in registry["repositories"] if r["name"] == "devin-assure")
 
-    assert f"[`devin-qa-pack`]({repo['url']})" in rendered
+    assert f"[`devin-assure`]({repo['url']})" in rendered
     assert repo["description"].replace("|", "\\|") in rendered
 
 

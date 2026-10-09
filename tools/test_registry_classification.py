@@ -41,7 +41,7 @@ def entry(name: str, **fields) -> dict:
 
 
 def classified(**fields) -> dict:
-    return entry("devin-doctor", **{**BASE, **fields})
+    return entry("devin-explore", **{**BASE, **fields})
 
 
 def errors_for(*entries: dict) -> list[str]:
@@ -213,9 +213,9 @@ def test_every_combination_agrees_with_the_jsonschema_reference():
 # devin-brain (ex devin-memory) placed by the maintainer the same day). Changing a track is a
 # governance decision: update this table in the same pull request.
 APPROVED_TRACKS = {
-    "observe": ["devin-internals-spec", "devin-doctor", "devin-history", "devin-search", "devin-graph", "devin-office"],
-    "assure": ["devin-qa-pack", "devin-evals", "devin-metrics", "devin-judge"],
-    "guard": ["devin-bridge", "devin-orchestrator", "devin-switch", "devin-redact", "devin-backup", "devin-janitor", "devin-brain"],
+    "observe": ["devin-internals-spec", "devin-explore", "devin-history", "devin-search", "devin-graph", "devin-office"],
+    "assure": ["devin-assure", "devin-evals", "devin-metrics", "devin-judge"],
+    "guard": ["devin-bridge", "devin-orchestrator", "devin-switch", "devin-state", "devin-backup", "devin-janitor", "devin-brain"],
     "platform": ["devin-devkit", "devin-powerups", "devin-skill-catalog"],
     "navigation": ["awesome-devin"],
     "related": ["qwenpaw-suite", "devin-pm"],
@@ -265,7 +265,7 @@ def test_official_overlap_is_declared_only_where_the_repository_documents_it():
 
 def test_flagship_fixture_and_surface_are_unique():
     roles = [e["role"] for e in PUBLIC_ENTRIES]
-    assert roles.count("flagship") == 1 and BY_NAME["devin-qa-pack"]["role"] == "flagship"
+    assert roles.count("flagship") == 1 and BY_NAME["devin-assure"]["role"] == "flagship"
     # the only fixture (devin-dream) was absorbed into devin-evals (P4)
     assert [e["name"] for e in PUBLIC_ENTRIES if e["nature"] == "fixture"] == []
     assert [e["name"] for e in PUBLIC_ENTRIES if e["nature"] == "surface"] == ["awesome-devin"]
@@ -274,7 +274,7 @@ def test_flagship_fixture_and_surface_are_unique():
 def test_mode_matches_documented_mutating_commands():
     mixed = {e["name"] for e in PUBLIC_ENTRIES if e["mode"] == "mixed"}
     # explicit, guarded mutations: --apply / --yes / restore / redact / swap / promote / install / control endpoints
-    assert mixed == {"devin-powerups", "devin-devkit", "devin-redact", "devin-backup", "devin-janitor", "devin-switch",
+    assert mixed == {"devin-powerups", "devin-devkit", "devin-state", "devin-backup", "devin-janitor", "devin-switch",
                      "devin-skill-catalog", "devin-brain", "devin-bridge", "devin-office", "qwenpaw-suite"}
     assert not [e for e in PUBLIC_ENTRIES if e["mode"] == "write"]
 
@@ -290,7 +290,7 @@ def test_distribution_status_is_declared_on_public_products_and_fixtures():
 
 def test_distribution_status_agrees_with_devkit_tool_status():
     document = copy.deepcopy(REGISTRY)
-    doctor = next(e for e in document["repositories"] if e["name"] == "devin-doctor")
+    doctor = next(e for e in document["repositories"] if e["name"] == "devin-explore")
     doctor["distribution_status"] = "source_only"
     errors = vr.semantic_errors(document)
-    assert any("distribution_status" in e and "devin-doctor" in e for e in errors), errors
+    assert any("distribution_status" in e and "devin-explore" in e for e in errors), errors
