@@ -112,6 +112,10 @@ def _install_spec(tool: dict, repo: dict) -> str | None:
 
 
 def _needs_git(tool: dict, repo: dict) -> bool:
+    # Skip spec derivation when the ref is missing or invalid — validate_devkit
+    # already reports that error; indexing tool["ref"] here would KeyError first.
+    if tool.get("source") == "github" and not _SHA.fullmatch(tool.get("ref", "")):
+        return False
     spec = _install_spec(tool, repo)
     return bool(spec) and spec.startswith("git+")
 
