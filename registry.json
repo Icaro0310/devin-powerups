@@ -72,22 +72,6 @@
         "status": "published",
         "category": "foundation"
       },
-      "devin-redact": {
-        "manager": "uv",
-        "source": "pypi",
-        "package": "devin-redact",
-        "version": "0.2.0",
-        "commands": [
-          "devin-redact"
-        ],
-        "runtime": "python>=3.10",
-        "platforms": [
-          "windows",
-          "linux"
-        ],
-        "status": "published",
-        "category": "security"
-      },
       "devin-history": {
         "manager": "uv",
         "source": "pypi",
@@ -104,22 +88,6 @@
         "status": "published",
         "category": "operations"
       },
-      "devin-doctor": {
-        "manager": "uv",
-        "source": "pypi",
-        "package": "devin-doctor",
-        "version": "0.1.0",
-        "commands": [
-          "devin-doctor"
-        ],
-        "runtime": "python>=3.10",
-        "platforms": [
-          "windows",
-          "linux"
-        ],
-        "status": "published",
-        "category": "qa"
-      },
       "devin-pm": {
         "manager": "uv",
         "source": "pypi",
@@ -135,22 +103,6 @@
         ],
         "status": "published",
         "category": "operations"
-      },
-      "devin-qa-pack": {
-        "manager": "uv",
-        "source": "pypi",
-        "package": "devin-qa-pack",
-        "version": "0.1.0",
-        "commands": [
-          "devin-qa-pack"
-        ],
-        "runtime": "python>=3.10",
-        "platforms": [
-          "windows",
-          "linux"
-        ],
-        "status": "published",
-        "category": "qa"
       },
       "devin-metrics": {
         "manager": "uv",
@@ -368,6 +320,54 @@
         ],
         "status": "published",
         "category": "governance"
+      },
+      "devin-state": {
+        "manager": "uv",
+        "source": "pypi",
+        "package": "devin-redact",
+        "version": "0.2.0",
+        "commands": [
+          "devin-redact"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "published",
+        "category": "security"
+      },
+      "devin-assure": {
+        "manager": "uv",
+        "source": "pypi",
+        "package": "devin-qa-pack",
+        "version": "0.1.0",
+        "commands": [
+          "devin-qa-pack"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "published",
+        "category": "qa"
+      },
+      "devin-explore": {
+        "manager": "uv",
+        "source": "pypi",
+        "package": "devin-doctor",
+        "version": "0.1.0",
+        "commands": [
+          "devin-doctor"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "published",
+        "category": "qa"
       }
     },
     "profiles": {
@@ -376,10 +376,10 @@
         "description": "Verify session claims and local Devin state with deterministic evidence.",
         "tools": [
           "devin-internals-spec",
-          "devin-qa-pack",
+          "devin-assure",
           "devin-evals",
           "devin-metrics",
-          "devin-doctor"
+          "devin-explore"
         ]
       },
       "evaluation": {
@@ -395,7 +395,7 @@
         "label": "Security",
         "description": "Reduce risk around secrets, policy-gated actions, and noisy sessions.",
         "tools": [
-          "devin-redact",
+          "devin-state",
           "devin-bridge",
           "devin-janitor"
         ]
@@ -425,7 +425,7 @@
         "tools": [
           "devin-backup",
           "devin-history",
-          "devin-doctor",
+          "devin-explore",
           "devin-metrics",
           "devin-janitor",
           "devin-pm",
@@ -452,7 +452,7 @@
         "label": "Safety",
         "description": "Convenience alias for security tooling.",
         "tools": [
-          "devin-redact",
+          "devin-state",
           "devin-bridge",
           "devin-janitor"
         ],
@@ -463,11 +463,11 @@
         "description": "All installable public tools; source-only services are listed separately.",
         "tools": [
           "devin-internals-spec",
-          "devin-redact",
+          "devin-state",
           "devin-history",
-          "devin-doctor",
+          "devin-explore",
           "devin-pm",
-          "devin-qa-pack",
+          "devin-assure",
           "devin-metrics",
           "devin-backup",
           "devin-search",
@@ -490,11 +490,11 @@
         "description": "Alias for the full installable profile.",
         "tools": [
           "devin-internals-spec",
-          "devin-redact",
+          "devin-state",
           "devin-history",
-          "devin-doctor",
+          "devin-explore",
           "devin-pm",
-          "devin-qa-pack",
+          "devin-assure",
           "devin-metrics",
           "devin-backup",
           "devin-search",
@@ -710,8 +710,8 @@
       "legacy": null
     },
     {
-      "name": "devin-redact",
-      "url": "https://github.com/Icaro0310/devin-redact",
+      "name": "devin-state",
+      "url": "https://github.com/Icaro0310/devin-state",
       "kind": "project",
       "artifact": "tool",
       "interfaces": [
@@ -776,7 +776,11 @@
       "entrypoints": [
         "devin-redact"
       ],
-      "legacy": null
+      "legacy": {
+        "repo": "devin-redact",
+        "status": "renamed",
+        "redirect": true
+      }
     },
     {
       "name": "devin-history",
@@ -846,8 +850,8 @@
       "legacy": null
     },
     {
-      "name": "devin-doctor",
-      "url": "https://github.com/Icaro0310/devin-doctor",
+      "name": "devin-explore",
+      "url": "https://github.com/Icaro0310/devin-explore",
       "kind": "project",
       "artifact": "tool",
       "interfaces": [
@@ -910,7 +914,11 @@
       "entrypoints": [
         "devin-doctor"
       ],
-      "legacy": null
+      "legacy": {
+        "repo": "devin-doctor",
+        "status": "renamed",
+        "redirect": true
+      }
     },
     {
       "name": "devin-pm",
@@ -981,8 +989,8 @@
       "legacy": null
     },
     {
-      "name": "devin-qa-pack",
-      "url": "https://github.com/Icaro0310/devin-qa-pack",
+      "name": "devin-assure",
+      "url": "https://github.com/Icaro0310/devin-assure",
       "kind": "project",
       "artifact": "tool",
       "interfaces": [
@@ -1045,7 +1053,11 @@
       "entrypoints": [
         "devin-qa-pack"
       ],
-      "legacy": null
+      "legacy": {
+        "repo": "devin-qa-pack",
+        "status": "renamed",
+        "redirect": true
+      }
     },
     {
       "name": "devin-metrics",
@@ -2135,7 +2147,7 @@
         "why": "Install the tools you picked via a profile, one command"
       },
       {
-        "repo": "devin-doctor",
+        "repo": "devin-explore",
         "why": "Diagnose the install if something looks wrong"
       }
     ],
@@ -2155,7 +2167,7 @@
     ],
     "operations": [
       {
-        "repo": "devin-doctor",
+        "repo": "devin-explore",
         "why": "Check store health first \u2014 schema, locks, disk"
       },
       {
@@ -2177,7 +2189,7 @@
         "why": "Snapshot before redaction or deletion so work is reversible"
       },
       {
-        "repo": "devin-redact",
+        "repo": "devin-state",
         "why": "Redact secrets/PII in place before sharing or exporting"
       },
       {
@@ -2187,7 +2199,7 @@
     ],
     "qa": [
       {
-        "repo": "devin-qa-pack",
+        "repo": "devin-assure",
         "why": "Audit what a session actually delivered vs claimed"
       },
       {

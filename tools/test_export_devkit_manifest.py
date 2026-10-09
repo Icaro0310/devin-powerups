@@ -58,7 +58,7 @@ def test_manifest_uses_pypi_names_and_real_cli_entrypoints():
     manifest = exporter.build_manifest(registry)
     tools = {tool["id"]: tool for tool in manifest["tools"]}
 
-    assert tools["devin-qa-pack"]["commands"] == ["devin-qa-pack"]
+    assert tools["devin-assure"]["commands"] == ["devin-qa-pack"]
     assert tools["devin-orchestrator"]["package"] == "devin-fanout"
     assert tools["devin-orchestrator"]["commands"] == ["devin-orchestrator"]
     assert tools["devin-bridge"]["manager"] == "npm"
@@ -110,9 +110,9 @@ def test_manifest_carries_artifact_interfaces_audiences_and_platforms():
     assert tools["devin-bridge"]["artifact"] == "tool"
     assert "bridge" in tools["devin-bridge"]["interfaces"]
     assert "ai-engineers" in tools["devin-bridge"]["audiences"]
-    assert tools["devin-qa-pack"]["audiences"] == ["qa", "developers"]
-    assert tools["devin-qa-pack"]["platforms"] == ["windows", "linux"]
-    assert tools["devin-qa-pack"]["environments"]["corporate_windows"]["runtime"] == "local-only"
+    assert tools["devin-assure"]["audiences"] == ["qa", "developers"]
+    assert tools["devin-assure"]["platforms"] == ["windows", "linux"]
+    assert tools["devin-assure"]["environments"]["corporate_windows"]["runtime"] == "local-only"
     assert tools["devin-bridge"]["environments"]["corporate_windows"]["delegation"] == "forbidden"
     assert tools["devin-judge"]["artifact"] == "tool"
 

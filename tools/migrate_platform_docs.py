@@ -213,7 +213,7 @@ _RECURRING_JOBS: dict[str, dict[str, str]] = {
         "win": "devin-janitor run --apply",
         "note": "Daily cleanup. `devin-janitor install` registers the built-in daily report job (cron / Task Scheduler / elapsed hook) — prefer it over hand-rolled entries.",
     },
-    "devin-doctor": {
+    "devin-explore": {
         "cmd": "devin-doctor check",
         "cron": "0 9 * * 1",
         "win": "devin-doctor check",
