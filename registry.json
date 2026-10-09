@@ -1042,7 +1042,7 @@
       "stack": "python",
       "ci": "inline",
       "tests": 45,
-      "description": "Flagship QA audit: verifies session deliverable claims against tool-call ground truth and reports PASS/PARTIAL/UNVERIFIED.",
+      "description": "Verification monorepo: session-claim audit (devin-qa-pack), deterministic eval harness with dream corpus generator (devin-evals), and local session observability (devin-metrics).",
       "distribution_status": "published",
       "ownership": "first_party",
       "job": "verify",
@@ -1050,7 +1050,7 @@
       "package": {
         "ecosystem": "pypi",
         "name": "devin-qa-pack",
-        "path": "."
+        "path": "packages/qa-pack"
       },
       "entrypoints": [
         "devin-qa-pack"
@@ -1059,11 +1059,12 @@
         "repo": "devin-qa-pack",
         "status": "renamed",
         "redirect": true
-      }
+      },
+      "note": "uv workspace monorepo since F4.2: packages/qa-pack (this entry, ex devin-qa-pack), packages/evals, packages/metrics. Package-specific tags: <pkg>-v*."
     },
     {
       "name": "devin-metrics",
-      "url": "https://github.com/Icaro0310/devin-metrics",
+      "url": "https://github.com/Icaro0310/devin-assure",
       "kind": "project",
       "artifact": "tool",
       "interfaces": [
@@ -1122,13 +1123,15 @@
       "package": {
         "ecosystem": "pypi",
         "name": "devin-metrics",
-        "path": "."
+        "path": "packages/metrics"
       },
       "entrypoints": [
         "devin-dashboard",
         "devin-metrics"
       ],
-      "legacy": null
+      "legacy": null,
+      "local_dir": "devin-assure",
+      "note": "Absorbed into the devin-assure monorepo (F4.2); the devin-metrics PyPI package and CLIs (devin-metrics, devin-dashboard) are unchanged, released from packages/metrics. Original repo archived with MOVED banner."
     },
     {
       "name": "devin-backup",
@@ -1336,7 +1339,7 @@
     },
     {
       "name": "devin-evals",
-      "url": "https://github.com/Icaro0310/devin-evals",
+      "url": "https://github.com/Icaro0310/devin-assure",
       "kind": "project",
       "artifact": "tool",
       "interfaces": [
@@ -1395,12 +1398,14 @@
       "package": {
         "ecosystem": "pypi",
         "name": "devin-evals",
-        "path": "."
+        "path": "packages/evals"
       },
       "entrypoints": [
         "devin-evals"
       ],
-      "legacy": null
+      "legacy": null,
+      "local_dir": "devin-assure",
+      "note": "Absorbed into the devin-assure monorepo (F4.2); the devin-evals PyPI package and CLI are unchanged, released from packages/evals. Original repo archived with MOVED banner."
     },
     {
       "name": "devin-brain",
