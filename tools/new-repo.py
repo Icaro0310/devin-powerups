@@ -121,6 +121,9 @@ def build_entry(
     nature: str | None = None,
     mode: str | None = None,
     maturity: str = "experimental",
+    ownership: str | None = None,
+    job: str | None = None,
+    product_id: str | None = None,
 ) -> dict:
     """Registry entry for a freshly scaffolded ``devin-<name>`` checkout."""
     artifact = {
@@ -198,6 +201,10 @@ def build_entry(
         if any(chosen.values()):
             raise ValueError("--track/--role/--nature/--mode apply to public entries only")
         classification = {"public": False, "maturity": maturity}
+    if product_id and job is None:
+        raise ValueError("--product-id requires --job")
+    if job is not None and product_id is None:
+        raise ValueError("--job requires --product-id")
     return {
         "name": f"devin-{name}",
         "url": f"https://github.com/{owner}/devin-{name}",
@@ -214,6 +221,16 @@ def build_entry(
         "stack": "python",
         "local_dir": f"../devin-{name}",
         "description": description,
+        "ownership": ownership or ("first_party" if product_id else "related"),
+        "job": job,
+        "product_id": product_id,
+        "package": {
+            "ecosystem": "pypi",
+            "name": f"devin-{name}",
+            "path": ".",
+        },
+        "entrypoints": [f"devin-{name}"],
+        "legacy": None,
     }
 
 
@@ -336,6 +353,27 @@ def build_parser() -> argparse.ArgumentParser:
         help="registry maturity for the new entry (default: experimental)",
     )
     parser.add_argument(
+        "--ownership",
+        choices=["first_party", "foundation", "distribution", "related",
+                 "external", "community"],
+        default=None,
+        help="registry ownership (default: 'first_party' when --product-id is "
+             "given, else 'related' — a repo joins a product deliberately)",
+    )
+    parser.add_argument(
+        "--job",
+        choices=["understand", "verify", "control", "build"],
+        default=None,
+        help="public job of the product this entry belongs to (requires --product-id)",
+    )
+    parser.add_argument(
+        "--product-id",
+        default=None,
+        metavar="devin-<product>",
+        help="product this entry's package belongs to (requires --job); "
+             "subject to the 7-product cap",
+    )
+    parser.add_argument(
         "--registry",
         default=str(REGISTRY_PATH),
         help="registry JSON to update (default: this repo's registry.json)",
@@ -408,6 +446,8 @@ def main(argv: list[str] | None = None) -> int:
                 requires_devin_vm=args.requires_devin_vm,
                 track=args.track, role=args.role, nature=args.nature,
                 mode=args.mode, maturity=args.maturity,
+                ownership=args.ownership, job=args.job,
+                product_id=args.product_id,
             )
             merged = merge_registry(registry_path, entry)
         except ValueError as exc:

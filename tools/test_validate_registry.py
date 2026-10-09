@@ -153,7 +153,9 @@ def test_registry_errors_combines_schema_and_cross_entry_checks():
     errors = vr.registry_errors({**REGISTRY, "repositories": None}, SCHEMA)
     assert errors and all("is_control_plane" not in e for e in errors)
     # schema-valid document missing the control plane: cross-entry error surfaces
-    planeless = doc(*REGISTRY["repositories"])
+    # (deepcopy: doc() copies the entry list, not the entries — mutating a
+    # shared entry here would poison every later test)
+    planeless = doc(*[copy.deepcopy(e) for e in REGISTRY["repositories"]])
     next(e for e in planeless["repositories"] if e["name"] == "devin-powerups")[
         "is_control_plane"
     ] = False
@@ -254,3 +256,184 @@ def test_validator_agrees_with_jsonschema_on_single_edit_mutants():
                 disagreements.append(f"{name}: {label}: ours={ours} jsonschema={theirs}")
     assert checked > 300
     assert disagreements == []
+
+
+# --- registry v21 product rules -----------------------------------------------
+
+
+def _member(name: str, pid: str, job: str, mode: str = "read",
+            package: dict | None = None, entrypoints=None, ownership="first_party"):
+    return {
+        "name": name,
+        "ownership": ownership,
+        "job": job,
+        "product_id": pid,
+        "mode": mode,
+        "package": package if package is not None else {
+            "ecosystem": "pypi", "name": name, "path": ".",
+        },
+        "entrypoints": entrypoints if entrypoints is not None else [name],
+        "legacy": None,
+        "distribution_status": "published",
+    }
+
+
+def test_product_id_requires_first_party_ownership():
+    broken = _member("devin-x", "devin-explore", "understand", ownership="external")
+    errors = vr.semantic_errors(doc(entry("devin-powerups"), broken))
+    assert any("only first_party" in e for e in errors)
+
+
+def test_first_party_needs_product_id_or_control_plane():
+    orphan = _member("devin-x", "devin-explore", "understand")
+    orphan["product_id"] = None
+    orphan["job"] = None
+    errors = vr.semantic_errors(doc(entry("devin-powerups"), orphan))
+    assert any("without product_id" in e for e in errors)
+    # the control plane is the only first_party entry allowed without a product
+    assert vr.semantic_errors(doc(entry("devin-powerups"))) == []
+
+
+def test_job_and_product_id_are_set_together():
+    broken = _member("devin-x", "devin-explore", "understand")
+    broken["product_id"] = None
+    errors = vr.semantic_errors(doc(entry("devin-powerups"), broken))
+    assert any("must both be set" in e for e in errors)
+
+
+def test_read_only_jobs_reject_mutating_members():
+    ok = _member("devin-x", "devin-explore", "understand", mode="read")
+    assert not any("devin-x" in e for e in vr.semantic_errors(doc(entry("devin-powerups"), ok)))
+    bad = _member("devin-y", "devin-explore", "understand", mode="mixed")
+    errors = vr.semantic_errors(doc(entry("devin-powerups"), bad))
+    assert any("requires read" in e for e in errors)
+    # control tolerates mixed members
+    legal = _member("devin-z", "devin-control", "control", mode="mixed")
+    assert not any("requires read" in e for e in vr.semantic_errors(doc(entry("devin-powerups"), legal)))
+
+
+def test_product_members_share_one_job():
+    a = _member("devin-x", "devin-explore", "understand")
+    b = _member("devin-y", "devin-explore", "verify")
+    errors = vr.semantic_errors(doc(entry("devin-powerups"), a, b))
+    assert any("different jobs" in e for e in errors)
+
+
+def test_every_product_needs_a_package_and_package_names_are_unique():
+    a = _member("devin-x", "devin-explore", "understand")
+    a["package"] = None
+    a["entrypoints"] = []
+    errors = vr.semantic_errors(doc(entry("devin-powerups"), a))
+    assert any("no member declares a package" in e for e in errors)
+    b = _member("devin-y", "devin-assure", "verify")
+    b["package"] = {"ecosystem": "pypi", "name": "devin-x", "path": "."}
+    errors = vr.semantic_errors(doc(entry("devin-powerups"), _member("devin-x", "devin-explore", "understand"), b))
+    assert any("claimed by both" in e for e in errors)
+
+
+def test_product_cap_is_enforced():
+    members = [entry("devin-powerups")]
+    for i in range(8):
+        members.append(_member(f"devin-p{i}", f"devin-p{i}", "understand"))
+    errors = vr.semantic_errors(doc(*members))
+    assert any("maximum is 7" in e for e in errors)
+
+
+def test_entrypoints_require_a_package():
+    broken = _member("devin-x", "devin-explore", "understand")
+    broken["package"] = None
+    errors = vr.semantic_errors(doc(entry("devin-powerups"), broken))
+    assert any("package is null" in e for e in errors)
+
+
+def test_depends_on_must_resolve_to_a_published_package_and_stay_acyclic():
+    consumer = _member("devin-x", "devin-explore", "understand")
+    consumer["package"]["depends_on"] = ["devin-missing"]
+    errors = vr.semantic_errors(doc(entry("devin-powerups"), consumer))
+    assert any("not a package" in e for e in errors)
+
+    unpublished = _member("devin-y", "devin-assure", "verify")
+    unpublished["distribution_status"] = "source_only"
+    consumer["package"]["depends_on"] = ["devin-y"]
+    errors = vr.semantic_errors(doc(entry("devin-powerups"), consumer, unpublished))
+    assert any("published package" in e for e in errors)
+
+    a = _member("devin-a", "devin-pa", "control")
+    b = _member("devin-b", "devin-pb", "control")
+    a["package"]["depends_on"] = ["devin-b"]
+    b["package"]["depends_on"] = ["devin-a"]
+    errors = vr.semantic_errors(doc(entry("devin-powerups"), a, b))
+    assert any("cycle" in e for e in errors)
+
+
+def test_legacy_renamed_must_not_point_at_a_live_entry():
+    renamed = _member("devin-brain", "devin-brain", "build")
+    renamed["legacy"] = {"repo": "devin-memory", "status": "renamed", "redirect": True}
+    assert not any("legacy" in e for e in vr.semantic_errors(
+        doc(entry("devin-powerups"), renamed)))
+    stale = doc(entry("devin-powerups"), renamed, entry("devin-memory"))
+    assert any("still exists" in e for e in vr.semantic_errors(stale))
+
+
+def test_entrypoints_are_checked_against_the_real_manifest(tmp_path):
+    checkout = tmp_path / "devin-x"
+    checkout.mkdir()
+    (checkout / "pyproject.toml").write_text(
+        '[project]\nname = "devin-x"\n[project.scripts]\ndevin-x = "devin_x.cli:main"\n'
+    )
+    e = _member("devin-x", "devin-explore", "understand", entrypoints=["devin-x"])
+    assert vr.semantic_errors(doc(entry("devin-powerups"), e), root=tmp_path) == []
+    e["entrypoints"] = ["devin-x", "devin-x-ghost"]
+    errors = vr.semantic_errors(doc(entry("devin-powerups"), e), root=tmp_path)
+    assert any("not found" in e for e in errors)
+
+
+def test_devkit_commands_must_be_declared_entrypoints():
+    document = doc(entry("devin-powerups"), entry("devin-doctor"))
+    document["devkit"] = {
+        "tools": {"devin-doctor": {"manager": "uv", "commands": ["devin-doctor", "devin-ghost"]}}
+    }
+    errors = vr.semantic_errors(document)
+    assert any("devin-ghost" in e for e in errors)
+
+
+def test_same_product_dependency_is_not_a_cycle():
+    dep = _member("devin-y", "devin-explore", "understand")
+    dep["distribution_status"] = "source_only"
+    a = _member("devin-x", "devin-explore", "understand")
+    a["package"]["depends_on"] = ["devin-y"]
+    errors = vr.semantic_errors(doc(entry("devin-powerups"), a, dep))
+    assert not any("cycle" in e or "published" in e for e in errors)
+
+
+def test_duplicate_package_inside_one_product_is_rejected():
+    a = _member("devin-x", "devin-explore", "understand")
+    b = _member("devin-y", "devin-explore", "understand")
+    b["package"] = {"ecosystem": "pypi", "name": "devin-x", "path": "pkg-b"}
+    errors = vr.semantic_errors(doc(entry("devin-powerups"), a, b))
+    assert any("claimed by both" in e for e in errors)
+
+
+def test_devkit_commands_fail_when_entrypoints_empty():
+    document = doc(entry("devin-powerups"))
+    document["repositories"].append({
+        "name": "devin-x", "ownership": "related", "job": None,
+        "product_id": None, "package": None, "entrypoints": [],
+        "legacy": None,
+    })
+    document["devkit"] = {
+        "tools": {"devin-x": {"manager": "uv", "commands": ["devin-x"]}}
+    }
+    errors = vr.semantic_errors(document)
+    assert any("devin-x" in e and "entrypoints" in e for e in errors)
+
+
+def test_entrypoints_check_follows_package_path(tmp_path):
+    checkout = tmp_path / "devin-x"
+    (checkout / "packages" / "x").mkdir(parents=True)
+    (checkout / "packages" / "x" / "pyproject.toml").write_text(
+        '[project]\nname = "devin-x"\n[project.scripts]\ndevin-x = "devin_x.cli:main"\n'
+    )
+    e = _member("devin-x", "devin-explore", "understand")
+    e["package"] = {"ecosystem": "pypi", "name": "devin-x", "path": "packages/x"}
+    assert vr.semantic_errors(doc(entry("devin-powerups"), e), root=tmp_path) == []

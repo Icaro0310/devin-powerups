@@ -203,6 +203,12 @@ unchanged.
 | `public` | boolean | Mirrors `visibility`. |
 | `is_control_plane` | boolean, default `false` | True for the one entry that holds the registry and its governance rules: this hub. |
 | `official_overlap`, `overlap_note` | `none`, `partial`, `high`; text or `null` | Editorial note on overlap with an official Devin feature. It does not imply incompatibility or competition. |
+| `ownership` | `first_party`, `foundation`, `distribution`, `related`, `external`, `community` | Relationship to the first-party product surface (D-2026-10-09). Nothing is first-party without `ownership: first_party`. |
+| `job` | `understand`, `verify`, `control`, `build`, `null` | The public job grouping; `null` for entries outside the product jobs. |
+| `product_id` | `devin-<product>` or `null` | Which of the seven products the entry's package belongs to; `null` for infra, foundation, external and private entries. |
+| `package` | object or `null` | The publishable package this entry carries (`ecosystem`, `name`, `path`, optional `depends_on`). The package name may differ from the repo name. |
+| `entrypoints` | list of strings | Console scripts / bin names the package declares, checked against the real manifest on disk. |
+| `legacy` | object or `null` | Rename/archive lineage: former repo name, `renamed`/`archived`/`superseded`, and whether GitHub serves a redirect. |
 
 The fields answer different questions and are deliberately independent —
 one entry can legitimately sit in several places at once:

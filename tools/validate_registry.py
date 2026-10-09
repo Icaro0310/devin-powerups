@@ -293,7 +293,213 @@ def journey_errors(registry: dict) -> list[str]:
     return errors
 
 
-def semantic_errors(registry: dict) -> list[str]:
+_MODE_ORDER = {"read": 0, "mixed": 1, "write": 2}
+_MAX_PRODUCTS = 7
+_READ_ONLY_JOBS = {"understand", "verify"}
+_PRODUCT_JOBS = {"understand", "verify", "control", "build"}
+
+
+def _checkout(entry: dict, root: Path) -> Path | None:
+    local_dir = entry.get("local_dir")
+    path = (root / (local_dir if local_dir else entry.get("name", ""))).resolve()
+    return path if path.is_dir() else None
+
+
+def _declared_entrypoints(checkout: Path, package: dict | None) -> set[str] | None:
+    """console_scripts / bin names declared by the checkout's manifest.
+
+    ``package.path`` selects the manifest inside the checkout (workspace
+    monorepos keep each package below the root). None = the manifest
+    could not be parsed; the caller must fail rather than skip.
+    """
+    manifest_dir = checkout
+    if isinstance(package, dict) and package.get("path"):
+        manifest_dir = (checkout / package["path"]).resolve()
+    pyproject = manifest_dir / "pyproject.toml"
+    package_json = manifest_dir / "package.json"
+    if pyproject.exists():
+        try:
+            import tomllib
+            project = tomllib.loads(pyproject.read_text()).get("project", {})
+            return set(project.get("scripts", {}))
+        except Exception:
+            return None
+    if package_json.exists():
+        try:
+            return set(json.loads(package_json.read_text()).get("bin", {}))
+        except Exception:
+            return None
+    return set()
+
+
+def product_errors(registry: dict, root: Path | None = None) -> list[str]:
+    """Registry v21 product rules (D-2026-10-09), fail-closed.
+
+    ``root`` is the parent of the local checkouts (the directory
+    ``local_dir`` is resolved against); when None the checkout-dependent
+    checks are skipped so synthetic registries can be validated without a
+    filesystem.
+    """
+    errors: list[str] = []
+    repos = registry.get("repositories") if isinstance(registry, dict) else None
+    entries = [e for e in repos or [] if isinstance(e, dict)]
+    by_name = {e.get("name"): e for e in entries}
+
+    products: dict[str, list[dict]] = {}
+    for e in entries:
+        pid = e.get("product_id")
+        if pid:
+            products.setdefault(pid, []).append(e)
+
+    # product cap
+    if len(products) > _MAX_PRODUCTS:
+        errors.append(
+            f"$.repositories: {len(products)} distinct product_id values, maximum is {_MAX_PRODUCTS} ({sorted(products)})"
+        )
+
+    for e in entries:
+        name = e.get("name")
+        own = e.get("ownership")
+        pid = e.get("product_id")
+        job = e.get("job")
+        pkg = e.get("package")
+        eps = e.get("entrypoints") or []
+        legacy = e.get("legacy")
+
+        # product_id is only for first-party product members
+        if pid is not None and own != "first_party":
+            errors.append(f"$.repositories[{name}]: product_id {pid!r} on ownership {own!r} (only first_party)")
+        # first-party entries must belong to a product — except the control plane
+        if own == "first_party" and pid is None and e.get("is_control_plane") is not True:
+            errors.append(f"$.repositories[{name}]: ownership 'first_party' without product_id or is_control_plane")
+        # job is a product property: set together with product_id, null together
+        if (job is None) != (pid is None):
+            errors.append(f"$.repositories[{name}]: job {job!r} and product_id {pid!r} must both be set or both be null")
+        # entrypoints require a package; a package implies declared entrypoints exist on disk
+        if pkg is None and eps:
+            errors.append(f"$.repositories[{name}]: entrypoints {eps} declared but package is null")
+
+        # entrypoints must exist in the real manifest
+        if root is not None and eps:
+            co = _checkout(e, root)
+            if co is not None:
+                real = _declared_entrypoints(co, pkg)
+                if real is None:
+                    errors.append(
+                        f"$.repositories[{name}]: cannot parse {co.name}'s package manifest"
+                    )
+                else:
+                    missing = sorted(set(eps) - real)
+                    if missing:
+                        errors.append(
+                            f"$.repositories[{name}]: entrypoints {missing} not found in {co.name}'s manifest"
+                        )
+
+        # legacy lineage must point at real objects
+        if isinstance(legacy, dict):
+            old = legacy.get("repo")
+            status = legacy.get("status")
+            to = legacy.get("to")
+            if status == "renamed":
+                if old == name:
+                    errors.append(f"$.repositories[{name}]: legacy.repo equals the current name")
+                if old in by_name:
+                    errors.append(f"$.repositories[{name}]: legacy.repo {old!r} still exists as an entry")
+            if status in ("archived", "superseded") and to is not None:
+                if to not in by_name and to not in products:
+                    errors.append(f"$.repositories[{name}]: legacy.to {to!r} is not an entry or product")
+
+    # per-product invariants
+    pkg_names: dict[str, str] = {}
+    for pid, members in products.items():
+        jobs = {m.get("job") for m in members}
+        if len(jobs) != 1:
+            errors.append(f"product {pid!r}: members declare different jobs {sorted(jobs, key=str)}")
+        job = jobs.pop() if jobs else None
+        # understand/verify products may only contain read members
+        if job in _READ_ONLY_JOBS:
+            for m in members:
+                mode = m.get("mode")
+                if mode is not None and mode != "read":
+                    errors.append(
+                        f"product {pid!r}: member {m.get('name')!r} has mode {mode!r} but job {job!r} requires read"
+                    )
+        # every product needs at least one publishable package
+        if not any(m.get("package") for m in members):
+            errors.append(f"product {pid!r}: no member declares a package")
+        for m in members:
+            pkg = m.get("package")
+            if isinstance(pkg, dict):
+                pname = pkg.get("name")
+                holder = pkg_names.get(pname)
+                # package names are globally unique — a second claimant
+                # in the *same* product is just as ambiguous as cross-product
+                if holder is not None and holder != m.get("name"):
+                    errors.append(
+                        f"package {pname!r} claimed by both {holder!r} and {m.get('name')!r}"
+                    )
+                pkg_names[pname] = m.get("name")
+
+    # deps resolve on package names; cycles are checked per package, and
+    # the published-package requirement only applies across products
+    pkg_owner: dict[str, dict] = {}
+    for e in entries:
+        pkg = e.get("package")
+        if isinstance(pkg, dict):
+            pkg_owner[pkg.get("name")] = e
+    dep_edges: dict[str, set[str]] = {}
+    for e in entries:
+        pkg = e.get("package")
+        if not isinstance(pkg, dict):
+            continue
+        for dep in pkg.get("depends_on") or []:
+            owner_entry = pkg_owner.get(dep)
+            if owner_entry is None:
+                errors.append(
+                    f"$.repositories[{e.get('name')}]: depends_on {dep!r} is not a package in the registry"
+                )
+                continue
+            dep_edges.setdefault(pkg.get("name"), set()).add(dep)
+            if (
+                owner_entry.get("product_id") != e.get("product_id")
+                and owner_entry.get("distribution_status") != "published"
+            ):
+                errors.append(
+                    f"$.repositories[{e.get('name')}]: cross-product depends_on {dep!r} but that package is {owner_entry.get('distribution_status')!r} (cross-product deps need a published package)"
+                )
+    for start in dep_edges:
+        seen, stack = set(), [start]
+        while stack:
+            node = stack.pop()
+            for nxt in dep_edges.get(node, ()):
+                if nxt == start:
+                    errors.append(f"package dependency cycle through {start!r}")
+                    stack.clear()
+                    break
+                if nxt not in seen:
+                    seen.add(nxt)
+                    stack.append(nxt)
+
+    # devkit tool commands must be declared entrypoints — for package-managed
+    # tools; 'manual' tools carry invocation instructions, not console scripts
+    devkit = registry.get("devkit")
+    tools = devkit.get("tools") if isinstance(devkit, dict) else None
+    for name, tool in (tools or {}).items():
+        entry = by_name.get(name)
+        if not entry or not isinstance(tool, dict):
+            continue
+        if tool.get("manager") not in ("uv", "npm"):
+            continue
+        declared = set(entry.get("entrypoints") or [])
+        for cmd in tool.get("commands") or []:
+            if cmd not in declared:
+                errors.append(
+                    f"$.devkit.tools[{name}]: command {cmd!r} not in entrypoints {sorted(declared)}"
+                )
+    return errors
+
+
+def semantic_errors(registry: dict, root: Path | None = None) -> list[str]:
     """Cross-entry rules that JSON Schema cannot express."""
     errors: list[str] = []
     repositories = registry.get("repositories") if isinstance(registry, dict) else None
@@ -321,19 +527,22 @@ def semantic_errors(registry: dict) -> list[str]:
                 f"$.repositories[{name}]: distribution_status {actual!r} disagrees with devkit.tools status {tool.get('status')!r}"
             )
     errors.extend(journey_errors(registry))
+    errors.extend(product_errors(registry, root))
     return errors
 
 
-def registry_errors(registry: dict, schema: dict) -> list[str]:
+def registry_errors(registry: dict, schema: dict, root: Path | None = None) -> list[str]:
     """JSON Schema plus cross-entry rules for a whole registry document.
 
     The cross-entry checks run only on a structurally valid document, so a
     malformed registry produces schema errors instead of crashing them.
     Embedded callers (``new-repo.py``, ``export_devkit_manifest.py``) validate
     through this entry point; the CLI exit-code mapping stays in ``main``.
+    ``root`` is the checkout parent for local entrypoint verification;
+    None skips filesystem-dependent checks.
     """
     errors = validate(registry, schema)
-    return errors if errors else semantic_errors(registry)
+    return errors if errors else semantic_errors(registry, root)
 
 
 def _load_json(path: Path):
@@ -367,7 +576,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  {problem}", file=sys.stderr)
         return 2
 
-    errors = registry_errors(registry, schema)
+    registry_root = Path(args.registry).resolve().parent.parent
+    errors = registry_errors(registry, schema, registry_root)
     if errors:
         print(f"{args.registry}: {len(errors)} validation error(s):", file=sys.stderr)
         for error in errors:

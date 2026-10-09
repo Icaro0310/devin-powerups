@@ -93,7 +93,9 @@ one, recorded as a D-record.
   package names, CLIs, stars and redirects preserved; the baseline
   series continues per repo via the old→new alias map.
 - **Result:** pending — recorded as phases complete (F0 tap cleanup:
-  done).
+  done; F2 registry v21: schema + entries carry ownership/job/
+  product_id/package/entrypoints/legacy, validator enforces the
+  product rules fail-closed).
 
 ## D-2026-10-08 — Product Boundary Reassessment (P6): measure families before merging
 

@@ -74,6 +74,12 @@ def write_registry(root: Path, repositories=None) -> Path:
                 "role": "foundation",
                 "nature": "infrastructure",
                 "description": "Synthetic hub entry.",
+                "ownership": "first_party",
+                "job": None,
+                "product_id": None,
+                "package": None,
+                "entrypoints": [],
+                "legacy": None,
             }
         ]
     path = root / "registry.json"

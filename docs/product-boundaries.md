@@ -61,8 +61,10 @@ with public-identity cost.
   secrets). It does not enter the family by inertia — the bar would be
   evidence that users run it inside the lifecycle flow rather than as
   its own gate.
-- **Distribution note:** `devin-janitor` is `source_only` — decide the
-  family before publishing it, avoiding a create-then-deprecate cycle.
+- **Distribution note:** `devin-janitor` was `source_only` when this was
+  written (published to PyPI 2026-10-09) — the original intent stands:
+  decide the family before creating package identities that get
+  deprecated.
 
 ### F1 — `devin-explore` (history + search + graph; pm/office probed)
 
@@ -85,9 +87,10 @@ graph   → how does it relate?
   *not* itself merge evidence. What remains is product-identity cost:
   three READMEs, three issue trackers, three releases for one job.
   This is a product-unity test, not an architecture argument.
-- **Distribution note:** `devin-graph` is `source_only` — merging before
-  publishing avoids creating a package identity that gets deprecated.
-  Correct order: decide family first, publish second.
+- **Distribution note:** `devin-graph` was `source_only` when this was
+  written (published to PyPI 2026-10-09). The package identity now
+  exists — under the D-2026-10-09 merge it is preserved as a workspace
+  package, so publication does not create deprecation risk.
 - **Probes (measurable before any merge):** devkit `explore` profile
   co-install rates; cross-repo issues/referrers; traffic correlation.
   Caveat: the profile measures *installation unity* only — users may
@@ -191,8 +194,10 @@ Structural blind spots, by design — read them correctly in December:
   PyPI reports per package, not per install event. The audit must
   decide on confusion + traversal + identity plausibility, not on
   co-install counts.
-- **`devin-graph` and `devin-janitor` are `source_only`** — they emit
-  no download signal at all. Zero is the design, not the evidence.
+- **`devin-graph` and `devin-janitor` were `source_only`** when written
+  (both published 2026-10-09) — until download series accumulate they
+  still emit no distinguishable signal. Zero was the design, not the
+  evidence.
 - Low-activity repos mean most series start at zero; first collected
   baseline already shows `devin-evals→qa-pack` cross-references (the
   boundary issue lives there). Direction and accumulation matter more
