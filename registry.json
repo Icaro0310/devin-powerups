@@ -569,7 +569,13 @@
       "is_control_plane": true,
       "official_overlap": "none",
       "overlap_note": null,
-      "description": "Public maintainer hub: registry, roadmap, project template, scaffolder, release checks, and community catalog generators."
+      "description": "Public maintainer hub: registry, roadmap, project template, scaffolder, release checks, and community catalog generators.",
+      "ownership": "first_party",
+      "job": null,
+      "product_id": null,
+      "package": null,
+      "entrypoints": [],
+      "legacy": null
     },
     {
       "name": "devin-devkit",
@@ -622,7 +628,19 @@
       "version": "0.1.0",
       "stack": "python",
       "local_dir": "devin-devkit",
-      "description": "Profile-based installer for the public Devin tools across Linux, Personal Windows and Corporate Windows; reads the registry manifest and installs isolated CLIs with uv, plus the Node bridge with npm."
+      "description": "Profile-based installer for the public Devin tools across Linux, Personal Windows and Corporate Windows; reads the registry manifest and installs isolated CLIs with uv, plus the Node bridge with npm.",
+      "ownership": "first_party",
+      "job": "build",
+      "product_id": "devin-devkit",
+      "package": {
+        "ecosystem": "pypi",
+        "name": "devin-devkit",
+        "path": "."
+      },
+      "entrypoints": [
+        "devin-devkit"
+      ],
+      "legacy": null
     },
     {
       "name": "devin-internals-spec",
@@ -679,7 +697,19 @@
       "tests": 52,
       "description": "Documented internals of Devin Desktop/CLI stores + schema-version detection + fixtures + devin-inspect CLI.",
       "tag": "v0.3.0",
-      "distribution_status": "published"
+      "distribution_status": "published",
+      "ownership": "foundation",
+      "job": null,
+      "product_id": null,
+      "package": {
+        "ecosystem": "pypi",
+        "name": "devin-internals-spec",
+        "path": "."
+      },
+      "entrypoints": [
+        "devin-inspect"
+      ],
+      "legacy": null
     },
     {
       "name": "devin-redact",
@@ -736,7 +766,19 @@
       "tests": 23,
       "tag": "v0.2.0",
       "description": "Secret/PII redaction that understands Devin tool-call semantics, in-place in SQLite, with a verification gate.",
-      "distribution_status": "published"
+      "distribution_status": "published",
+      "ownership": "first_party",
+      "job": "control",
+      "product_id": "devin-state",
+      "package": {
+        "ecosystem": "pypi",
+        "name": "devin-redact",
+        "path": "."
+      },
+      "entrypoints": [
+        "devin-redact"
+      ],
+      "legacy": null
     },
     {
       "name": "devin-history",
@@ -791,7 +833,19 @@
       "ci": "inline",
       "tests": 44,
       "description": "Export and audit Devin session history — markdown notes, JSON, CSV, Obsidian-ready.",
-      "distribution_status": "published"
+      "distribution_status": "published",
+      "ownership": "first_party",
+      "job": "understand",
+      "product_id": "devin-explore",
+      "package": {
+        "ecosystem": "pypi",
+        "name": "devin-history",
+        "path": "."
+      },
+      "entrypoints": [
+        "devin-history"
+      ],
+      "legacy": null
     },
     {
       "name": "devin-doctor",
@@ -846,7 +900,19 @@
       "ci": "inline",
       "tests": 53,
       "description": "Diagnose a Devin Desktop installation: stores, schema, locks, config, disk — with fix suggestions.",
-      "distribution_status": "published"
+      "distribution_status": "published",
+      "ownership": "first_party",
+      "job": "understand",
+      "product_id": "devin-explore",
+      "package": {
+        "ecosystem": "pypi",
+        "name": "devin-doctor",
+        "path": "."
+      },
+      "entrypoints": [
+        "devin-doctor"
+      ],
+      "legacy": null
     },
     {
       "name": "devin-pm",
@@ -902,7 +968,19 @@
       "ci": "inline",
       "tests": 53,
       "description": "Project manager over sessions: per-repo rollups, milestones, status reports, registry.json.",
-      "distribution_status": "published"
+      "distribution_status": "published",
+      "ownership": "first_party",
+      "job": "understand",
+      "product_id": "devin-explore",
+      "package": {
+        "ecosystem": "pypi",
+        "name": "devin-pm",
+        "path": "."
+      },
+      "entrypoints": [
+        "devin-pm"
+      ],
+      "legacy": null
     },
     {
       "name": "devin-qa-pack",
@@ -957,7 +1035,19 @@
       "ci": "inline",
       "tests": 45,
       "description": "Flagship QA audit: verifies session deliverable claims against tool-call ground truth and reports PASS/PARTIAL/UNVERIFIED.",
-      "distribution_status": "published"
+      "distribution_status": "published",
+      "ownership": "first_party",
+      "job": "verify",
+      "product_id": "devin-assure",
+      "package": {
+        "ecosystem": "pypi",
+        "name": "devin-qa-pack",
+        "path": "."
+      },
+      "entrypoints": [
+        "devin-qa-pack"
+      ],
+      "legacy": null
     },
     {
       "name": "devin-metrics",
@@ -1013,7 +1103,20 @@
       "ci": "inline",
       "tests": 70,
       "description": "Local-only session observability: activity, context size, and token peaks per project/model/day; zero telemetry. Devin does not persist cost fields, so cost is not claimed. Includes an optional dashboard subpackage and command.",
-      "distribution_status": "published"
+      "distribution_status": "published",
+      "ownership": "first_party",
+      "job": "verify",
+      "product_id": "devin-assure",
+      "package": {
+        "ecosystem": "pypi",
+        "name": "devin-metrics",
+        "path": "."
+      },
+      "entrypoints": [
+        "devin-dashboard",
+        "devin-metrics"
+      ],
+      "legacy": null
     },
     {
       "name": "devin-backup",
@@ -1068,7 +1171,19 @@
       "ci": "inline",
       "tests": 48,
       "description": "Safe snapshot/verify/restore/rotate of Devin stores with schema-version manifests.",
-      "distribution_status": "published"
+      "distribution_status": "published",
+      "ownership": "first_party",
+      "job": "control",
+      "product_id": "devin-state",
+      "package": {
+        "ecosystem": "pypi",
+        "name": "devin-backup",
+        "path": "."
+      },
+      "entrypoints": [
+        "devin-backup"
+      ],
+      "legacy": null
     },
     {
       "name": "devin-search",
@@ -1123,7 +1238,19 @@
       "ci": "inline",
       "tests": 35,
       "description": "FTS5 full-text search across all Devin sessions, role-tagged and project-filtered.",
-      "distribution_status": "published"
+      "distribution_status": "published",
+      "ownership": "first_party",
+      "job": "understand",
+      "product_id": "devin-explore",
+      "package": {
+        "ecosystem": "pypi",
+        "name": "devin-search",
+        "path": "."
+      },
+      "entrypoints": [
+        "devin-search"
+      ],
+      "legacy": null
     },
     {
       "name": "devin-graph",
@@ -1179,7 +1306,19 @@
       "ci": "inline",
       "tests": 57,
       "description": "Knowledge graph: sessions, projects, files touched, tools used — queryable edges.",
-      "distribution_status": "source_only"
+      "distribution_status": "source_only",
+      "ownership": "first_party",
+      "job": "understand",
+      "product_id": "devin-explore",
+      "package": {
+        "ecosystem": "pypi",
+        "name": "devin-graph",
+        "path": "."
+      },
+      "entrypoints": [
+        "devin-graph"
+      ],
+      "legacy": null
     },
     {
       "name": "devin-evals",
@@ -1235,7 +1374,19 @@
       "ci": "inline",
       "tests": 195,
       "description": "Deterministic eval harness: replay recorded sessions against rubric graders; the `dream` subgroup generates synthetic sessions with known verdicts (D01-D09, absorbs devin-dream).",
-      "distribution_status": "published"
+      "distribution_status": "published",
+      "ownership": "first_party",
+      "job": "verify",
+      "product_id": "devin-assure",
+      "package": {
+        "ecosystem": "pypi",
+        "name": "devin-evals",
+        "path": "."
+      },
+      "entrypoints": [
+        "devin-evals"
+      ],
+      "legacy": null
     },
     {
       "name": "devin-memory",
@@ -1293,7 +1444,21 @@
       "ci": "inline",
       "tests": 161,
       "description": "Anti-poisoning memory store: provenance, versioning, quarantine gate, and session-learning utilities.",
-      "distribution_status": "published"
+      "distribution_status": "published",
+      "ownership": "first_party",
+      "job": "build",
+      "product_id": "devin-brain",
+      "package": {
+        "ecosystem": "pypi",
+        "name": "devin-memory",
+        "path": "."
+      },
+      "entrypoints": [
+        "devin-learning",
+        "devin-memory",
+        "devin-memory-mcp"
+      ],
+      "legacy": null
     },
     {
       "name": "devin-janitor",
@@ -1349,7 +1514,19 @@
       "ci": "inline",
       "tests": 54,
       "description": "Session lifecycle janitor: export-then-delete pipeline, tiered classification, pluggable judge, pending-retry for locked stores.",
-      "distribution_status": "source_only"
+      "distribution_status": "source_only",
+      "ownership": "first_party",
+      "job": "control",
+      "product_id": "devin-state",
+      "package": {
+        "ecosystem": "pypi",
+        "name": "devin-janitor",
+        "path": "."
+      },
+      "entrypoints": [
+        "devin-janitor"
+      ],
+      "legacy": null
     },
     {
       "name": "devin-bridge",
@@ -1417,7 +1594,19 @@
       "ci": "inline",
       "tests": 55,
       "description": "Policy-gated ACP client (Node.js, CI matrix Node 22 + 24): isolated sessions per repo with allow/deny/ask permission policy.",
-      "distribution_status": "published"
+      "distribution_status": "published",
+      "ownership": "first_party",
+      "job": "control",
+      "product_id": "devin-control",
+      "package": {
+        "ecosystem": "npm",
+        "name": "@icaro0310/devin-bridge",
+        "path": "."
+      },
+      "entrypoints": [
+        "devin-bridge"
+      ],
+      "legacy": null
     },
     {
       "name": "devin-orchestrator",
@@ -1473,7 +1662,19 @@
       "tests": 29,
       "description": "Background-worker fan-out policy: deterministic planner enforcing worker caps (max 3), no nesting, read-only profiles for review, collect-before-report. Skill + always-on rule.",
       "note": "PyPI distribution is devin-fanout because devin-orchestrator is occupied; console command remains devin-orchestrator. Absorbed devin-subagent-orchestrator draft (never published).",
-      "distribution_status": "published"
+      "distribution_status": "published",
+      "ownership": "first_party",
+      "job": "control",
+      "product_id": "devin-control",
+      "package": {
+        "ecosystem": "pypi",
+        "name": "devin-fanout",
+        "path": "."
+      },
+      "entrypoints": [
+        "devin-orchestrator"
+      ],
+      "legacy": null
     },
     {
       "name": "personal-agent-system",
@@ -1499,7 +1700,13 @@
       "local_dir": "../personal-agent-system",
       "tests_dir": "scripts",
       "tests": 34,
-      "description": "Private maintainer runtime for personal workflows; excluded from public project reports (kind=system)."
+      "description": "Private maintainer runtime for personal workflows; excluded from public project reports (kind=system).",
+      "ownership": "related",
+      "job": null,
+      "product_id": null,
+      "package": null,
+      "entrypoints": [],
+      "legacy": null
     },
     {
       "name": "devin-dashboard",
@@ -1523,7 +1730,13 @@
       "maturity": "usable",
       "stack": "python",
       "session": "gui-dashboard",
-      "description": "Private environment-monitoring deployment for the maintainer; not a public user tool."
+      "description": "Private environment-monitoring deployment for the maintainer; not a public user tool.",
+      "ownership": "related",
+      "job": null,
+      "product_id": null,
+      "package": null,
+      "entrypoints": [],
+      "legacy": null
     },
     {
       "name": "devin-office",
@@ -1578,7 +1791,13 @@
       "description": "Local-first Devin session and subagent dashboard with standalone and optional split modes.",
       "version": "0.1.0",
       "tag": "v0.1.0",
-      "distribution_status": "source_only"
+      "distribution_status": "source_only",
+      "ownership": "first_party",
+      "job": "control",
+      "product_id": "devin-control",
+      "package": null,
+      "entrypoints": [],
+      "legacy": null
     },
     {
       "name": "qwenpaw-suite",
@@ -1633,7 +1852,13 @@
       "stack": "python",
       "local_dir": "../qwenpaw-suite",
       "description": "Optional QwenPaw add-on for self-hosted model operators. Includes the local-model bridge, health checks, and GitHub/local documentation sync.",
-      "distribution_status": "source_only"
+      "distribution_status": "source_only",
+      "ownership": "external",
+      "job": null,
+      "product_id": null,
+      "package": null,
+      "entrypoints": [],
+      "legacy": null
     },
     {
       "name": "poordjaevin",
@@ -1690,7 +1915,19 @@
       "description": "Djævin: calibrated local-first decision layer with typed questions and honest confidence. The Devin ACP backend reuses the model your Devin CLI already runs (no extra download, no API key); the local NLI backend stays as a fully-offline fallback.",
       "version": "0.1.1",
       "tag": "v0.1.0",
-      "distribution_status": "published"
+      "distribution_status": "published",
+      "ownership": "first_party",
+      "job": "verify",
+      "product_id": "devin-judge",
+      "package": {
+        "ecosystem": "pypi",
+        "name": "poordjaevin",
+        "path": "."
+      },
+      "entrypoints": [
+        "poordjaevin"
+      ],
+      "legacy": null
     },
     {
       "name": "awesome-devin",
@@ -1715,7 +1952,13 @@
       "maturity": "usable",
       "official_overlap": "none",
       "overlap_note": null,
-      "description": "Curated awesome-list of Devin tooling and resources (CC0)."
+      "description": "Curated awesome-list of Devin tooling and resources (CC0).",
+      "ownership": "external",
+      "job": null,
+      "product_id": null,
+      "package": null,
+      "entrypoints": [],
+      "legacy": null
     },
     {
       "name": "devin-switch",
@@ -1769,7 +2012,19 @@
       "ci": "inline",
       "tests": 70,
       "description": "Switch between Devin configuration profiles (hooks, MCP, models) with snapshot, sha256 verify, atomic write, journal and rollback. Dry-run by default; secrets never printed.",
-      "distribution_status": "source_only"
+      "distribution_status": "source_only",
+      "ownership": "first_party",
+      "job": "control",
+      "product_id": "devin-control",
+      "package": {
+        "ecosystem": "pypi",
+        "name": "devin-switch",
+        "path": "."
+      },
+      "entrypoints": [
+        "devin-switch"
+      ],
+      "legacy": null
     },
     {
       "name": "devin-skill-catalog",
@@ -1824,7 +2079,19 @@
       "ci": "inline",
       "tests": 68,
       "description": "Lifecycle + quality gates for .devin skills/rules: scan, lint, diff, G1/G2 gates, quarantined→approved→active lifecycle, sha256-verified export/import bundles (imports land quarantined).",
-      "distribution_status": "source_only"
+      "distribution_status": "source_only",
+      "ownership": "first_party",
+      "job": "build",
+      "product_id": "devin-devkit",
+      "package": {
+        "ecosystem": "pypi",
+        "name": "devin-skill-catalog",
+        "path": "."
+      },
+      "entrypoints": [
+        "devin-skill-catalog"
+      ],
+      "legacy": null
     },
     {
       "name": "devin-learning",
@@ -1842,7 +2109,13 @@
       "status": "delivered",
       "public": false,
       "maturity": "usable",
-      "description": "Learning-loop runtime (SessionEnd hooks → .devin/skills/learned-*, hook-fires.jsonl). Absorbed into devin-powerups — never had its own repo; entry exists so devin-pm verify reconciles session history."
+      "description": "Learning-loop runtime (SessionEnd hooks → .devin/skills/learned-*, hook-fires.jsonl). Absorbed into devin-powerups — never had its own repo; entry exists so devin-pm verify reconciles session history.",
+      "ownership": "related",
+      "job": null,
+      "product_id": null,
+      "package": null,
+      "entrypoints": [],
+      "legacy": null
     }
   ],
   "journeys": {
