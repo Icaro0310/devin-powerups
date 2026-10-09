@@ -844,7 +844,8 @@
       "package": {
         "ecosystem": "pypi",
         "name": "devin-history",
-        "path": "packages/history"
+        "path": "packages/history",
+        "depends_on": ["devin-internals-spec"]
       },
       "local_dir": "devin-explore",
       "entrypoints": [
@@ -913,7 +914,8 @@
       "package": {
         "ecosystem": "pypi",
         "name": "devin-doctor",
-        "path": "packages/doctor"
+        "path": "packages/doctor",
+        "depends_on": ["devin-internals-spec"]
       },
       "entrypoints": [
         "devin-doctor"
@@ -986,7 +988,8 @@
       "package": {
         "ecosystem": "pypi",
         "name": "devin-pm",
-        "path": "packages/pm"
+        "path": "packages/pm",
+        "depends_on": ["devin-internals-spec"]
       },
       "local_dir": "devin-explore",
       "entrypoints": [
@@ -1055,7 +1058,8 @@
       "package": {
         "ecosystem": "pypi",
         "name": "devin-qa-pack",
-        "path": "packages/qa-pack"
+        "path": "packages/qa-pack",
+        "depends_on": ["devin-internals-spec"]
       },
       "entrypoints": [
         "devin-qa-pack"
@@ -1128,7 +1132,8 @@
       "package": {
         "ecosystem": "pypi",
         "name": "devin-metrics",
-        "path": "packages/metrics"
+        "path": "packages/metrics",
+        "depends_on": ["devin-internals-spec"]
       },
       "entrypoints": [
         "devin-dashboard",
@@ -1198,7 +1203,8 @@
       "package": {
         "ecosystem": "pypi",
         "name": "devin-backup",
-        "path": "packages/backup"
+        "path": "packages/backup",
+        "depends_on": ["devin-internals-spec"]
       },
       "entrypoints": [
         "devin-backup"
@@ -1267,7 +1273,8 @@
       "package": {
         "ecosystem": "pypi",
         "name": "devin-search",
-        "path": "packages/search"
+        "path": "packages/search",
+        "depends_on": ["devin-internals-spec"]
       },
       "local_dir": "devin-explore",
       "entrypoints": [
@@ -1337,7 +1344,8 @@
       "package": {
         "ecosystem": "pypi",
         "name": "devin-graph",
-        "path": "packages/graph"
+        "path": "packages/graph",
+        "depends_on": ["devin-internals-spec"]
       },
       "local_dir": "devin-explore",
       "entrypoints": [
@@ -1407,7 +1415,8 @@
       "package": {
         "ecosystem": "pypi",
         "name": "devin-evals",
-        "path": "packages/evals"
+        "path": "packages/evals",
+        "depends_on": ["devin-internals-spec"]
       },
       "entrypoints": [
         "devin-evals"
@@ -1479,7 +1488,8 @@
       "package": {
         "ecosystem": "pypi",
         "name": "devin-memory",
-        "path": "."
+        "path": ".",
+        "depends_on": ["devin-internals-spec"]
       },
       "entrypoints": [
         "devin-learning",
@@ -1553,7 +1563,8 @@
       "package": {
         "ecosystem": "pypi",
         "name": "devin-janitor",
-        "path": "packages/janitor"
+        "path": "packages/janitor",
+        "depends_on": ["devin-internals-spec"]
       },
       "entrypoints": [
         "devin-janitor"

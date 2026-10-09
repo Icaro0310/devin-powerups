@@ -214,3 +214,32 @@ class TestMain(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RenderWhereTests(unittest.TestCase):
+    def test_holder_lists_members_job_and_foundation(self):
+        reg = json.loads((Path(__file__).resolve().parent.parent / "registry.json").read_text())
+        repo = next(r for r in reg["repositories"] if r["name"] == "devin-explore")
+        out = rs.render_where(repo, reg)
+        self.assertIn("**Job:** Understand", out)
+        self.assertIn("`doctor`", out)
+        self.assertIn("`history`", out)
+        self.assertIn("devin-internals-spec", out)
+        self.assertIn("read-only", out)
+
+    def test_non_foundation_holder_omits_foundation_line(self):
+        reg = json.loads((Path(__file__).resolve().parent.parent / "registry.json").read_text())
+        repo = next(r for r in reg["repositories"] if r["name"] == "devin-control")
+        out = rs.render_where(repo, reg)
+        self.assertNotIn("Foundation", out)
+        self.assertIn("`office`", out)
+        self.assertIn("`bridge`", out)
+
+    def test_cli_where_rejects_non_holder(self):
+        import tempfile
+        with tempfile.NamedTemporaryFile(
+            "w", suffix=".json", delete=False
+        ) as f:
+            json.dump(REGISTRY, f)
+        rc = rs.main(["where", "devin-history", "--registry", f.name])
+        self.assertEqual(rc, 2)

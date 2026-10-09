@@ -1,0 +1,189 @@
+#!/usr/bin/env python3
+"""Render the llms.txt catalog blocks from registry.json.
+
+The site ships two LLM-facing files whose catalog sections are derivable
+from the registry: ``llms.txt`` (index) and ``llms-full.txt`` (full
+reference). Hand-written narrative (author, problem statement, key facts,
+positioning) stays outside the ``<!-- LLMS:BEGIN/END -->`` markers;
+everything between them is generated here so it cannot drift.
+
+Usage:
+    python3 tools/render_llms.py index  [--out FILE | --patch FILE | --check FILE]
+    python3 tools/render_llms.py full   [--out FILE | --patch FILE | --check FILE]
+"""
+
+from __future__ import annotations
+
+import argparse
+import re
+import sys
+from pathlib import Path
+
+HUB = Path(__file__).resolve().parent.parent
+REGISTRY = HUB / "registry.json"
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from render_surfaces import (  # noqa: E402
+    AUDIENCE_LABELS,
+    TRACK_META,
+    public_entries,
+)
+
+BEGIN = "<!-- LLMS:BEGIN"
+END = "<!-- LLMS:END -->"
+
+CATEGORY_LABELS = {
+    "foundation": "Foundation",
+    "qa": "QA and evaluation",
+    "evaluation": "Evaluation",
+    "operations": "History and operations",
+    "security": "Safety and governance",
+    "memory": "Memory and recall",
+    "governance": "Governance",
+}
+
+
+def _by_name(registry: dict) -> dict[str, dict]:
+    return {r["name"]: r for r in public_entries(registry)}
+
+
+def _journeys_compact(registry: dict) -> list[str]:
+    journeys = registry.get("journeys") or {}
+    return [
+        f"- {AUDIENCE_LABELS.get(a, a)}: "
+        + " → ".join(s["repo"] for s in journeys[a])
+        for a in sorted(journeys, key=lambda a: AUDIENCE_LABELS.get(a, a))
+    ]
+
+
+def _distribution(registry: dict, names: dict[str, dict]) -> list[str]:
+    lines = ["## Distribution", ""]
+    for r in public_entries(registry):
+        if r.get("artifact") == "distribution":
+            lines.append(f"- {r['name']}: {r['description']} {r['url']}")
+    return lines
+
+
+def _hub(registry: dict) -> list[str]:
+    lines = ["## Maintainer hub", ""]
+    for r in public_entries(registry):
+        if r.get("artifact") == "infrastructure":
+            lines.append(f"- {r['name']}: {r['description']}")
+    return lines
+
+
+def _related(registry: dict) -> list[str]:
+    names = _by_name(registry)
+    grouped = set(registry.get("devkit", {}).get("tools", {}))
+    lines = ["## Related artifacts", ""]
+    for r in public_entries(registry):
+        if r["name"] not in grouped and r.get("artifact") not in (
+            "distribution",
+            "infrastructure",
+        ):
+            lines.append(f"- {r['name']}: {r['description']}")
+    return lines
+
+
+def render_index(registry: dict) -> str:
+    names = _by_name(registry)
+    lines = ["## What do you want to do?", ""]
+    by_track: dict[str, list[str]] = {}
+    for r in public_entries(registry):
+        if r.get("track"):
+            by_track.setdefault(r["track"], []).append(r["name"])
+    for track in sorted(by_track, key=lambda t: TRACK_META.get(t, (90, "", ""))[0]):
+        _, verb, promise = TRACK_META.get(track, (90, track.title(), ""))
+        suffix = f" ({promise})" if promise else ""
+        lines.append(f"- {verb}{suffix}: {', '.join(sorted(by_track[track]))}")
+    lines += ["", "## Paths by audience (curated, ordered)", ""]
+    lines += _journeys_compact(registry)
+    lines += ["", "## Full catalog — first-party tools", ""]
+    cats: dict[str, list[str]] = {}
+    for name, tool in registry.get("devkit", {}).get("tools", {}).items():
+        if name in names:
+            cats.setdefault(tool.get("category", "other"), []).append(name)
+    for cat in sorted(cats, key=lambda c: CATEGORY_LABELS.get(c, c)):
+        lines.append(f"- {CATEGORY_LABELS.get(cat, cat)}: {', '.join(sorted(cats[cat]))}")
+    lines += [""] + _distribution(registry, names) + [""] + _hub(registry)
+    lines += [""] + _related(registry)
+    return "\n".join(lines).rstrip()
+
+
+def render_full(registry: dict) -> str:
+    names = _by_name(registry)
+    lines = ["## Tool-by-tool", ""]
+    for name in sorted(registry.get("devkit", {}).get("tools", {})):
+        if name in names:
+            r = names[name]
+            role = r.get("role") or r.get("kind", "tool")
+            lines.append(f"- {name}: {r['description']} ({role})")
+    lines += ["", "## Execution environments", ""]
+    for env in (registry.get("environments") or {}).values():
+        lines.append(
+            f"- {env['label']}: {env['runtime']} runtime — {env['description']}"
+        )
+    lines += [""] + _distribution(registry, names) + [""] + _hub(registry)
+    lines += ["", "## Paths by audience (curated, ordered; source: registry.journeys)", ""]
+    lines += _journeys_compact(registry)
+    lines += [""] + _related(registry)
+    return "\n".join(lines).rstrip()
+
+
+def _block(kind: str, body: str) -> str:
+    return (
+        f"{BEGIN} — generated by devin-powerups/tools/render_llms.py {kind} -->\n"
+        f"{body}\n{END}"
+    )
+
+
+def _patch(path: Path, kind: str, body: str, check: bool) -> int:
+    text = path.read_text()
+    pat = re.escape(BEGIN) + r"[^\n]*\n.*?" + re.escape(END)
+    m = re.search(pat, text, re.S)
+    if not m:
+        print(f"error: no LLMS markers in {path}", file=sys.stderr)
+        return 2
+    new = text[: m.start()] + _block(kind, body) + text[m.end() :]
+    if check:
+        if new == text:
+            print(f"ok: {path} matches registry.json")
+            return 0
+        print(f"error: {path} llms block drifts from registry", file=sys.stderr)
+        return 1
+    if new != text:
+        path.write_text(new)
+        print(f"updated: {path}")
+    else:
+        print(f"ok: {path} already in sync")
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("kind", choices=["index", "full"])
+    ap.add_argument("--registry", default=str(REGISTRY))
+    ap.add_argument("--out")
+    ap.add_argument("--patch")
+    ap.add_argument("--check")
+    args = ap.parse_args(argv)
+
+    import json
+
+    registry = json.loads(Path(args.registry).read_text())
+    body = render_index(registry) if args.kind == "index" else render_full(registry)
+    if args.patch:
+        return _patch(Path(args.patch), args.kind, body, check=False)
+    if args.check:
+        return _patch(Path(args.check), args.kind, body, check=True)
+    out = _block(args.kind, body)
+    if args.out:
+        Path(args.out).write_text(out + "\n")
+        print(f"wrote {args.out}")
+    else:
+        print(out)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

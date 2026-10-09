@@ -236,6 +236,61 @@ def render_tool_block(repo: dict, registry: dict | None = None) -> str:
     )
 
 
+JOB_LABELS = {
+    "understand": "Understand",
+    "verify": "Verify",
+    "control": "Control",
+    "build": "Build",
+}
+
+
+def _package_label(repo: dict) -> str:
+    pkg = repo.get("package") or {}
+    path = (pkg.get("path") or "").rstrip("/")
+    if path and path != ".":
+        return path.split("/")[-1]
+    return pkg.get("name") or repo["name"].removeprefix("devin-")
+
+
+def render_where(repo: dict, registry: dict) -> str:
+    """'Where this fits' section for product-holder READMEs — the product
+    boundary, member packages and governance pointers, all from the
+    registry. Rendered only for entries that hold a product_id."""
+    members = [
+        r for r in registry["repositories"]
+        if r.get("product_id") == repo["name"]
+    ]
+    members.sort(
+        key=lambda r: (r["name"] != repo["name"], _package_label(r))
+    )
+    packages = " · ".join(f"`{_package_label(r)}`" for r in members) or "—"
+    mode = {"read": "read-only", "write": "write",
+            "mixed": "mixed"}.get(repo.get("mode"), "—")
+    job = JOB_LABELS.get(repo.get("job") or "", (repo.get("job") or "—").title())
+    lines = [
+        "## Where this fits",
+        "",
+        f"- **Job:** {job}",
+        f"- **Product:** [`{repo['name']}`]({repo['url']})",
+        f"- **Packages:** {packages}",
+        f"- **Mode:** {mode}",
+    ]
+    if any(
+        "devin-internals-spec" in (r.get("package") or {}).get("depends_on", [])
+        for r in members
+    ):
+        lines.append(
+            "- **Foundation:** [`devin-internals-spec`]"
+            "(https://github.com/Icaro0310/devin-internals-spec)"
+        )
+    lines.append(
+        "- **Ecosystem:** [`awesome-devin`]"
+        "(https://github.com/Icaro0310/awesome-devin) · registry: "
+        "[`devin-powerups`](https://github.com/Icaro0310/devin-powerups)"
+    )
+    return "\n".join(lines)
+
+
 def counts(registry: dict) -> dict:
     pub = public_entries(registry)
     return {
@@ -259,9 +314,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "surface",
         choices=["intent", "audience", "interface", "block", "counts", "paths",
-                 "paths-compact", "paths-html"],
+                 "paths-compact", "paths-html", "where"],
     )
-    ap.add_argument("name", nargs="?", help="repo name for surface=block")
+    ap.add_argument("name", nargs="?", help="repo name for surface=block|where")
     ap.add_argument("--registry", type=Path, default=REGISTRY)
     ap.add_argument("--json", action="store_true", help="machine output")
     args = ap.parse_args(argv)
@@ -282,9 +337,10 @@ def main(argv: list[str] | None = None) -> int:
               file=sys.stderr)
         return 2
 
-    if args.surface == "block":
+    if args.surface in ("block", "where"):
         if not args.name:
-            print("error: surface=block needs a repo name", file=sys.stderr)
+            print(f"error: surface={args.surface} needs a repo name",
+                  file=sys.stderr)
             return 2
         repo = next(
             (r for r in public_entries(registry) if r["name"] == args.name),
@@ -293,7 +349,17 @@ def main(argv: list[str] | None = None) -> int:
         if repo is None:
             print(f"error: unknown repo {args.name}", file=sys.stderr)
             return 2
-        print(render_tool_block(repo, registry))
+        if args.surface == "where" and not any(
+            r.get("product_id") == repo["name"]
+            for r in registry["repositories"]
+        ):
+            print(f"error: {args.name} holds no product", file=sys.stderr)
+            return 2
+        print(
+            render_tool_block(repo, registry)
+            if args.surface == "block"
+            else render_where(repo, registry)
+        )
         return 0
 
     if args.surface == "intent":
