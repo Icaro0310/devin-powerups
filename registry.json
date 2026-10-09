@@ -904,7 +904,7 @@
       "stack": "python",
       "ci": "inline",
       "tests": 53,
-      "description": "Diagnose a Devin Desktop installation: stores, schema, locks, config, disk — with fix suggestions.",
+      "description": "Understand Devin sessions: diagnose the local installation (stores, schema, locks, config, disk — with fix suggestions), export and audit session history, run FTS5 full-text search, query a knowledge graph of sessions/projects/files/tools, and roll sessions into per-repo milestones and status reports. All local, no telemetry.",
       "distribution_status": "published",
       "ownership": "first_party",
       "job": "understand",
