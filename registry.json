@@ -986,7 +986,8 @@
       "entrypoints": [
         "devin-pm"
       ],
-      "legacy": null
+      "legacy": null,
+      "note": "track=related is the deliberate pre-absorption state (P0 measurement window); moves to track=observe when devin-pm is absorbed into devin-explore in F4.3."
     },
     {
       "name": "devin-assure",

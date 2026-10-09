@@ -15,6 +15,7 @@ repo (all prefixed `[V4]`); this file is the index.
 | P6 product-boundary probes → 2026-12-03 audit (F3 backup+janitor / F1 explore / F2 assure; signals preregistered in `docs/product-boundaries.md`) | high | docs + D-record (#49, #50) |
 | Meta-issue for PyPI publication backlog | optional | not created; registry `distribution_status` is the tracker |
 | Align generated-guide install format (tarball URL) with the `git+https` banner format | low | not filed; flagged in P2.x |
+| Generate `llms.txt` / `llms-full.txt` from the registry (`render_llms.py`, `LLMS:BEGIN/END` markers, `registry-drift` check) — post-F4.5, once registry v21 is stable | medium | not filed; flagged after the devin-office job↔track drift (#72) |
 
 ## Gated until the window ends (2026-12-03)
 
