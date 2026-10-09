@@ -6,7 +6,8 @@ name: pr-approve
 # also covers forks. Reusable: other repos call this with `uses:`; the
 # github event context carries the caller's pull_request payload.
 #
-# Trusted authors are the owner's own PRs plus dependabot. An approval
+# Trusted authors are the owner's own PRs, dependabot, and workflows
+# (open-pr-bot opens PRs as github-actions[bot]; dispatch needs write access). An approval
 # is a gate signal only — required status checks still gate the merge.
 
 on:
@@ -22,7 +23,7 @@ jobs:
   approve:
     runs-on: ubuntu-latest
     if: >-
-      contains(fromJSON('["Icaro0310","dependabot[bot]"]'),
+      contains(fromJSON('["Icaro0310","dependabot[bot]","github-actions[bot]"]'),
       github.event.pull_request.user.login)
     steps:
       - name: Approve PR
