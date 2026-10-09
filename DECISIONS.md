@@ -359,3 +359,17 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   without copying it; scheduler bugs get fixed once.
 - **Result:** pending — package not yet published; Trusted Publisher to
   create when it is.
+
+## D-2026-11-14 — devin-brain stays in Control, not Build
+
+- **Question:** P6 surfaced an ambiguity — one consolidated report grouped
+  `devin-brain` visually under a different job; confirm against the
+  registry before changing surfaces.
+- **Decision:** keep `job: control` / `track: guard` / `nature: product`.
+- **Reason:** `devin-brain` (package `devin-memory`) is a memory/context
+  service that constrains what the agent can recall and exposes MCP tools;
+  in the four-job model it governs execution state, which is Control.
+  Build is reserved for tooling that creates or ships ecosystem artifacts
+  (devkit, skill-catalog, powerups generators).
+- **Verified:** `registry.json` entry — `job: control`, `track: guard`,
+  `product_id: devin-brain`; no change required, only confirmation.
