@@ -264,6 +264,7 @@ def structure(registry: dict) -> dict:
 # continuous across GitHub renames (redirects keep the old URL live).
 RENAMES = {
     "devin-brain": "devin-memory",
+    "devin-judge": "poordjaevin",
 }
 
 

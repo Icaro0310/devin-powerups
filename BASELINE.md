@@ -56,6 +56,7 @@ carries the same map (`RENAMES`).
 | new name | former name | renamed |
 |---|---|---|
 | `devin-brain` | `devin-memory` | 2026-10-09 |
+| `devin-judge` | `poordjaevin` | 2026-10-09 |
 
 ## Working rules during the window
 

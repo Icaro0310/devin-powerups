@@ -113,7 +113,7 @@ graph   → how does it relate?
 - **Cost-benefit:** precisely because the merge is technically cheap,
   the dominant question becomes whether collapsing two public
   identities pays for itself — the burden of proof is on the merge.
-- **poordjaevin stays out** — it is a decision/confidence layer with an
+- **devin-judge (package `poordjaevin`) stays out** — it is a decision/confidence layer with an
   audience beyond assurance (MCP server, ACP backend). Integrates, does
   not merge.
 
@@ -146,7 +146,7 @@ decision, not an omission.
 | `devin-bridge` + `devin-orchestrator` | merge explicitly disallowed — different runtime contracts |
 | `devin-powerups` / `devin-internals-spec` / `awesome-devin` | control plane / foundation / navigation — structural layers, not products |
 | `devin-devkit` | distribution, not a product (`homebrew-tap`/`scoop-bucket` deleted 2026-10-08 — orphaned, manual coverage 2/14, no external demand) |
-| `poordjaevin` / `qwenpaw-suite` | adjacent projects with their own identities |
+| `devin-judge` / `qwenpaw-suite` | adjacent projects with their own identities |
 | `personal-agent-system` / `devin-dashboard` / `devin-learning` | private/system entries, not public product surface |
 
 Numbers are canonical and drift-checked: **19 products**

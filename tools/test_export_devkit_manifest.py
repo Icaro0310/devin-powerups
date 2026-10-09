@@ -27,10 +27,10 @@ def test_manifest_is_repeatable_and_counts_tools_separately_from_hub():
 
     assert first == second
     assert first["catalog"] == {
-        "tool_count": 18,
+        "tool_count": 19,
         "distribution_count": 1,
         "hub_count": 1,
-        "related_count": 3,
+        "related_count": 2,
         "entry_count": 23,
     }
     assert len(first["tools"]) == 19
@@ -46,7 +46,7 @@ def test_manifest_does_not_include_private_or_non_tool_repositories():
     assert "devin-powerups" not in ids
     assert "awesome-devin" not in ids
     assert "qwenpaw-suite" not in ids
-    assert "poordjaevin" in ids
+    assert "devin-judge" in ids
     descriptions = " ".join(tool["description"] for tool in manifest["tools"])
     assert "personal-agent-system" not in descriptions
     assert "devin-dashboard" not in descriptions
@@ -114,7 +114,7 @@ def test_manifest_carries_artifact_interfaces_audiences_and_platforms():
     assert tools["devin-qa-pack"]["platforms"] == ["windows", "linux"]
     assert tools["devin-qa-pack"]["environments"]["corporate_windows"]["runtime"] == "local-only"
     assert tools["devin-bridge"]["environments"]["corporate_windows"]["delegation"] == "forbidden"
-    assert tools["poordjaevin"]["artifact"] == "tool"
+    assert tools["devin-judge"]["artifact"] == "tool"
 
 
 def test_unknown_profile_tool_is_rejected():
