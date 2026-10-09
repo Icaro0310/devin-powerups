@@ -27,14 +27,36 @@ REGISTRY = HUB / "registry.json"
 
 BEGIN = "<!-- DEVIN-ECO:BEGIN -->"
 END = "<!-- DEVIN-ECO:END -->"
+WHERE_BEGIN = "<!-- DEVIN-WHERE:BEGIN -->"
+WHERE_END = "<!-- DEVIN-WHERE:END -->"
 
-def render_block(name: str, registry: Path) -> str:
+
+def render_block(name: str, registry: Path, surface: str = "block") -> str:
     out = subprocess.run(
         [sys.executable, str(HUB / "tools" / "render_surfaces.py"),
-         "block", name, "--registry", str(registry.resolve())],
+         surface, name, "--registry", str(registry.resolve())],
         capture_output=True, text=True, check=True,
     ).stdout.strip()
-    return f"{BEGIN}\n{out}\n{END}"
+    begin, end = (BEGIN, END) if surface == "block" else (WHERE_BEGIN, WHERE_END)
+    return f"{begin}\n{out}\n{end}"
+
+
+def update_where(path: Path, block: str) -> bool:
+    """Splice the 'Where this fits' section right after the ECO block."""
+    text = path.read_text(encoding="utf-8")
+    block = block + "\n"
+    if WHERE_BEGIN in text and WHERE_END in text:
+        new = re.sub(
+            re.escape(WHERE_BEGIN) + r".*?" + re.escape(WHERE_END) + r"\n?",
+            block, text, count=1, flags=re.DOTALL,
+        )
+    else:
+        anchor = text.index(END) + len(END)
+        new = text[:anchor] + "\n\n" + block + "\n" + text[anchor:].lstrip("\n")
+    if new == text:
+        return False
+    path.write_text(new, encoding="utf-8")
+    return True
 
 
 def find_insert(lines: list[str]) -> int:
@@ -83,15 +105,29 @@ def main() -> int:
                     help="limit to these repo names (repeatable)")
     ap.add_argument("--check", action="store_true",
                     help="report drift without writing")
+    ap.add_argument("--where", action="store_true",
+                    help="update the 'Where this fits' product section "
+                         "instead of the ecosystem banner (holders only)")
     ap.add_argument("--registry", type=Path, default=REGISTRY)
     args = ap.parse_args()
 
     registry = json.loads(args.registry.read_text(encoding="utf-8"))
-    entries = [
-        r for r in registry["repositories"]
-        if r.get("artifact") == "tool" and r.get("visibility") == "public"
-        and r.get("public") is not False
-    ]
+    if args.where:
+        holders = {
+            r["product_id"] for r in registry["repositories"]
+            if r.get("product_id")
+        }
+        entries = [
+            r for r in registry["repositories"]
+            if r["name"] in holders and r.get("visibility") == "public"
+            and r.get("public") is not False
+        ]
+    else:
+        entries = [
+            r for r in registry["repositories"]
+            if r.get("artifact") == "tool" and r.get("visibility") == "public"
+            and r.get("public") is not False
+        ]
     if args.repo:
         wanted = set(args.repo)
         entries = [e for e in entries if e["name"] in wanted]
@@ -121,12 +157,14 @@ def main() -> int:
         if not readme.is_file():
             missing.append(e["name"])
             continue
-        block = render_block(e["name"], args.registry)
+        block = render_block(
+            e["name"], args.registry, "where" if args.where else "block"
+        )
         if args.check:
             if block not in readme.read_text(encoding="utf-8"):
                 changed.append(e["name"])
             continue
-        if update_readme(readme, block):
+        if (update_where if args.where else update_readme)(readme, block):
             changed.append(e["name"])
 
     for name in changed:
