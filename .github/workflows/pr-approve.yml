@@ -1,19 +1,34 @@
 name: pr-approve
 
-# Approves pull requests from trusted automation authors so repos with
-# a required-approving-review branch rule can merge without an admin
-# bypass. Runs on pull_request_target (never checks out PR code), so it
-# also covers forks. Reusable: other repos call this with `uses:`; the
-# github event context carries the caller's pull_request payload.
+# Approves pull requests from trusted automation authors, but only after
+# Devin Review (devin-ai-integration[bot]) has submitted a review on the
+# current head commit with no blocking findings (kind: bug or security).
+# Chain: open-pr-bot -> Devin Review -> fixes -> approve -> merge.
+#
+# Runs on pull_request_target (never checks out PR code), so it also covers
+# forks. Reusable: other repos call this with `uses:`; the github event
+# context carries the caller's pull_request payload.
 #
 # Trusted authors are the owner's own PRs, dependabot, and workflows
-# (open-pr-bot opens PRs as github-actions[bot]; dispatch needs write access). An approval
-# is a gate signal only — required status checks still gate the merge.
+# (open-pr-bot opens PRs as github-actions[bot]; dispatch needs write
+# access). The approval is a gate signal only — required status checks
+# still gate the merge, and a held approval blocks it. Every synchronize
+# re-runs this job and waits for a fresh review on the new head.
+#
+# Fail-closed: if Devin Review never reports on this head (app missing,
+# disabled or slow), the run ends without approval instead of approving
+# unreviewed code — merge then needs a manual review.
 
 on:
   pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_call:
+    inputs:
+      wait_minutes:
+        description: "Max minutes to wait for the Devin Review on the head commit."
+        required: false
+        type: number
+        default: 12
 
 permissions:
   contents: read
@@ -26,8 +41,68 @@ jobs:
       contains(fromJSON('["Icaro0310","dependabot[bot]","github-actions[bot]"]'),
       github.event.pull_request.user.login)
     steps:
+      - name: Wait for the Devin Review on this head commit
+        id: review
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          WAIT_MINUTES: ${{ inputs.wait_minutes || 12 }}
+        run: |
+          set -euo pipefail
+          deadline=$(( $(date +%s) + WAIT_MINUTES * 60 ))
+          state=""
+          while [ "$(date +%s)" -lt "$deadline" ]; do
+            state=$(gh api "repos/$REPO/pulls/$PR_NUMBER/reviews?per_page=100" \
+              | jq -r --arg sha "$HEAD_SHA" \
+                '[.[] | select(.user.login == "devin-ai-integration[bot]" and .commit_id == $sha)] | last | .state // empty')
+            [ -n "$state" ] && break
+            sleep 30
+          done
+          if [ -z "$state" ]; then
+            echo "::warning::devin-ai-integration[bot] did not review $HEAD_SHA within ${WAIT_MINUTES}m; approval skipped (fail-closed)."
+            echo "verdict=no-review" >> "$GITHUB_OUTPUT"
+          else
+            echo "verdict=$state" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Count blocking findings on this head commit
+        id: findings
+        if: steps.review.outputs.verdict == 'COMMENTED'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          blocking=$(gh api "repos/$REPO/pulls/$PR_NUMBER/comments?per_page=100" --paginate \
+            | jq -s --arg sha "$HEAD_SHA" '
+                [ add[] | select(
+                    .user.login == "devin-ai-integration[bot]"
+                    and (.commit_id == $sha or .original_commit_id == $sha)
+                    and (.body | test("\"kind\": \"(bug|security)\""))
+                ) ] | length')
+          echo "blocking findings on $HEAD_SHA: $blocking"
+          echo "blocking=$blocking" >> "$GITHUB_OUTPUT"
+
       - name: Approve PR
+        if: >-
+          steps.review.outputs.verdict == 'APPROVED' ||
+          (steps.review.outputs.verdict == 'COMMENTED' && steps.findings.outputs.blocking == '0')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: gh pr review --approve "$PR_URL"
+
+      - name: Hold approval until findings are fixed
+        if: >-
+          steps.review.outputs.verdict == 'CHANGES_REQUESTED' ||
+          (steps.review.outputs.verdict == 'COMMENTED' && steps.findings.outputs.blocking != '0')
+        env:
+          VERDICT: ${{ steps.review.outputs.verdict }}
+          BLOCKING: ${{ steps.findings.outputs.blocking }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          echo "::warning::Auto-approve held on $HEAD_SHA: Devin Review verdict '$VERDICT'${BLOCKING:+ with $BLOCKING blocking finding(s)}. Fix the findings and push — this job re-runs on every synchronize."
