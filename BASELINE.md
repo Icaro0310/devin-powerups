@@ -61,6 +61,34 @@ carries the same map (`RENAMES`).
 | `devin-assure` | `devin-qa-pack` | 2026-10-09 |
 | `devin-explore` | `devin-doctor` | 2026-10-09 |
 
+## Repository map (F4 consolidations)
+
+Old repositories were absorbed into product monorepos. Registry entries
+keep the package name and point `url`/`local_dir` at the holder, so
+series continue under the holder's traffic (same convention as renames —
+the absorbed name shares the holder's clone/view counts from the merge
+day onward).
+
+| former repo | holder monorepo | package dir | status |
+|---|---|---|---|
+| `devin-backup` | `devin-state` | `packages/backup` | archived (F4.1) |
+| `devin-janitor` | `devin-state` | `packages/janitor` | archived (F4.1) |
+| `devin-evals` | `devin-assure` | `packages/evals` | archived (F4.2) |
+| `devin-metrics` | `devin-assure` | `packages/metrics` | archived (F4.2) |
+| `devin-history` | `devin-explore` | `packages/history` | archived (F4.3) |
+| `devin-search` | `devin-explore` | `packages/search` | archived (F4.3) |
+| `devin-graph` | `devin-explore` | `packages/graph` | archived (F4.3) |
+| `devin-pm` | `devin-explore` | `packages/pm` | archived (F4.3) |
+| `devin-bridge` | `devin-control` | `packages/bridge` | **renamed** (F4.4), npm package `@icaro0310/devin-bridge` unchanged |
+| `devin-orchestrator` | `devin-control` | `packages/orchestrator` | archived (F4.4), PyPI `devin-fanout` unchanged |
+| `devin-switch` | `devin-control` | `packages/switch` | archived (F4.4) |
+| `devin-office` | `devin-control` | `packages/office` | archived (F4.4), source-only |
+| `devin-skill-catalog` | `devin-devkit` | `packages/skill-catalog` | archived (F4.5) |
+
+Earlier absorptions: `devin-dream` → `devin-assure` (`packages/evals`,
+predates the window); `homebrew-tap`/`scoop-bucket` deleted (orphaned
+mirrors).
+
 ## Working rules during the window
 
 - Product work is allowed during the window — improving READMEs, the

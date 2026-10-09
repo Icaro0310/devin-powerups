@@ -4,6 +4,73 @@ Structural decisions about the ecosystem, newest first. Format per
 `GOVERNANCE.md`: Decision / Date / Reason / Evidence / Expected outcome /
 Result. Records are not eternal — revisit when new evidence arrives.
 
+## D-2026-10-09 — F4.5: devin-devkit absorbs devin-skill-catalog
+
+- **Decision:** `devin-devkit` became a uv workspace with
+  `packages/{devkit,skill-catalog}`; the `devin-skill-catalog` repo was
+  archived with a MOVED banner. Package names and CLIs unchanged.
+- **Reason:** both are the Build track — installer plus the skill/rule
+  lifecycle gates it distributes. Rubric verdict: merge.
+- **Evidence:** 37 + 68 tests green post-merge; per-path CI
+  (`test-{devkit,skill-catalog}.yml`) and per-tag publish
+  (`<pkg>-v*`). `manifest-sync.yml` and `updater.py`'s
+  `REMOTE_MANIFEST_URL` repointed to `packages/devkit/...`. Registry:
+  2 entries `product_id: devin-devkit`, `local_dir` + `package.path`.
+  Rollback rehearsed: 3 reverts (subtree merge with `-m 1`) → zero diff.
+- **Expected outcome:** one Build surface; the DevKit manifest carries
+  skill-catalog's install spec (SHA-pinned archive, valid because the
+  subtree merge preserved the original commits).
+- **Result:** merged (`devin-devkit` PR #22). PyPI publish blocked by
+  external 429 rate limit — `devin-skill-catalog` stays `source_only`
+  until PyPI clears it (backlog).
+
+## D-2026-10-09 — F4.4: devin-control absorbs bridge + orchestrator + switch + office
+
+- **Decision:** the existing `devin-bridge` repo was **renamed** to
+  `devin-control` and became the polyglot monorepo holder
+  (`packages/{bridge,orchestrator,switch,office}`), preserving its
+  history and stars. The npm package stays `@icaro0310/devin-bridge`
+  (name independent of repo); orchestrator keeps PyPI `devin-fanout`;
+  office remains `source_only` (`mode: mixed`).
+- **Reason:** bridge is the flagship with the most history/stars;
+  renaming beats creating a fresh repo and losing both. npm Trusted
+  Publishing is token-based (`NPM_TOKEN`), not OIDC, so the rename
+  needed no npm-side change. `PYPI_API_TOKEN` had to be re-created as a
+  repo secret post-rename (it was not inherited).
+- **Evidence:** test matrix green (Node 22/24 for bridge; Python
+  packages 29+70+43 tests); `test-{bridge,orchestrator,switch,office}.yml`
+  per path; `publish-{orchestrator,switch}.yml` PyPI +
+  `publish-bridge-npm.yml` npm (`npm pack --dry-run` verified; publish
+  on tag). Rollback rehearsed → zero diff vs base. Registry: 4 entries
+  `product_id: devin-control`.
+- **Expected outcome:** one Control product; `devin-office` lands in
+  `track: guard` (correcting the earlier observe classification), which
+  removes the pending `pm`-style exemption pressure.
+- **Result:** merged. `devin-fanout` published fine; `devin-switch`
+  hit PyPI 429 ("too many new projects") — stays `source_only`, retry
+  is backlog.
+
+## D-2026-10-09 — F4.3: devin-explore absorbs history + search + graph + pm
+
+- **Decision:** `devin-explore` (ex `devin-doctor`) became a uv
+  workspace with `packages/{doctor,history,search,graph,pm}`; the four
+  source repos were archived with MOVED banners. `devin-pm` moved
+  `track: related` → `track: observe`. `devin-office` was **excluded**
+  (it is control, not observation) and went to `devin-control` in F4.4.
+- **Reason:** Understand-family absorption per the P6 rubric. `pm` and
+  `metrics` share **no code** (verified: `vscdb.py` vs `collect.py` are
+  distinct implementations; the common layer is `devin-internals-spec`)
+  — the D-record "merge" was conceptual, so no shared library was
+  extracted.
+- **Evidence:** 404 tests green (doctor 100, history 72, search 52,
+  graph 75, pm 105); 5 test + 5 publish workflows; all 5 publish
+  dispatches green on main. Rollback rehearsed: 6 reverts newest-first
+  (`-m 1` on 4 subtree merges) → zero diff. Registry: 5 entries
+  `product_id: devin-explore`, pm re-tracked.
+- **Expected outcome:** Understand is one installable surface with five
+  preserved CLIs; `pm` belongs semantically under observe.
+- **Result:** merged (`devin-explore` PR #25, merge `74831fb`).
+
 ## D-2026-10-09 — Consolidation of the ecosystem into 7 products
 
 - **Decision:** consolidate the 19 first-party tools into 7 products
