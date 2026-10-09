@@ -373,3 +373,30 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   (devkit, skill-catalog, powerups generators).
 - **Verified:** `registry.json` entry — `job: control`, `track: guard`,
   `product_id: devin-brain`; no change required, only confirmation.
+
+## D-2026-10-09b — Job reclassification + final profile pin set
+
+- **Decision:** `devin-judge` moves `verify/assure → control/guard`;
+  `devin-brain` moves `control/guard → build/platform`. Profile pins:
+  `devin-explore`, `devin-assure`, `devin-control`, `devin-judge`,
+  `devin-devkit`, `devin-brain`.
+- **Reason:** judge applies a deterministic yes/no gate on agent runs —
+  it decides, it does not audit. Verify is reserved for products that
+  report evidence (assure); Control is for products that decide or
+  constrain execution. Brain is memory that feeds construction: the skill
+  makes Devin retain knowledge and build on it, which is Build. This
+  supersedes D-2026-11-14 (brain in Control) — owner reversal after the
+  pin discussion.
+- **Pin rationale:** `devin-internals-spec` is Foundation — a library
+  other products consume, nothing a user installs; it never occupies a
+  public pin. `devin-state` is excluded because Control is already
+  represented by `devin-control` (execution) and `devin-judge`
+  (judgment); three Control pins would dominate the six-card surface.
+- **Cost:** `_JOB_TRACK` forced the paired track flips; `check_dist_status`
+  was extended to resolve member READMEs (`package.path`, then
+  `packages/<short>`) so per-package DIST-STATUS banners are what CI
+  verifies — stale banners removed from `janitor`, `graph`, `switch`.
+- **Expected outcome:** registry, pins, profile README and WHERE blocks
+  all tell the same story: Understand 1, Verify 1, Control 2, Build 2.
+- **Result:** met locally — `validate_registry.py` and all drift checks
+  green; pin swap itself is a manual GitHub action.
