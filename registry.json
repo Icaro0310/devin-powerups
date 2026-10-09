@@ -626,14 +626,15 @@
       "version": "0.1.0",
       "stack": "python",
       "local_dir": "devin-devkit",
-      "description": "Profile-based installer for the public Devin tools across Linux, Personal Windows and Corporate Windows; reads the registry manifest and installs isolated CLIs with uv, plus the Node bridge with npm.",
+      "note": "uv workspace monorepo since F4.5: packages/devkit (this entry) + packages/skill-catalog (absorbed from devin-skill-catalog, which was archived). Package names and CLIs unchanged.",
+      "description": "Build on the ecosystem: profile-based installer for the public Devin tools across Linux, Personal Windows and Corporate Windows (isolated uv environments, npm bridge), plus lifecycle and quality gates for .devin skills/rules via devin-skill-catalog.",
       "ownership": "first_party",
       "job": "build",
       "product_id": "devin-devkit",
       "package": {
         "ecosystem": "pypi",
         "name": "devin-devkit",
-        "path": "."
+        "path": "packages/devkit"
       },
       "entrypoints": [
         "devin-devkit"
@@ -2074,7 +2075,7 @@
     },
     {
       "name": "devin-skill-catalog",
-      "url": "https://github.com/Icaro0310/devin-skill-catalog",
+      "url": "https://github.com/Icaro0310/devin-devkit",
       "kind": "project",
       "artifact": "tool",
       "interfaces": [
@@ -2122,8 +2123,10 @@
       "overlap_note": "Complements official Devin Skills with local inventory, lint, quarantine and promotion gates for skills and rules. It does not define or run skills.",
       "version": "0.1.0",
       "stack": "python",
+      "local_dir": "devin-devkit",
       "ci": "inline",
       "tests": 68,
+      "note": "Absorbed into the devin-devkit monorepo (F4.5); the devin-skill-catalog PyPI package and CLI are unchanged, released from packages/skill-catalog. Original repo archived with MOVED banner.",
       "description": "Lifecycle + quality gates for .devin skills/rules: scan, lint, diff, G1/G2 gates, quarantined→approved→active lifecycle, sha256-verified export/import bundles (imports land quarantined).",
       "distribution_status": "source_only",
       "ownership": "first_party",
@@ -2132,7 +2135,7 @@
       "package": {
         "ecosystem": "pypi",
         "name": "devin-skill-catalog",
-        "path": "."
+        "path": "packages/skill-catalog"
       },
       "entrypoints": [
         "devin-skill-catalog"
