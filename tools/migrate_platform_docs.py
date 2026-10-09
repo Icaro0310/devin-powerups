@@ -454,7 +454,10 @@ def plan_migration(registry: dict[str, Any], root: Path) -> list[dict[str, Any]]
             raise ValueError(f"{entry['name']}: README.md is missing")
         tool = tool_map.get(entry["name"])
         if tool:
-            tool = {**tool, "requires_git": entry["name"] in registry.get("devkit", {}).get("git_required_tools", [])}
+            # Derive the Git prerequisite from the effective install spec:
+            # only a git+...#subdirectory= install actually needs Git.
+            requires_git = tool["source"] == "github" and bool((entry.get("package") or {}).get("path"))
+            tool = {**tool, "requires_git": requires_git}
         plans.append({
             "name": entry["name"],
             "repo": repo,
