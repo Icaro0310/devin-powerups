@@ -79,6 +79,10 @@ corpus path is the required input and the repo is only context.
 - outputs: pass/fail per grader category, finding count.
 - BLOCKED means "the corpus fails graders" — e.g. a recorded session
   that leaks a secret, not secrets in the repo.
+- CLI mapping: the action runs `devin-evals corpus verify --corpus
+  $corpus` (golden-case grading). The weekly
+  `devin-evals run --sessions-db ...` job is a different input path —
+  regression replay of real sessions, not the CI corpus gate.
 
 ## Rollout
 
