@@ -13,7 +13,7 @@ time and each needs this section reviewed first.
 | redact-action (done) | the checked-out repo | secrets found | `paths` |
 | doctor-action | the **runner's** Devin environment | env has FAIL findings | dirs to check |
 | judge-action | an **action artifact** (text describing a proposed operation) | proposed op is destructive | an action file |
-| evals-action | a **corpus** of transcripts/records | corpus fails graders | a corpus dir |
+| evals-action | a **corpus** of transcripts/records | verdict diverges from `expected_status` (unexcused mismatch) | a corpus dir |
 
 ## devin-doctor-action — environment assertion, not repo scan
 
@@ -146,8 +146,9 @@ a CI job produces agent artifacts.
   worse. So `devin-judge-action` is **deferred until a producer of
   agent artifacts exists in CI** — pre-commit + MCP cover the tool
   meanwhile. Recorded as owner-visible decision, not an agent call.
-- Evals stays in the queue: it can gate the package's own fixture
-  corpus as a meaningful regression input.
+- Evals is out of the queue: it shipped (`v1`) gating the package's own
+  fixture corpus as a meaningful regression input. `judge` is the only
+  satellite still queued.
 - Each satellite gets the same smoke treatment as redact: one consumer
   workflow in the owning repo proving install → verb → verdict → exit
   code, scoped so a clean run stays green, with a D-record line noting
