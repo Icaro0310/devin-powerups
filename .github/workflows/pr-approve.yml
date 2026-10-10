@@ -13,12 +13,13 @@ name: pr-approve
 # Re-triggers (so the gate recovers instead of dying silently after the
 # wait window):
 #   pull_request_review[submitted]   — a late Devin Review re-runs the gate
-#   pull_request_review_thread       — resolving a thread re-counts findings
-#     [resolved, unresolved]
 #   status                           — a Devin Review status success on the
 #     head re-runs the gate even when no PR review is submitted (clean
 #     analyses post no review object); only statuses whose avatar is the
 #     devin app (/in/811515) count — statuses can be forged
+#   (pull_request_review_thread is a webhook-only event, not a supported
+#     Actions trigger — a resolved thread is picked up by the next
+#     status/review/synchronize run instead)
 #
 # Coverage rules:
 #   - A review counts when its commit_id is the head SHA, OR when its commit
@@ -28,7 +29,9 @@ name: pr-approve
 #     commit status is success on the head — clean analyses submit no PR
 #     review object, only the status (verified as posted by the devin app,
 #     and seen twice 30s apart so comments posted right after the status
-#     can't race the gate).
+#     can't race the gate). A status-adopted head emits verdict
+#     'clean-status' — a clean Devin Review status means zero findings,
+#     so the approve step accepts it without a findings count.
 #   - Blocking findings = review threads whose first comment is a
 #     devin-ai-integration bug|security note AND that are not outdated AND
 #     (unresolved or resolved by someone other than the Devin bot) — a PR
@@ -50,8 +53,6 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
   pull_request_review:
     types: [submitted]
-  pull_request_review_thread:
-    types: [resolved, unresolved]
   status: {}
   workflow_call:
     inputs:
@@ -106,6 +107,7 @@ jobs:
           deadline=$(( $(date +%s) + WAIT_MINUTES * 60 ))
           reviewed_sha=""
           status_seen=""
+          status_adopted=""
           while [ "$(date +%s)" -lt "$deadline" ]; do
             reviews=$(gh api "repos/$REPO/pulls/$pr_number/reviews?per_page=100" --paginate \
               | jq -s '[add[] | select(.user.login == "devin-ai-integration[bot]")]')
@@ -137,6 +139,7 @@ jobs:
                   | .[0].state // empty')
               if [ "$st" = "success" ] && [ "$status_seen" = "success" ]; then
                 reviewed_sha="$HEAD_SHA"
+                status_adopted=1
                 echo "Devin Review status success on $HEAD_SHA with no review object — clean analysis, adopting."
               else
                 status_seen="$st"
@@ -153,6 +156,12 @@ jobs:
               && echo "adopting review on ancestor $reviewed_sha (identical diff to head $HEAD_SHA)"
             verdict=$(echo "$reviews" | jq -r --arg sha "$reviewed_sha" \
               '[.[] | select(.commit_id == $sha)] | last | .state')
+            if [ "$status_adopted" = "1" ] && [ "$verdict" = "null" ]; then
+              # Adopted via the "Devin Review" commit status, not a review
+              # object — no review exists on this head, so the lookup above
+              # yields null. A clean status means zero findings.
+              verdict=clean-status
+            fi
             echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
             echo "reviewed_sha=$reviewed_sha" >> "$GITHUB_OUTPUT"
           fi
@@ -211,6 +220,7 @@ jobs:
       - name: Approve PR
         if: >-
           steps.review.outputs.verdict == 'APPROVED' ||
+          steps.review.outputs.verdict == 'clean-status' ||
           (steps.review.outputs.verdict == 'COMMENTED' && steps.findings.outputs.blocking == '0')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
