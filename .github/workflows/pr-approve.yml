@@ -2,12 +2,27 @@ name: pr-approve
 
 # Approves pull requests from trusted automation authors, but only after
 # Devin Review (devin-ai-integration[bot]) has submitted a review on the
-# current head commit with no blocking findings (kind: bug or security).
-# Chain: open-pr-bot -> Devin Review -> fixes -> approve -> merge.
+# current head commit with no unresolved blocking findings (kind: bug or
+# security). Chain: open-pr-bot -> Devin Review -> fixes/replies ->
+# resolve -> approve -> merge.
 #
 # Runs on pull_request_target (never checks out PR code), so it also covers
 # forks. Reusable: other repos call this with `uses:`; the github event
 # context carries the caller's pull_request payload.
+#
+# Re-triggers (so the gate recovers instead of dying silently after the
+# wait window):
+#   pull_request_review[submitted]   — a late Devin Review re-runs the gate
+#   pull_request_review_thread       — resolving a thread re-counts findings
+#     [resolved, unresolved]
+#
+# Coverage rules:
+#   - A review counts when its commit_id is the head SHA, OR when its commit
+#     is tree-equal to the head (empty-diff pushes like re-trigger commits
+#     change the SHA but not the reviewed diff).
+#   - Blocking findings = unresolved review threads whose first comment is
+#     a devin-ai-integration bug|security note on the reviewed commit.
+#     Resolved threads (fixed or argued) no longer block the approval.
 #
 # Trusted authors are the owner's own PRs, dependabot, and workflows
 # (open-pr-bot opens PRs as github-actions[bot]; dispatch needs write
@@ -22,6 +37,10 @@ name: pr-approve
 on:
   pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review]
+  pull_request_review:
+    types: [submitted]
+  pull_request_review_thread:
+    types: [resolved, unresolved]
   workflow_call:
     inputs:
       wait_minutes:
@@ -39,7 +58,9 @@ jobs:
     runs-on: ubuntu-latest
     if: >-
       contains(fromJSON('["Icaro0310","dependabot[bot]","github-actions[bot]"]'),
-      github.event.pull_request.user.login)
+      github.event.pull_request.user.login) &&
+      (github.event_name != 'pull_request_review' ||
+       github.event.review.user.login == 'devin-ai-integration[bot]')
     steps:
       - name: Wait for the Devin Review on this head commit
         id: review
@@ -52,39 +73,75 @@ jobs:
         run: |
           set -euo pipefail
           deadline=$(( $(date +%s) + WAIT_MINUTES * 60 ))
-          state=""
+          head_tree=$(gh api "repos/$REPO/commits/$HEAD_SHA" --jq .commit.tree.sha)
+          reviewed_sha=""
           while [ "$(date +%s)" -lt "$deadline" ]; do
-            state=$(gh api "repos/$REPO/pulls/$PR_NUMBER/reviews?per_page=100" \
-              | jq -r --arg sha "$HEAD_SHA" \
-                '[.[] | select(.user.login == "devin-ai-integration[bot]" and .commit_id == $sha)] | last | .state // empty')
-            [ -n "$state" ] && break
+            reviews=$(gh api "repos/$REPO/pulls/$PR_NUMBER/reviews?per_page=100" \
+              | jq '[.[] | select(.user.login == "devin-ai-integration[bot]")]')
+            reviewed_sha=$(echo "$reviews" | jq -r --arg sha "$HEAD_SHA" \
+              '[.[] | select(.commit_id == $sha)] | last | .commit_id // empty')
+            if [ -z "$reviewed_sha" ]; then
+              for c in $(echo "$reviews" | jq -r '[.[].commit_id] | unique | .[]'); do
+                [ "$c" = "$HEAD_SHA" ] && continue
+                [ "$(gh api "repos/$REPO/commits/$c" --jq .commit.tree.sha)" = "$head_tree" ] \
+                  && { reviewed_sha="$c"; break; }
+              done
+            fi
+            [ -n "$reviewed_sha" ] && break
             sleep 30
           done
-          if [ -z "$state" ]; then
-            echo "::warning::devin-ai-integration[bot] did not review $HEAD_SHA within ${WAIT_MINUTES}m; approval skipped (fail-closed)."
+          if [ -z "$reviewed_sha" ]; then
+            echo "::warning::devin-ai-integration[bot] did not review $HEAD_SHA (or a tree-equal commit) within ${WAIT_MINUTES}m; approval skipped (fail-closed — a late review re-triggers this job via pull_request_review)."
             echo "verdict=no-review" >> "$GITHUB_OUTPUT"
           else
-            echo "verdict=$state" >> "$GITHUB_OUTPUT"
+            [ "$reviewed_sha" != "$HEAD_SHA" ] \
+              && echo "adopting review on tree-equal commit $reviewed_sha (identical diff to head $HEAD_SHA)"
+            verdict=$(echo "$reviews" | jq -r --arg sha "$reviewed_sha" \
+              '[.[] | select(.commit_id == $sha)] | last | .state')
+            echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
+            echo "reviewed_sha=$reviewed_sha" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Count blocking findings on this head commit
+      - name: Count unresolved blocking findings on the reviewed commit
         id: findings
         if: steps.review.outputs.verdict == 'COMMENTED'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REVIEWED_SHA: ${{ steps.review.outputs.reviewed_sha }}
         run: |
           set -euo pipefail
-          blocking=$(gh api "repos/$REPO/pulls/$PR_NUMBER/comments?per_page=100" --paginate \
-            | jq -s --arg sha "$HEAD_SHA" '
-                [ add[] | select(
-                    .user.login == "devin-ai-integration[bot]"
-                    and .original_commit_id == $sha
-                    and (.body | test("\"kind\": \"(bug|security)\""))
-                ) ] | length')
-          echo "blocking findings on $HEAD_SHA: $blocking"
+          blocking=$(gh api graphql --paginate \
+            -f owner="${REPO%%/*}" -f name="${REPO##*/}" -F pr="$PR_NUMBER" -f query='
+              query($owner: String!, $name: String!, $pr: Int!, $endCursor: String) {
+                repository(owner: $owner, name: $name) {
+                  pullRequest(number: $pr) {
+                    reviewThreads(first: 100, after: $endCursor) {
+                      pageInfo { hasNextPage endCursor }
+                      nodes {
+                        isResolved
+                        comments(first: 1) {
+                          nodes {
+                            author { login }
+                            originalCommit { oid }
+                            body
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }' \
+            | jq -s --arg sha "$REVIEWED_SHA" '
+                [ .[].data.repository.pullRequest.reviewThreads.nodes[]
+                  | select(.isResolved == false)
+                  | .comments.nodes[0]
+                  | select((.author.login | startswith("devin-ai-integration"))
+                      and .originalCommit.oid == $sha
+                      and (.body | test("\"kind\": \"(bug|security)\"")))
+                ] | length')
+          echo "unresolved blocking findings on $REVIEWED_SHA: $blocking"
           echo "blocking=$blocking" >> "$GITHUB_OUTPUT"
 
       - name: Approve PR
@@ -96,7 +153,7 @@ jobs:
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: gh pr review --approve "$PR_URL"
 
-      - name: Hold approval until findings are fixed
+      - name: Hold approval until findings are fixed or resolved
         if: >-
           steps.review.outputs.verdict == 'CHANGES_REQUESTED' ||
           (steps.review.outputs.verdict == 'COMMENTED' && steps.findings.outputs.blocking != '0')
@@ -105,4 +162,4 @@ jobs:
           BLOCKING: ${{ steps.findings.outputs.blocking }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          echo "::warning::Auto-approve held on $HEAD_SHA: Devin Review verdict '$VERDICT'${BLOCKING:+ with $BLOCKING blocking finding(s)}. Fix the findings and push — this job re-runs on every synchronize."
+          echo "::warning::Auto-approve held on $HEAD_SHA: Devin Review verdict '$VERDICT'${BLOCKING:+ with $BLOCKING unresolved blocking finding(s)}. Fix and push (re-runs on synchronize) or reply to the thread — a resolution re-runs this job."
