@@ -147,16 +147,34 @@ Reproducible test plan for the corporate machine (run behind the real proxy):
 
 ```powershell
 # stage: fetch through the proxy, not just inspect the CA store —
-# urllib honors HTTPS_PROXY and validates the Zscaler chain end-to-end
-python -c "import urllib.request;print(urllib.request.urlopen('https://pypi.org',timeout=10).status and 'ca+proxy ok')"
-uv tool install devin-devkit
+# urllib honors HTTPS_PROXY and validates the Zscaler chain end-to-end.
+# On failure the printed exception TYPE is the ticket for IT:
+#   URLError [SSL: CERTIFICATE_VERIFY_FAILED] -> MITM CA missing from the Windows store
+#   URLError [Errno 11001/11002 getaddrinfo]  -> DNS or host blocked upstream
+#   Cannot connect to proxy / ProxyError      -> HTTPS_PROXY not inherited / proxy down
+#   TimeoutError                              -> proxy black-holing the destination
+python -c "import urllib.request
+try: print(urllib.request.urlopen('https://pypi.org',timeout=10).status and 'ca+proxy ok')
+except Exception as e: print(type(e).__name__, e)"
+uv tool dir   # expected %APPDATA%\uv\data\tools — confirms _uv_tools_dir on Windows
+# Until the gate PR merges, install from the fix branch (verified syntax —
+# built from commit b730f56). Note this runs pre-review code; where IT
+# policy requires merged artifacts, wait for the release instead.
+uv tool install "git+https://github.com/Icaro0310/devin-devkit.git@fix/update-environment-gate#subdirectory=packages/devkit"
 $env:DEVIN_DEVKIT_OFFLINE="1"; devin-devkit list   # offline path
 Remove-Item Env:DEVIN_DEVKIT_OFFLINE
 devin-devkit install qa --environment corporate-windows   # dry-run; note which hosts the plan needs
 devin-devkit install qa --environment corporate-windows --apply
+devin-devkit outdated --environment corporate-windows     # exercises the update-path gate
 devin-doctor check   # exercises the fixed manifest fetch
 $env:DEVIN_DOCTOR_OFFLINE="1"; devin-doctor check   # must skip the network call
 ```
+
+During validation the environment must be passed on **every** call —
+`install`, `outdated`, `update`. Hooks and scripts inherit the permissive
+default if they invoke `devin-devkit` bare; the `$PROFILE` `devkit`
+wrapper in `README.corporate-windows.md` injects the environment until
+the CLI requires it explicitly.
 
 Allowlist candidates if installs fail: `pypi.org`, `files.pythonhosted.org`,
 `registry.npmjs.org`, `github.com`, `codeload.github.com`,
