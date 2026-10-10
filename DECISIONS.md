@@ -19,6 +19,12 @@ Result. Records are not eternal — revisit when new evidence arrives.
      carries an explicit refutation — file:line + commit that fixes it —
      or a maintainer-accepted limitation with its own D-record; post the
      per-finding proof list as a PR comment before merging.
+     **Guardrail, written before it is needed:** the admin path requires
+     a complete per-finding pair (file:line + commit) for *every*
+     blocking thread, or a maintainer-accepted limitation with its own
+     D-record — never "the reviewer stayed silent", never "close
+     enough". One finding without a pair converts the whole PR back to
+     unanalysed, and it does not merge.
 - **Reason:** Devin Review exposes no programmatic dismiss for review
   findings (no public API endpoint; `resolveReviewThread` by the author
   still counts as blocking under the gate's anti-bypass rule — resolver
@@ -30,12 +36,20 @@ Result. Records are not eternal — revisit when new evidence arrives.
   unresolved `bug|security` threads, all refuted by
   `devin-powerups@8b220c9` lines or the fork limitation record —
   current heads carry `Devin Review: success` and green CI, yet the gate
-  correctly stays fail-closed.
+  correctly stays fail-closed. Counter-evidence that this is a
+  pathological case, not a weak gate: this record's own PR
+  (devin-powerups#102) merged through the natural loop — Devin reviewed,
+  the gate counted its two `kind: analysis` threads as non-blocking and
+  approved — the same system that held the 7 caller PRs. Read the
+  history as "the reviewer cannot clear out-of-diff findings", not as
+  "the gate is fragile".
 - **Expected outcome:** admin merges on this class are audited by the
   per-finding proof comment; the root cause is backlog (see
-  `BACKLOG.md` — "out-of-diff findings clearance mechanism").
+  `BACKLOG.md` — "out-of-diff findings clearance mechanism", which
+  carries an expiry clause: the workaround is deleted the day Devin
+  Review gains dismiss or out-of-diff re-check).
 - **Result:** recorded; first application is the auto-approve rollout
-  tail.
+  tail (7 PRs, each with per-finding proof comment + `--admin`).
 
 ## D-2026-10-10 — Fork PRs are out of scope for the approval gate
 
