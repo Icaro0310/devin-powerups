@@ -466,9 +466,11 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   (`approve/retract/supersede/quarantine/release/extract`) are never
   registered on the agent-facing server — enforced at registration,
   not just undocumented; its skill/plugin document only the gated
-  subset (retain/recall/screen/list/conflicts/prime/verify). The
-  standalone server keeps the full tool set — it is the product's
-  primary surface and the human operator's review path.
+  subset (retain/recall/screen/list/conflicts/prime/verify). After
+  review, the default was flipped: the standalone server is also
+  read-only by default and the full surface requires the explicit
+  `--allow-review-ops` opt-in — mutation on the AI surface is opt-in,
+  never opt-out.
 - **Reason:** "one logic, many faces" — adapters call the package core
   and never re-implement business rules; mutation on an AI-driven
   surface skips human confirmation. The `adapters/` root keeps each
