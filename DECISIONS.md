@@ -514,8 +514,17 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
 - **Result:** approved by owner (2026-10-10) and executed —
   `Icaro0310/devin-state-redact-action` created (public, `action.yml` +
   `README` + `LICENSE`, tag `v1`), consumed end-to-end by the
-  `redact-action` smoke workflow in devin-state. Three candidates
+  `redact-action` smoke workflow in devin-state (first run proved the
+  gate works — it correctly returned BLOCKED on an over-broad scope;
+  rescoped to `packages/backup/src`, now green). Three candidates
   remain: doctor/judge/evals.
+- **Finding recorded (not a blocker):** `devin-redact` self-flags on
+  its own package sources — janitor/redact contain
+  `env_assignment`-shaped regexes, and the tracked
+  `devin_redact.egg-info/PKG-INFO` trips `absolute_path`. Gating a
+  repo that *contains* the scanner needs fixture-aware scoping or a
+  scanner-side self-exclusion improvement; candidate backlog item for
+  devin-redact itself, plus an egg-info hygiene question.
 
 ## D-2026-10-10e — Adapter-rollout divergences vs the v3 spec, with positions
 
