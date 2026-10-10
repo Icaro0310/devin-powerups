@@ -535,19 +535,23 @@ rollout. Repo reality wins per §0 unless noted.
   tool; the real MCP surface is `judge`/`classify`/`rate`/`decide`/
   `gate`. Code wins (§0) — recorded, not renamed (rule 4 forbids
   renames anyway).
-- **`switch/mcp_server.py` is 288 lines** — over the 50–200 guideline
-  in §0.2 rule 3. Exception recorded: four tools ≈ 70 lines each once
-  typed signatures and docstrings are counted; parity tests prove zero
-  business-logic leak, and splitting would create a second module for
-  no structural gain. Revisit if a fifth tool lands.
+- **`switch/mcp_server.py` was 288 lines** — over the 50–200 guideline
+  in §0.2 rule 3. Resolved by split, not exception: the `do_*` payloads
+  moved to `mcp_actions.py` (171 lines, pure functions) and
+  `mcp_server.py` keeps only SDK wiring + tool registration (157 lines).
+  `mcp_server.do_*` still resolves via re-export, so the AST surface
+  contract and parity tests are untouched.
 - **Docs/commits in English vs the spec's "idioma: português".**
   Explicit open question for the owner — prompt instruction vs the
   repos' observable all-English convention. Not decided by the agent;
   pending item in BACKLOG.
-- **Untracked `.devin/` surfaces.** Two legacy surfaces are local
-  config, not repo content: `orchestrator/.devin/skills/.../SKILL.md`
-  (rewritten restricted to `history` consults only) and
-  `orchestrator/.devin/rules/background-workers.md` (same fan-out
-  exposure vector, still live — owner call pending; it also conflicts
-  with the global `multiagente` rule, so the resolution is policy,
-  not mechanics).
+- **Legacy `.devin/` surfaces (both resolved).**
+  `orchestrator/.devin/skills/.../SKILL.md` was rewritten restricted to
+  `history` consults only — no `plan`, no `record`, no dispatch
+  instructions (strict Rule-1 reading: teaching fan-out *is* exposing
+  it). `orchestrator/.devin/rules/background-workers.md` kept the
+  background-worker policy (it matches the owner's global `multiagente`
+  rule) but no longer attributes fan-out authority to devin-orchestrator
+  or points at the skill as "planner" — the skill reference now
+  describes read-only registry consultation. Both land in
+  devin-control `feat/adapters-control`.
