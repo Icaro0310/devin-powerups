@@ -201,7 +201,7 @@ jobs:
                 echo "::warning::PR #$pr: devin-ai-integration[bot] did not review $HEAD_SHA (or an ancestor with an identical diff) within ${WAIT_MINUTES}m; approval skipped (fail-closed — a late review re-triggers this job via pull_request_review)."
                 ;;
             esac
-            verdict_map=$(echo "$verdict_map" | jq --arg p "$pr" --arg v "$v" '. + {($p): $v}')
+            verdict_map=$(echo "$verdict_map" | jq -c --arg p "$pr" --arg v "$v" '. + {($p): $v}')
           done
           echo "verdict_map=$verdict_map" >> "$GITHUB_OUTPUT"
           echo "any_reviewed=$any_reviewed" >> "$GITHUB_OUTPUT"
@@ -264,7 +264,7 @@ jobs:
                         and (.body | test("\"kind\": \"(bug|security)\"")))
                   ] | length')
             echo "unresolved blocking findings on $HEAD_SHA for PR #$pr: $count"
-            blocking_map=$(echo "$blocking_map" | jq --arg p "$pr" --argjson c "$count" '. + {($p): $c}')
+            blocking_map=$(echo "$blocking_map" | jq -c --arg p "$pr" --argjson c "$count" '. + {($p): $c}')
             blocking=$((blocking + count))
           done
           echo "blocking=$blocking" >> "$GITHUB_OUTPUT"
@@ -285,7 +285,8 @@ jobs:
           # empty map), COMMENTED/STATUS_CLEAN approve only with zero
           # unresolved blocking threads. CHANGES_REQUESTED and no-review
           # PRs are held here — the warnings make the run log explicit.
-          vmap="${VERDICT_MAP:-{}}"
+          vmap="${VERDICT_MAP:-}"
+          [ -z "$vmap" ] && vmap='{}'
           bmap="${BLOCKING_MAP:-}"
           [ -z "$bmap" ] && bmap='{}'
           for pr in $PR_NUMBERS; do
