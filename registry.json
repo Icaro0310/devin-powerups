@@ -54,9 +54,7 @@
     "planned_platforms": [
       "macos"
     ],
-    "git_required_tools": [
-      "devin-skill-catalog"
-    ],
+    "git_required_tools": [],
     "tools": {
       "devin-internals-spec": {
         "manager": "uv",
@@ -2172,7 +2170,7 @@
       "tests": 68,
       "note": "Absorbed into the devin-devkit monorepo (F4.5); the devin-skill-catalog PyPI package and CLI are unchanged, released from packages/skill-catalog. Original repo archived with MOVED banner.",
       "description": "Lifecycle + quality gates for .devin skills/rules: scan, lint, diff, G1/G2 gates, quarantined→approved→active lifecycle, sha256-verified export/import bundles (imports land quarantined).",
-      "distribution_status": "source_only",
+      "distribution_status": "published",
       "ownership": "first_party",
       "job": "build",
       "product_id": "devin-devkit",
