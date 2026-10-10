@@ -10,8 +10,10 @@ on:
         type: string
         default: "."
       pre-install:
-        description: Extra pip install args run before the package install
-          (e.g. "-e shared/install-scheduler" for workspace deps not yet on PyPI)
+        description: >-
+          Extra pip install args run before the package install
+          (e.g. "-e shared/install-scheduler" for workspace deps not yet on PyPI).
+          Contract: space-separated args, no quoting — paths with spaces are unsupported
         type: string
         default: ""
       skip-install:
@@ -44,15 +46,9 @@ jobs:
           # caller-provided input must not reach the shell via inline
           # interpolation — env values are never re-parsed
           PRE_INSTALL: ${{ inputs.pre-install }}
-        run: |
-          case "$PRE_INSTALL" in
-            *[\'\"]*)
-              echo "pre-install input must be space-separated pip args without quoting (paths with spaces unsupported)"
-              exit 1
-              ;;
-          esac
-          # unquoted: the input is an args string, word splitting is intended
-          pip install $PRE_INSTALL
+        # unquoted: the input is a space-separated args string — word
+        # splitting is intended, quote chars pass through literally
+        run: pip install $PRE_INSTALL
 
       - name: Install
         if: ${{ !inputs.skip-install }}
