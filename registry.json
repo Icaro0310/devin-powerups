@@ -1,6 +1,6 @@
 {
   "$schema": "https://github.com/Icaro0310/devin-powerups/registry.schema.json",
-  "version": 25,
+  "version": 26,
   "generated": "2026-10-10",
   "owner": "Icaro0310",
   "note": "Public maintainer toolkit: registry, template, scaffolder, and public-project report. Public Devin tools are listed below; the maintainer's private runtime remains kind=system and is excluded from public-project reports. Unrelated personal repositories are not part of this catalog. CI is inline per public project; see README.md.",
@@ -270,7 +270,7 @@
       },
       "devin-skill-catalog": {
         "manager": "uv",
-        "source": "github",
+        "source": "pypi",
         "package": "devin-skill-catalog",
         "version": "0.1.0",
         "commands": [
@@ -281,9 +281,8 @@
           "windows",
           "linux"
         ],
-        "status": "source",
-        "category": "governance",
-        "ref": "8d234ca40d6496b6930c15726d629e1bc97f4c81"
+        "status": "published",
+        "category": "governance"
       },
       "devin-brain": {
         "manager": "uv",
