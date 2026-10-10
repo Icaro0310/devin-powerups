@@ -137,22 +137,27 @@ def main() -> int:
     registry_dir = args.registry.resolve().parent
     changed, missing = [], []
     for e in sorted(entries, key=lambda x: x["name"]):
-        candidates = []
-        if e.get("local_dir"):
-            # local_dir is recorded relative to the hub clone; an explicit
-            # --root selects a different workspace, so resolve there first
-            holder_dir = (args.root / e["local_dir"]).resolve()
-            if e.get("product_id") and e["product_id"] != e["name"]:
-                # package inside a holder monorepo: its block lives in the
-                # package README, never the holder's root README
-                candidates.append(
-                    holder_dir / "packages" / e["name"].removeprefix("devin-") / "README.md"
-                )
-            else:
-                candidates.append(holder_dir / "README.md")
         is_package = bool(
             e.get("product_id") and e["product_id"] != e["name"]
         )
+        candidates = []
+        if e.get("local_dir"):
+            # local_dir is recorded relative to the ecosystem clone dir;
+            # --root may be that dir or its parent, so try both
+            holder_dirs = []
+            for cand_root in (args.root, base):
+                d = (cand_root / e["local_dir"]).resolve()
+                if d not in holder_dirs:
+                    holder_dirs.append(d)
+            if is_package:
+                # package inside a holder monorepo: its block lives in the
+                # package README, never the holder's root README
+                candidates += [
+                    d / "packages" / e["name"].removeprefix("devin-") / "README.md"
+                    for d in holder_dirs
+                ]
+            else:
+                candidates += [d / "README.md" for d in holder_dirs]
         if not is_package:
             # standalone fallbacks; packages must not write to an archived
             # pre-merge clone or the holder's own README

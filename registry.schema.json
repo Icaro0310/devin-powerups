@@ -557,6 +557,7 @@
       "type": "object",
       "description": "curated per-audience paths: ordered steps, each a public repo with a one-line reason; rendered as 'Paths by audience'",
       "additionalProperties": false,
+      "required": ["qa", "developers", "ai-engineers", "operations", "devops", "data-scientists"],
       "properties": {
         "qa": {"$ref": "#/$defs/journeySteps"},
         "developers": {"$ref": "#/$defs/journeySteps"},
