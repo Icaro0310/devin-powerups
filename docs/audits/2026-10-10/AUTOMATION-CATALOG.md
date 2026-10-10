@@ -8,7 +8,11 @@ Convenção de paths (placeholders — nunca comitar paths reais):
 `<USER_HOME>` · `<PAS_ROOT>` = checkout do `personal-agent-system` ·
 `<AUTOMATION_BIN>` = dir de wrappers (`~/.local/bin` no Linux) ·
 `<DEVIN_DATA>` = `~/.local/share/devin` / `%APPDATA%\devin` ·
-`<DEVIN_CONFIG>` = `~/.config/Devin` / `%APPDATA%\Devin`.
+`<DEVIN_CONFIG>` = `~/.config/Devin` / `%APPDATA%\Devin` (user-data do app
+Desktop). O `config.json` que o Devin lê para `hooks` vive noutra raiz:
+`<HOOKS_CONFIG>` = `~/.config/devin/config.json` /
+`%APPDATA%\devin\config.json` — diretório `devin` minúsculo, distinto do
+`Devin` do Electron.
 
 > ⚠️ Todo este catálogo é de ambiente **pessoal**. Nada daqui é instalado
 > pelo DevKit e nada deve ser recriado num Corporate Windows: os jobs abaixo
@@ -17,7 +21,7 @@ Convenção de paths (placeholders — nunca comitar paths reais):
 
 ## 1. Camada de eventos (Devin hooks)
 
-Config: `<DEVIN_CONFIG>/../devin/config.json` (`hooks` section). Despacho
+Config: `<HOOKS_CONFIG>` (`hooks` section). Despacho
 genérico: `<PAS_ROOT>/scripts/session-dispatcher.py --event <E> --handler <id>`
 — o catálogo de handlers vive em `<PAS_ROOT>/.devin/catalog/`.
 
@@ -127,7 +131,7 @@ Linger ativo (`loginctl enable-linger`) — services arrancam no boot sem login.
    session-janitor-run, vm-*, djaevin-*, obsidian-watchdog,
    mailbox-wake-watch, gh-notif-silence) — cada um é idempotente por
    `flock`/state file.
-3. **Hooks**: escrever `hooks` em `<DEVIN_CONFIG>/config.json` apontando para
+3. **Hooks**: escrever `hooks` em `<HOOKS_CONFIG>` apontando para
    `<PAS_ROOT>/scripts/{obsidian-recall,prompt_logger,session_learning,
    devin-history-export}.py` — preservar hooks existentes (merge, não overwrite).
 4. **Cron**: `crontab -e`, PATH=`$HOME/.local/bin:…` no topo; colar o bloco

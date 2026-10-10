@@ -143,8 +143,9 @@ No corporate/Zscaler host was available. Source-verified behavior:
 Reproducible test plan for the corporate machine (run behind the real proxy):
 
 ```powershell
-# stage: confirm the CA chain actually used
-python -c "import ssl,urllib.request,json;print(ssl.create_default_context().get_ca_certs() and 'ca ok')"
+# stage: fetch through the proxy, not just inspect the CA store —
+# urllib honors HTTPS_PROXY and validates the Zscaler chain end-to-end
+python -c "import urllib.request;print(urllib.request.urlopen('https://pypi.org',timeout=10).status and 'ca+proxy ok')"
 uv tool install devin-devkit
 $env:DEVIN_DEVKIT_OFFLINE="1"; devin-devkit list   # offline path
 Remove-Item Env:DEVIN_DEVKIT_OFFLINE

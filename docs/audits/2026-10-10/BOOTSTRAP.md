@@ -78,6 +78,9 @@ nunca instalar em corporate.
 devin-devkit list                 # inventário
 devin-devkit outdated             # pins remotos vs instalados
 devin-doctor check                # diagnóstico do install/ambiente
+
+# Numa máquina corporate, sem a flag o plano assume personal_windows:
+devin-devkit outdated --environment corporate-windows
 ```
 
 Recuperação: install é por-tool isolado (`uv tool`) — falha num tool não
