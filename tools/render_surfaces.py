@@ -23,8 +23,10 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import sys
+import urllib.parse
 from collections import defaultdict
 from pathlib import Path
 
@@ -46,7 +48,7 @@ AUDIENCE_LABELS = {
     "developers": "Developers",
     "ai-engineers": "AI engineers",
     "security": "Security engineers",
-    "operations": "Operations",
+    "operations": "Local-first ops",
     "maintainers": "Maintainers",
     "end-users": "End users",
     "devops": "DevOps engineers",
@@ -149,9 +151,8 @@ def render_journeys(registry: dict) -> str:
         lines += [f"**{AUDIENCE_LABELS.get(audience, audience)}**", ""]
         for i, step in enumerate(journeys[audience], 1):
             repo = by_name[step["repo"]]
-            lines.append(
-                f"{i}. [`{repo['name']}`]({repo['url']}) — {step['why']}"
-            )
+            name = step.get("label") or repo["name"]
+            lines.append(f"{i}. [`{name}`]({_step_url(step, repo)}) — {step['why']}")
         lines.append("")
     return "\n".join(lines).rstrip()
 
@@ -163,12 +164,37 @@ def journey_context(registry: dict) -> dict[str, list[dict]]:
         for i, step in enumerate(steps):
             ctx.setdefault(step["repo"], []).append({
                 "audience": AUDIENCE_LABELS.get(audience, audience),
+                "label": step.get("label"),
                 "step": i + 1,
                 "total": len(steps),
-                "after": steps[i - 1]["repo"] if i else None,
-                "before": steps[i + 1]["repo"] if i + 1 < len(steps) else None,
+                "after": (
+                    steps[i - 1].get("label") or steps[i - 1]["repo"]
+                ) if i else None,
+                "before": (
+                    steps[i + 1].get("label") or steps[i + 1]["repo"]
+                ) if i + 1 < len(steps) else None,
             })
     return ctx
+
+
+def _step_url(step: dict, repo: dict) -> str:
+    """Step href: explicit override > package dir > repo root."""
+    url = step.get("url") or repo["url"]
+    if urllib.parse.urlparse(url).scheme not in ("http", "https"):
+        url = repo["url"]
+    if not step.get("url"):
+        # package entries (product_id != name) link to their module dir,
+        # not the monorepo root — same convention as the product cards
+        is_package = repo.get("product_id") and repo["product_id"] != repo["name"]
+        pkg = (repo.get("package") or {}).get("path", "").strip("/")
+        if is_package and pkg:
+            url = f"{repo['url'].rstrip('/')}/tree/main/{pkg}"
+    return url
+
+
+def _step_display(step: dict, repo: dict) -> tuple[str, str]:
+    """(name, href) for a journey step; overrides only when well-formed."""
+    return step.get("label") or repo["name"], _step_url(step, repo)
 
 
 def render_journeys_html(registry: dict) -> str:
@@ -182,8 +208,10 @@ def render_journeys_html(registry: dict) -> str:
                            key=lambda a: AUDIENCE_LABELS.get(a, a)):
         steps = registry["journeys"][audience]
         chain = " &rarr; ".join(
-            f'<a href="{by_name[s["repo"]]["url"]}"><code>{s["repo"]}</code></a>'
-            for s in steps
+            '<a href="{}"><code>{}</code></a>'.format(
+                html.escape(url, quote=True), html.escape(name)
+            )
+            for name, url in (_step_display(s, by_name[s["repo"]]) for s in steps)
         )
         lines.append(
             f'  <div class="card"><h3>{AUDIENCE_LABELS.get(audience, audience)}</h3>'
@@ -202,7 +230,8 @@ def render_journeys_compact(registry: dict) -> str:
     for audience in sorted(registry.get("journeys") or {},
                            key=lambda a: AUDIENCE_LABELS.get(a, a)):
         chain = " → ".join(
-            f"[`{s['repo']}`]({by_name[s['repo']]['url']})"
+            f"[`{s.get('label') or s['repo']}`]"
+            f"({_step_url(s, by_name[s['repo']])})"
             for s in registry["journeys"][audience]
         )
         lines.append(f"- **{AUDIENCE_LABELS.get(audience, audience)}:** {chain}")
@@ -235,9 +264,14 @@ def render_tool_block(repo: dict, registry: dict | None = None) -> str:
             if membership["before"]:
                 pos.append(f"before `{membership['before']}`")
             tail = f" — {', '.join(pos)}" if pos else ""
+            alias = (
+                f" (as `{membership['label']}`)"
+                if membership.get("label") and membership["label"] != repo["name"]
+                else ""
+            )
             lines.append(
                 f"> Path: {membership['audience']} · step "
-                f"{membership['step']}/{membership['total']}{tail}"
+                f"{membership['step']}/{membership['total']}{alias}{tail}"
             )
     return "\n".join(
         line + "  " if i < len(lines) - 1 else line

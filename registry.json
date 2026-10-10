@@ -1,7 +1,7 @@
 {
   "$schema": "https://github.com/Icaro0310/devin-powerups/registry.schema.json",
-  "version": 24,
-  "generated": "2026-10-09",
+  "version": 25,
+  "generated": "2026-10-10",
   "owner": "Icaro0310",
   "note": "Public maintainer toolkit: registry, template, scaffolder, and public-project report. Public Devin tools are listed below; the maintainer's private runtime remains kind=system and is excluded from public-project reports. Unrelated personal repositories are not part of this catalog. CI is inline per public project; see README.md.",
   "ci": {
@@ -54,7 +54,9 @@
     "planned_platforms": [
       "macos"
     ],
-    "git_required_tools": ["devin-skill-catalog"],
+    "git_required_tools": [
+      "devin-skill-catalog"
+    ],
     "tools": {
       "devin-internals-spec": {
         "manager": "uv",
@@ -795,7 +797,8 @@
       ],
       "audiences": [
         "operations",
-        "end-users"
+        "end-users",
+        "data-scientists"
       ],
       "platforms": [
         "windows",
@@ -1238,7 +1241,8 @@
       ],
       "audiences": [
         "developers",
-        "ai-engineers"
+        "ai-engineers",
+        "data-scientists"
       ],
       "platforms": [
         "windows",
@@ -1311,7 +1315,8 @@
       ],
       "audiences": [
         "developers",
-        "ai-engineers"
+        "ai-engineers",
+        "data-scientists"
       ],
       "platforms": [
         "windows",
@@ -2053,7 +2058,8 @@
       ],
       "audiences": [
         "operations",
-        "maintainers"
+        "maintainers",
+        "devops"
       ],
       "platforms": [
         "windows",
@@ -2122,7 +2128,8 @@
       ],
       "audiences": [
         "maintainers",
-        "ai-engineers"
+        "ai-engineers",
+        "developers"
       ],
       "platforms": [
         "windows",
@@ -2206,52 +2213,6 @@
     }
   ],
   "journeys": {
-    "developers": [
-      {
-        "repo": "devin-devkit",
-        "why": "Install a profile and get working CLIs fast"
-      },
-      {
-        "repo": "devin-internals-spec",
-        "why": "Understand the stores before reading or writing them"
-      },
-      {
-        "repo": "devin-powerups",
-        "why": "Registry, scaffolder and conventions for extending the ecosystem"
-      }
-    ],
-    "operations": [
-      {
-        "repo": "devin-explore",
-        "why": "Check store health first — schema, locks, disk"
-      },
-      {
-        "repo": "devin-backup",
-        "why": "Snapshot before any destructive or cleanup operation"
-      },
-      {
-        "repo": "devin-janitor",
-        "why": "Run lifecycle cleanup only with a verified fresh snapshot"
-      },
-      {
-        "repo": "devin-metrics",
-        "why": "Watch activity and context growth over time"
-      }
-    ],
-    "qa": [
-      {
-        "repo": "devin-assure",
-        "why": "Audit what a session actually delivered vs claimed"
-      },
-      {
-        "repo": "devin-evals",
-        "why": "Replay sessions against rubric graders to lock the behavior"
-      },
-      {
-        "repo": "devin-judge",
-        "why": "Get calibrated yes/no judgments when the verdict is fuzzy"
-      }
-    ],
     "ai-engineers": [
       {
         "repo": "devin-control",
@@ -2266,6 +2227,42 @@
         "why": "Persist memory with provenance and quarantine gates"
       }
     ],
+    "data-scientists": [
+      {
+        "repo": "devin-graph",
+        "why": "Build the knowledge graph of sessions, projects and tools"
+      },
+      {
+        "repo": "devin-search",
+        "why": "Run FTS5 full-text queries across every session"
+      },
+      {
+        "repo": "devin-history",
+        "why": "Export session history to Markdown, JSON and CSV datasets"
+      },
+      {
+        "repo": "devin-metrics",
+        "why": "Measure activity and context growth over time"
+      }
+    ],
+    "developers": [
+      {
+        "repo": "devin-devkit",
+        "why": "Install a profile and get working CLIs fast"
+      },
+      {
+        "repo": "devin-skill-catalog",
+        "why": "Browse the skills shipped with each profile"
+      },
+      {
+        "repo": "devin-internals-spec",
+        "why": "Understand the stores before reading or writing them"
+      },
+      {
+        "repo": "devin-powerups",
+        "why": "Registry, scaffolder and conventions for extending the ecosystem"
+      }
+    ],
     "devops": [
       {
         "repo": "devin-state",
@@ -2273,25 +2270,49 @@
       },
       {
         "repo": "devin-control",
-        "why": "Constrain execution and drive sessions under policy"
+        "why": "Drive sessions through the policy-gated ACP bridge",
+        "label": "devin-bridge",
+        "url": "https://github.com/Icaro0310/devin-control/tree/main/packages/bridge"
       },
       {
-        "repo": "devin-devkit",
-        "why": "Install the environment profile on each machine"
+        "repo": "devin-switch",
+        "why": "Swap configuration profiles with snapshot and rollback"
       }
     ],
-    "data-scientists": [
-      {
-        "repo": "devin-brain",
-        "why": "Persist session memory with provenance and quarantine"
-      },
+    "operations": [
       {
         "repo": "devin-explore",
-        "why": "Explore session history, search and graphs"
+        "why": "Check store health first — schema, locks, disk"
       },
       {
-        "repo": "devin-metrics",
-        "why": "Measure activity and context growth over time"
+        "repo": "devin-pm",
+        "why": "Roll sessions into per-repo milestones and status reports"
+      },
+      {
+        "repo": "devin-office",
+        "why": "Watch live session and subagent activity on the dashboard"
+      },
+      {
+        "repo": "devin-backup",
+        "why": "Snapshot before any destructive or cleanup operation"
+      },
+      {
+        "repo": "devin-janitor",
+        "why": "Run lifecycle cleanup only with a verified fresh snapshot"
+      }
+    ],
+    "qa": [
+      {
+        "repo": "devin-assure",
+        "why": "Audit what a session actually delivered vs claimed"
+      },
+      {
+        "repo": "devin-evals",
+        "why": "Replay sessions against rubric graders to lock the behavior"
+      },
+      {
+        "repo": "devin-judge",
+        "why": "Get calibrated yes/no judgments when the verdict is fuzzy"
       }
     ]
   }

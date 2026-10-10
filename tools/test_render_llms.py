@@ -32,7 +32,7 @@ def test_index_journeys_match_registry_order():
     rendered = render_llms.render_index(registry)
 
     for audience, steps in registry["journeys"].items():
-        chain = " → ".join(s["repo"] for s in steps)
+        chain = " → ".join(s.get("label") or s["repo"] for s in steps)
         assert chain in rendered, audience
 
 

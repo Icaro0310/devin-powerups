@@ -425,3 +425,27 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   awesome-devin, profile README, llms.txt) shows the same six.
 - **Result:** met locally — validator, renderers and eco-blocks
   regenerated green; propagation PRs under review.
+
+## D-2026-10-10b — Journey recuration v2: zero repeats, full coverage, Local-first ops
+
+- **Decision:** the six journeys are recut so every step is unique
+  across paths (22 steps, 22 distinct entries): `data-scientists`
+  becomes `devin-graph → devin-search → devin-history → devin-metrics`
+  (metrics leaves `operations`); `developers` gains
+  `devin-skill-catalog`; `devops` becomes `devin-state → devin-bridge →
+  devin-switch`; `operations` becomes `devin-explore → devin-pm →
+  devin-office → devin-backup → devin-janitor` and renders as
+  **Local-first ops** (key stays `operations`). Journey steps gain
+  optional `label`/`url` overrides so `devin-bridge` — a package
+  inside `devin-control`, not a registry repo — can appear under its
+  own name.
+- **Reason:** owner flagged `devin-metrics` repeated in two cards,
+  `devin-bridge` absent from DevOps, and most of the 20+ public repos
+  invisible in the paths. Curation now spans the whole product
+  inventory without duplication.
+- **Evidence:** owner review of icaro0310.github.io, 2026-10-10;
+  `validate_registry` green, 320 tests pass.
+- **Expected outcome:** site cards, profile README, awesome-devin and
+  llms.txt show identical non-repeating paths; holder eco-blocks show
+  the updated memberships.
+- **Result:** pending propagation.

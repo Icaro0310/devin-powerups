@@ -51,7 +51,7 @@ def _journeys_compact(registry: dict) -> list[str]:
     journeys = registry.get("journeys") or {}
     return [
         f"- {AUDIENCE_LABELS.get(a, a)}: "
-        + " → ".join(s["repo"] for s in journeys[a])
+        + " → ".join(s.get("label") or s["repo"] for s in journeys[a])
         for a in sorted(journeys, key=lambda a: AUDIENCE_LABELS.get(a, a))
     ]
 
