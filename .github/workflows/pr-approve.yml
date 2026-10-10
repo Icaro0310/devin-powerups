@@ -145,11 +145,12 @@ jobs:
                 [ .[].data.repository.pullRequest.reviewThreads.nodes[]
                   # Still blocking when unresolved, or when resolved by anyone
                   # other than the Devin bot — a PR author resolving a finding
-                  # by hand must not clear the gate.
+                  # by hand must not clear the gate. Exact login match: a
+                  # devin-ai-integration-* prefixed account is not the bot.
                   | select(.isResolved == false
-                      or (((.resolvedBy.login // "") | startswith("devin-ai-integration")) | not))
+                      or ([(.resolvedBy.login // "")] | inside(["devin-ai-integration", "devin-ai-integration[bot]"]) | not))
                   | .comments.nodes[0]
-                  | select(((.author.login // "") | startswith("devin-ai-integration"))
+                  | select(([.author.login // ""] | inside(["devin-ai-integration", "devin-ai-integration[bot]"]))
                       and .originalCommit.oid == $sha
                       and (.body | test("\"kind\": \"(bug|security)\"")))
                 ] | length')
