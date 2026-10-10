@@ -42,7 +42,16 @@ Result. Records are not eternal — revisit when new evidence arrives.
   the gate counted the `kind: analysis` threads as non-blocking and
   approved without intervention — the same system that held the 7
   caller PRs. Read the history as "the reviewer cannot clear
-  out-of-diff findings", not as "the gate is fragile".
+  out-of-diff findings", not as "the gate is fragile". Additional
+  enforcement evidence (2026-10-10, docker-publish PRs devin-assure#44
+  and devin-judge#29): a session attempted `resolveReviewThread` on two
+  stale-but-fixed blocking threads as `Icaro0310`; the gate kept
+  counting them ("resolved by anyone other than the Devin bot" still
+  blocks) and held both PRs until the threads were unresolved and
+  Devin's own re-review resolved them. The anti-bypass rule is
+  enforced in code, not just documented — a human resolving a finding
+  does not clear it, which is exactly the property the rule exists
+  for.
 - **Expected outcome:** admin merges on this class are audited by the
   per-finding proof comment; the root cause is backlog (see
   `BACKLOG.md` — "out-of-diff findings clearance mechanism", which
@@ -524,3 +533,60 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   llms.txt show identical non-repeating paths; holder eco-blocks show
   the updated memberships.
 - **Result:** pending propagation.
+
+## D-2026-10-10d — Explicit `--environment` required on Windows hosts
+
+- **Decision:** on `windows` hosts, `devin-devkit install`, `update` and
+  `outdated` must not guess the environment. Passing `--environment`
+  (`personal-windows` or `corporate-windows`) becomes mandatory; omitting
+  it exits with an error naming the two choices instead of silently
+  selecting `personal_windows`. Linux keeps the host-derived default
+  (`linux`) because it is the only Linux environment. The `windows`
+  alias in `_ENVIRONMENT_ALIASES` is **deprecated, then removed** — an
+  ambiguous name is not a decision, but it is already released surface
+  (shipped in `devin-devkit 0.1.0` on PyPI), so direct removal would
+  break consumers of the published version. Sequence: the release that
+  lands this change keeps `--environment windows` resolving to
+  `personal_windows` but emits a deprecation warning that names the
+  exit — `use --environment personal-windows or corporate-windows`
+  (not merely "windows is deprecated", or users drop the flag and fall
+  into the new required-flag error by accident). Removal at the next
+  breaking release (batching with whatever breaking change comes next);
+  this clause closes when the alias is gone, not before.
+- **Reason:** the previous default violated the ecosystem rule recorded
+  when the brain flipped to "safe by default, permissive is opt-in":
+  the least restrictive environment captured whoever did not specify
+  one, on the host where the mistake is most expensive (a corporate
+  machine could install tools its policy forbids). Requiring the flag
+  is more honest than defaulting to `corporate_windows` (which would
+  silently disable legitimate personal capability on personal machines)
+  and strictly more honest than defaulting to `personal_windows`.
+- **Evidence:** environment-boundary audit, 2026-10-10 — see
+  `docs/audits/2026-10-10/REPORT.md` (the same class of gap as the
+  missing env gate on `update`, PR devin-devkit#36).
+- **Expected outcome:** no code path can reach a Windows install/update
+  without an explicit environment decision; `normalize_environment`
+  raises instead of defaulting when `host == "windows"` and
+  `environment is None`. Validation order: argparse stops checking
+  `--environment` choices so consumers own the message, but each
+  consumer validates **before** building its plan — a user-input error
+  surfaces first, never interleaved with plan-level failures. The PR
+  should also land the install↔update **parity test**: run
+  `build_plan` and `build_update_plan` over the same tool matrix and
+  assert the same canonical gate per case. Shared `evaluate_*`
+  evaluators close the "gate missing" axis; only the parity test locks
+  the "gate in wrong position" axis (the 7th case of this audit),
+  which no amount of green tests on the installer alone can prove.
+  Help text, platform guides and the bootstrap guide state the
+  requirement.
+- **Result:** decision recorded; implementation follows in a dedicated
+  devkit PR after the in-flight updater gate lands.
+- **Deferred:** the shared evaluators (`evaluate_target`,
+  `evaluate_requirements`) live in `installer.py` today and `updater.py`
+  imports them — extraction into a `gates.py`/`plan.py` imported by
+  both is the clean end-state, postponed to avoid inflating the gate
+  PR. Named debt, not a bug; the parity test
+  (`tests/test_gate_parity.py`) is what makes the shared pipeline
+  enforceable regardless of where it lives — and it imports only the
+  caller modules (`installer`, `updater`), never the evaluators
+  directly, so the extraction cannot break its imports.
