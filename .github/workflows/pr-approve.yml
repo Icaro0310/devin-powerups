@@ -12,13 +12,15 @@ name: pr-approve
 #
 # Re-triggers (so the gate recovers instead of dying silently after the
 # wait window):
-#   pull_request_review[submitted]   — a late Devin Review re-runs the gate
-#   pull_request_review_thread       — resolving a thread re-counts findings
-#     [resolved, unresolved]
+#   pull_request_review[submitted]   — a late Devin Review re-runs the gate;
+#     thread resolutions ride along: Devin resolves findings inside its
+#     re-review, which submits a review and fires this event
 #   status                           — a Devin Review status success on the
 #     head re-runs the gate even when no PR review is submitted (clean
 #     analyses post no review object); only statuses whose avatar is the
 #     devin app (/in/811515) count — statuses can be forged
+# (pull_request_review_thread is a webhook but NOT a supported Actions
+# trigger — resolving a thread alone cannot start a run.)
 #
 # Coverage rules:
 #   - A review counts when its commit_id is the head SHA, OR when its commit
@@ -28,7 +30,9 @@ name: pr-approve
 #     commit status is success on the head — clean analyses submit no PR
 #     review object, only the status (verified as posted by the devin app,
 #     and seen twice 30s apart so comments posted right after the status
-#     can't race the gate).
+#     can't race the gate). Status-only adoption emits a synthetic
+#     STATUS_CLEAN verdict, which still runs the findings check — approve
+#     requires zero unresolved blocking threads there too.
 #   - Blocking findings = review threads whose first comment is a
 #     devin-ai-integration bug|security note AND that are not outdated AND
 #     (unresolved or resolved by someone other than the Devin bot) — a PR
@@ -50,8 +54,6 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
   pull_request_review:
     types: [submitted]
-  pull_request_review_thread:
-    types: [resolved, unresolved]
   status: {}
   workflow_call:
     inputs:
@@ -153,13 +155,20 @@ jobs:
               && echo "adopting review on ancestor $reviewed_sha (identical diff to head $HEAD_SHA)"
             verdict=$(echo "$reviews" | jq -r --arg sha "$reviewed_sha" \
               '[.[] | select(.commit_id == $sha)] | last | .state')
+            # The head was adopted via the "Devin Review" status success, so
+            # no review object exists and jq yields null — which would match
+            # neither the approve nor the hold step. Emit an explicit verdict
+            # for clean status-only analyses instead.
+            [ "$verdict" = "null" ] && verdict="STATUS_CLEAN"
             echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
             echo "reviewed_sha=$reviewed_sha" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Count unresolved blocking findings on the reviewed commit
         id: findings
-        if: steps.review.outputs.verdict == 'COMMENTED'
+        if: >-
+          steps.review.outputs.verdict == 'COMMENTED' ||
+          steps.review.outputs.verdict == 'STATUS_CLEAN'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
@@ -211,7 +220,9 @@ jobs:
       - name: Approve PR
         if: >-
           steps.review.outputs.verdict == 'APPROVED' ||
-          (steps.review.outputs.verdict == 'COMMENTED' && steps.findings.outputs.blocking == '0')
+          ((steps.review.outputs.verdict == 'COMMENTED' ||
+            steps.review.outputs.verdict == 'STATUS_CLEAN') &&
+           steps.findings.outputs.blocking == '0')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ steps.review.outputs.pr_url }}
@@ -220,10 +231,12 @@ jobs:
       - name: Hold approval until findings are fixed or resolved
         if: >-
           steps.review.outputs.verdict == 'CHANGES_REQUESTED' ||
-          (steps.review.outputs.verdict == 'COMMENTED' && steps.findings.outputs.blocking != '0')
+          ((steps.review.outputs.verdict == 'COMMENTED' ||
+            steps.review.outputs.verdict == 'STATUS_CLEAN') &&
+           steps.findings.outputs.blocking != '0')
         env:
           VERDICT: ${{ steps.review.outputs.verdict }}
           BLOCKING: ${{ steps.findings.outputs.blocking }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          echo "::warning::Auto-approve held on $HEAD_SHA: Devin Review verdict '$VERDICT'${BLOCKING:+ with $BLOCKING unresolved blocking finding(s)}. Fix and push (re-runs on synchronize) or reply to the thread — a resolution re-runs this job."
+          echo "::warning::Auto-approve held on $HEAD_SHA: Devin Review verdict '$VERDICT'${BLOCKING:+ with $BLOCKING unresolved blocking finding(s)}. Fix, reply to the finding threads and push — Devin's re-review resolves them and re-runs this job."
