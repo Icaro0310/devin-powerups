@@ -54,3 +54,45 @@ def test_check_missing_returns_nonzero(tmp_path, capsys):
                 "--check"]
     assert ueb.main() == 1
     assert "missing-clone ghost" in capsys.readouterr().err
+
+
+def _package_workspace(tmp_path, entry, nested):
+    reg = tmp_path / "registry.json"
+    reg.write_text(json.dumps({"repositories": [entry]}), encoding="utf-8")
+    holder = (
+        tmp_path / "devin-ecosystem" / entry["local_dir"]
+        if nested
+        else tmp_path / entry["local_dir"]
+    )
+    readme = (
+        holder / "packages"
+        / entry["name"].removeprefix("devin-") / "README.md"
+    )
+    readme.parent.mkdir(parents=True)
+    readme.write_text(
+        ueb.render_block(entry["name"], reg) + "\n", encoding="utf-8"
+    )
+    return reg
+
+
+def _registry_entry(name):
+    reg = json.loads(ueb.REGISTRY.read_text(encoding="utf-8"))
+    return next(e for e in reg["repositories"] if e["name"] == name)
+
+
+def test_nested_root_resolves_package_readme(tmp_path, capsys):
+    reg = _package_workspace(tmp_path, _registry_entry("devin-backup"), True)
+    sys.argv = [
+        "x", "--root", str(tmp_path), "--registry", str(reg), "--check",
+    ]
+    assert ueb.main() == 0
+    assert "missing-clone" not in capsys.readouterr().err
+
+
+def test_flat_root_resolves_package_readme(tmp_path, capsys):
+    reg = _package_workspace(tmp_path, _registry_entry("devin-backup"), False)
+    sys.argv = [
+        "x", "--root", str(tmp_path), "--registry", str(reg), "--check",
+    ]
+    assert ueb.main() == 0
+    assert "missing-clone" not in capsys.readouterr().err
