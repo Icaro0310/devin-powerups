@@ -135,6 +135,11 @@ read-only, error payload means "say so", never invent a verdict.
 - Failure paths the CLI maps to exit 2 → `{error, detail}` dicts.
 - `pytest.importorskip("mcp")` guard around `build_server()` — CI
   installs `[dev]` only, not `[mcp]`.
+- Because of that guard, `build_server()` registration goes untested in
+  standard CI runs. Each repo SHOULD add one CI job installing
+  `.[dev,mcp]` (or `[mcp]` alone) so the registration smoke test
+  actually runs; the `importorskip` pattern is the accepted fallback,
+  not the target state.
 - Assert `<pkg>-mcp` entry point + `mcp` extra exist in pyproject
   (tomllib).
 - For restricted packages: assert the module source never references
