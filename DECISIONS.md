@@ -4,6 +4,61 @@ Structural decisions about the ecosystem, newest first. Format per
 `GOVERNANCE.md`: Decision / Date / Reason / Evidence / Expected outcome /
 Result. Records are not eternal — revisit when new evidence arrives.
 
+## D-2026-10-10 — Out-of-diff findings: sanctioned clearance path
+
+- **Decision:** Devin Review does not re-resolve findings whose flagged
+  code lives **outside the PR diff** (e.g. a caller PR that pins
+  `uses: .../pr-approve.yml@v1.1` gets findings about the reusable
+  workflow's code; fixing that code in devin-powerups does not clear the
+  caller's threads, because re-review only diffs the PR itself). Neither
+  waiting nor a new `synchronize` clears them. The sanctioned
+  alternatives, in order:
+  1. make the fix part of the PR's own diff when feasible;
+  2. if the code legitimately lives elsewhere, merge with
+     `gh pr merge --squash --admin` **only after** every blocking finding
+     carries an explicit refutation — file:line + commit that fixes it —
+     or a maintainer-accepted limitation with its own D-record; post the
+     per-finding proof list as a PR comment before merging.
+- **Reason:** Devin Review exposes no programmatic dismiss for review
+  findings (no public API endpoint; `resolveReviewThread` by the author
+  still counts as blocking under the gate's anti-bypass rule — resolver
+  must be the bot). Manual resolution is therefore not a clearance path,
+  and stale out-of-diff threads would hold the PR forever.
+- **Evidence:** auto-approve rollout PRs (`Icaro0310#22`,
+  `devin-assure#43`, `devin-control#37`, `devin-brain#38`,
+  `devin-judge#28`, `Icaro0310.github.io#43`, `qwenpaw-suite#4`): 8
+  unresolved `bug|security` threads, all refuted by
+  `devin-powerups@8b220c9` lines or the fork limitation record —
+  current heads carry `Devin Review: success` and green CI, yet the gate
+  correctly stays fail-closed.
+- **Expected outcome:** admin merges on this class are audited by the
+  per-finding proof comment; the root cause is backlog (see
+  `BACKLOG.md` — "out-of-diff findings clearance mechanism").
+- **Result:** recorded; first application is the auto-approve rollout
+  tail.
+
+## D-2026-10-10 — Fork PRs are out of scope for the approval gate
+
+- **Decision:** the `pr-approve` gate intentionally cannot approve
+  fork-authored PRs, and this is accepted policy, not a defect to fix.
+- **Reason:** GitHub grants a read-only `GITHUB_TOKEN` to
+  `pull_request_review`/`pull_request` runs sourced from forks, so no
+  workflow change can make a fork-sourced run submit an approval; and
+  the trusted-author list (`Icaro0310`, `dependabot[bot]`,
+  `github-actions[bot]`) is base-repo only — a fork author can never be
+  trusted, so the path is unreachable in this fleet. The observed
+  behavior (run executes, approve step fails on a read-only token,
+  approval skipped) is the designed fail-closed outcome.
+- **Evidence:** Devin Review findings "Late fork reviews cannot
+  trigger/grant/submit approval" on `devin-assure#43`,
+  `devin-control#37`, `devin-judge#28`; GitHub token-permission docs for
+  forked PRs; gate code `pr-approve.yml@8b220c9` (status branch filters
+  authors before any approval attempt).
+- **Expected outcome:** any PR that needs fork contributions approved
+  requires a maintainer review, not a gate change; recurring
+  fork-finding threads cite this record.
+- **Result:** accepted limitation — active.
+
 ## D-2026-10-09 — F4.5: devin-devkit absorbs devin-skill-catalog
 
 - **Decision:** `devin-devkit` became a uv workspace with
