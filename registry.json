@@ -585,7 +585,8 @@
       ],
       "audiences": [
         "developers",
-        "end-users"
+        "end-users",
+        "devops"
       ],
       "platforms": [
         "windows",
@@ -720,7 +721,8 @@
       ],
       "audiences": [
         "security",
-        "developers"
+        "developers",
+        "devops"
       ],
       "platforms": [
         "windows",
@@ -865,7 +867,8 @@
       ],
       "audiences": [
         "operations",
-        "end-users"
+        "end-users",
+        "data-scientists"
       ],
       "platforms": [
         "windows",
@@ -1089,7 +1092,8 @@
       ],
       "audiences": [
         "qa",
-        "operations"
+        "operations",
+        "data-scientists"
       ],
       "platforms": [
         "windows",
@@ -1455,7 +1459,8 @@
       ],
       "audiences": [
         "ai-engineers",
-        "developers"
+        "developers",
+        "data-scientists"
       ],
       "platforms": [
         "windows",
@@ -1605,7 +1610,8 @@
       ],
       "audiences": [
         "security",
-        "ai-engineers"
+        "ai-engineers",
+        "devops"
       ],
       "platforms": [
         "windows",
@@ -2200,20 +2206,6 @@
     }
   ],
   "journeys": {
-    "end-users": [
-      {
-        "repo": "awesome-devin",
-        "why": "Orient: what the ecosystem offers and what each tool is for"
-      },
-      {
-        "repo": "devin-devkit",
-        "why": "Install the tools you picked via a profile, one command"
-      },
-      {
-        "repo": "devin-explore",
-        "why": "Diagnose the install if something looks wrong"
-      }
-    ],
     "developers": [
       {
         "repo": "devin-devkit",
@@ -2246,20 +2238,6 @@
         "why": "Watch activity and context growth over time"
       }
     ],
-    "security": [
-      {
-        "repo": "devin-backup",
-        "why": "Snapshot before redaction or deletion so work is reversible"
-      },
-      {
-        "repo": "devin-state",
-        "why": "Redact secrets/PII in place before sharing or exporting"
-      },
-      {
-        "repo": "devin-janitor",
-        "why": "Delete stale stores only after export+verify gates pass"
-      }
-    ],
     "qa": [
       {
         "repo": "devin-assure",
@@ -2288,18 +2266,32 @@
         "why": "Persist memory with provenance and quarantine gates"
       }
     ],
-    "maintainers": [
+    "devops": [
       {
-        "repo": "devin-powerups",
-        "why": "The control plane: registry, governance, generated surfaces"
+        "repo": "devin-state",
+        "why": "Own the store lifecycle — snapshot, redact, clean up"
       },
       {
-        "repo": "devin-pm",
-        "why": "Per-repo rollups, milestones and status reports"
+        "repo": "devin-control",
+        "why": "Constrain execution and drive sessions under policy"
       },
       {
-        "repo": "devin-internals-spec",
-        "why": "Shared contracts the consumers depend on"
+        "repo": "devin-devkit",
+        "why": "Install the environment profile on each machine"
+      }
+    ],
+    "data-scientists": [
+      {
+        "repo": "devin-brain",
+        "why": "Persist session memory with provenance and quarantine"
+      },
+      {
+        "repo": "devin-explore",
+        "why": "Explore session history, search and graphs"
+      },
+      {
+        "repo": "devin-metrics",
+        "why": "Measure activity and context growth over time"
       }
     ]
   }

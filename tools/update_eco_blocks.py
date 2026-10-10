@@ -137,24 +137,41 @@ def main() -> int:
     registry_dir = args.registry.resolve().parent
     changed, missing = [], []
     for e in sorted(entries, key=lambda x: x["name"]):
+        is_package = bool(
+            e.get("product_id") and e["product_id"] != e["name"]
+        )
         candidates = []
         if e.get("local_dir"):
-            # local_dir is recorded relative to the hub clone; an explicit
-            # --root selects a different workspace, so resolve there first
-            candidates.append(
-                (args.root / e["local_dir"]).resolve() / "README.md"
-            )
-        candidates += [
-            base / e["name"] / "README.md",
-            args.root / e["name"] / "README.md",
-        ]
-        if e.get("local_dir"):
-            # last resort: the checkout beside the registry itself
-            candidates.append(
-                (registry_dir / e["local_dir"]).resolve() / "README.md"
-            )
-        readme = next((c for c in candidates if c.is_file()), candidates[-1])
-        if not readme.is_file():
+            # local_dir is recorded relative to the ecosystem clone dir;
+            # --root may be that dir or its parent, so try both
+            holder_dirs = []
+            for cand_root in (args.root, base):
+                d = (cand_root / e["local_dir"]).resolve()
+                if d not in holder_dirs:
+                    holder_dirs.append(d)
+            if is_package:
+                # package inside a holder monorepo: its block lives in the
+                # package README, never the holder's root README
+                candidates += [
+                    d / "packages" / e["name"].removeprefix("devin-") / "README.md"
+                    for d in holder_dirs
+                ]
+            else:
+                candidates += [d / "README.md" for d in holder_dirs]
+        if not is_package:
+            # standalone fallbacks; packages must not write to an archived
+            # pre-merge clone or the holder's own README
+            candidates += [
+                base / e["name"] / "README.md",
+                args.root / e["name"] / "README.md",
+            ]
+            if e.get("local_dir"):
+                # last resort: the checkout beside the registry itself
+                candidates.append(
+                    (registry_dir / e["local_dir"]).resolve() / "README.md"
+                )
+        readme = next((c for c in candidates if c.is_file()), None)
+        if readme is None or not readme.is_file():
             missing.append(e["name"])
             continue
         block = render_block(

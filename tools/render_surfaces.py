@@ -49,6 +49,8 @@ AUDIENCE_LABELS = {
     "operations": "Operations",
     "maintainers": "Maintainers",
     "end-users": "End users",
+    "devops": "DevOps engineers",
+    "data-scientists": "Data Scientists",
 }
 
 INTERFACE_LABELS = {

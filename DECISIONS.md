@@ -404,3 +404,24 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   all tell the same story: Understand 1, Verify 1, Control 2, Build 2.
 - **Result:** met locally — `validate_registry.py` and all drift checks
   green; pin swap itself is a manual GitHub action.
+
+## D-2026-10-10 — Journey recuration: six audiences, devops + data-scientists
+
+- **Decision:** `journeys` drops `end-users` (every visitor is one),
+  `maintainers` (a hub role, not a user profile) and `security` (a facet,
+  not a starting path); adds `devops` (`devin-state → devin-control →
+  devin-devkit`) and `data-scientists` (`devin-brain → devin-explore →
+  devin-metrics`). `audiences` gains the two keys on the step repos.
+  `end-users`, `maintainers` and `security` stay valid as
+  browse-by-audience facets.
+- **Reason:** the site's "Pick your path" is the public entry curation;
+  three of seven profiles didn't describe real audiences. DevOps is
+  lifecycle→control→install; Data Scientists is memory→exploration→
+  measurement.
+- **Evidence:** owner review of icaro0310.github.io, 2026-10-10; schema
+  now requires exactly the six journey keys (`required` in
+  `journeys`).
+- **Expected outcome:** every rendered path surface (site cards,
+  awesome-devin, profile README, llms.txt) shows the same six.
+- **Result:** met locally — validator, renderers and eco-blocks
+  regenerated green; propagation PRs under review.
