@@ -552,6 +552,13 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   not re-exercised per run; scanner behavior regressions are covered
   by redact's own test suite, not the smoke. Recorded so nobody reads
   the green check as scanner coverage.
+- **Convention precedent (2026-10-10):** assert the failure's
+  *classification*, not just that a failure happened. It paid for
+  itself on first use: the evals smoke's tamper edited `corpus.json`
+  but `verify` reads `evals/*.json`, so the adulterated run passed
+  green — an exit-code-only assertion would have shipped a smoke that
+  tests nothing. The `mismatched >= 1` assertion caught it. When the
+  cost of reason-level assertions is questioned, this is the evidence.
 
 ## D-2026-10-10e — Adapter-rollout divergences vs the v3 spec, with positions
 

@@ -152,3 +152,21 @@ a CI job produces agent artifacts.
   workflow in the owning repo proving install → verb → verdict → exit
   code, scoped so a clean run stays green, with a D-record line noting
   the smoke proves wiring, not product regression.
+
+## What each smoke proves — and what it does not
+
+The three smokes are **not symmetric**; reading a green check as
+coverage of the underlying product is wrong in different ways per
+satellite:
+
+| Satellite | Proves per run | Does NOT prove |
+|---|---|---|
+| redact-action | wiring: install → `gate` → verdict → exit code | scanner behavior — `backup/src` is stable-clean, so BLOCKED→exit-1 is not re-exercised (scanner coverage lives in redact's own suite) |
+| doctor-action | both failure classifications — a clean runner must fail `not_installed`, a corrupted store must fail `unhealthy` — plus a healthy pass | the full FAIL-finding matrix; only the stores/schema path is exercised by the fixtures |
+| evals-action | three classifications — real corpus passes, flipped `expected_status` fails as regression (`mismatched >= 1`), missing corpus fails as precondition (mismatches empty) | grader correctness itself; it proves expected-vs-actual comparison and reporting, not that graders detect new defect classes |
+
+Shared rule (precedent, see DECISIONS.md): **assert the failure's
+classification, not just that a failure happened.** The evals smoke
+caught its own broken tamper this way on first use — the adulterated
+manifest produced a trivially-green run that an exit-code check would
+have accepted.
