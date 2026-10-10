@@ -92,32 +92,37 @@ jobs:
         run: |
           set -euo pipefail
           pr_number="$PR_NUMBER"
+          pr_numbers="$PR_NUMBER"
           if [ "$GITHUB_EVENT_NAME" = "status" ]; then
-            # Status events carry the commit, not the PR — look up the open
-            # PR this head belongs to, and apply the same trusted-author
-            # gate as the job condition (status payloads carry no PR, so the
-            # job-level check cannot see the author here).
-            pr=$(gh api "repos/$REPO/commits/$HEAD_SHA/pulls" \
+            # Status events carry the commit, not the PR — find every open
+            # PR whose head is this commit (two PRs can share a head) and
+            # apply the same trusted-author gate as the job condition, which
+            # cannot see the PR author on status payloads. Case brackets are
+            # escaped: unescaped [bot] is a one-char class that also matches
+            # lookalike accounts like "dependabotb".
+            prs=$(gh api "repos/$REPO/commits/$HEAD_SHA/pulls" \
               | jq --arg sha "$HEAD_SHA" \
-                '[.[] | select(.state == "open" and .head.sha == $sha)][0]')
-            pr_number=$(echo "$pr" | jq -r '.number // empty')
-            if [ -z "$pr_number" ]; then
-              echo "no open PR for $HEAD_SHA — nothing to gate"
+                '[.[] | select(.state == "open" and .head.sha == $sha)]')
+            pr_numbers=""
+            while IFS=$'\t' read -r num author; do
+              case "$author" in
+                Icaro0310|dependabot\[bot\]|github-actions\[bot\])
+                  pr_numbers="$pr_numbers $num" ;;
+                *)
+                  echo "::warning::PR #$num by untrusted author '$author' — excluded from approval" ;;
+              esac
+            done < <(echo "$prs" | jq -r '.[] | "\(.number)\t\(.user.login // "")"')
+            pr_numbers="${pr_numbers# }"
+            if [ -z "$pr_numbers" ]; then
+              echo "no open trusted PR for $HEAD_SHA — nothing to gate"
               echo "verdict=no-pr" >> "$GITHUB_OUTPUT"
               exit 0
             fi
-            author=$(echo "$pr" | jq -r '.user.login // ""')
-            case "$author" in
-              Icaro0310|dependabot\[bot\]|github-actions\[bot\]) ;;
-              *)
-                echo "PR #$pr_number by untrusted author '$author' — approval skipped (fail-closed)"
-                echo "verdict=untrusted-author" >> "$GITHUB_OUTPUT"
-                exit 0
-                ;;
-            esac
+            pr_number="${pr_numbers%% *}"
           fi
           echo "pr_url=https://github.com/$REPO/pull/$pr_number" >> "$GITHUB_OUTPUT"
           echo "pr_number=$pr_number" >> "$GITHUB_OUTPUT"
+          echo "pr_numbers=$pr_numbers" >> "$GITHUB_OUTPUT"
           deadline=$(( $(date +%s) + WAIT_MINUTES * 60 ))
           reviewed_sha=""
           status_seen=""
@@ -185,61 +190,88 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ steps.review.outputs.pr_number }}
+          PR_NUMBERS: ${{ steps.review.outputs.pr_numbers }}
           REVIEWED_SHA: ${{ steps.review.outputs.reviewed_sha }}
         run: |
           set -euo pipefail
-          blocking=$(gh api graphql --paginate \
-            -f owner="${REPO%%/*}" -f name="${REPO##*/}" -F pr="$PR_NUMBER" -f query='
-              query($owner: String!, $name: String!, $pr: Int!, $endCursor: String) {
-                repository(owner: $owner, name: $name) {
-                  pullRequest(number: $pr) {
-                    reviewThreads(first: 100, after: $endCursor) {
-                      pageInfo { hasNextPage endCursor }
-                      nodes {
-                        isResolved
-                        isOutdated
-                        resolvedBy { login }
-                        comments(first: 1) {
-                          nodes {
-                            author { login }
-                            originalCommit { oid }
-                            body
+          # A status run can cover several PRs sharing one head — count
+          # blocking findings per PR, not just the first one.
+          blocking_map="{}"
+          blocking=0
+          for pr in $PR_NUMBERS; do
+            count=$(gh api graphql --paginate \
+              -f owner="${REPO%%/*}" -f name="${REPO##*/}" -F pr="$pr" -f query='
+                query($owner: String!, $name: String!, $pr: Int!, $endCursor: String) {
+                  repository(owner: $owner, name: $name) {
+                    pullRequest(number: $pr) {
+                      reviewThreads(first: 100, after: $endCursor) {
+                        pageInfo { hasNextPage endCursor }
+                        nodes {
+                          isResolved
+                          isOutdated
+                          resolvedBy { login }
+                          comments(first: 1) {
+                            nodes {
+                              author { login }
+                              originalCommit { oid }
+                              body
+                            }
                           }
                         }
                       }
                     }
                   }
-                }
-              }' \
-            | jq -s --arg sha "$REVIEWED_SHA" '
-                [ .[].data.repository.pullRequest.reviewThreads.nodes[]
-                  # Still blocking when unresolved, or when resolved by anyone
-                  # other than the Devin bot — a PR author resolving a finding
-                  # by hand must not clear the gate. Exact login match: a
-                  # devin-ai-integration-* prefixed account is not the bot.
-                  # Outdated threads do not block: the push that moved the code
-                  # already answered them (the re-review re-flags if needed).
-                  | select(.isOutdated == false)
-                  | select(.isResolved == false
-                      or ([(.resolvedBy.login // "")] | inside(["devin-ai-integration", "devin-ai-integration[bot]"]) | not))
-                  | .comments.nodes[0]
-                  | select(([.author.login // ""] | inside(["devin-ai-integration", "devin-ai-integration[bot]"]))
-                      and (.body | test("\"kind\": \"(bug|security)\"")))
-                ] | length')
-          echo "unresolved blocking findings on $REVIEWED_SHA: $blocking"
+                }' \
+              | jq -s --arg sha "$REVIEWED_SHA" '
+                  [ .[].data.repository.pullRequest.reviewThreads.nodes[]
+                    # Still blocking when unresolved, or when resolved by anyone
+                    # other than the Devin bot — a PR author resolving a finding
+                    # by hand must not clear the gate. Exact login match: a
+                    # devin-ai-integration-* prefixed account is not the bot.
+                    # Outdated threads do not block: the push that moved the
+                    # code already answered them (the re-review re-flags if
+                    # needed).
+                    | select(.isOutdated == false)
+                    | select(.isResolved == false
+                        or ([(.resolvedBy.login // "")] | inside(["devin-ai-integration", "devin-ai-integration[bot]"]) | not))
+                    | .comments.nodes[0]
+                    | select(([.author.login // ""] | inside(["devin-ai-integration", "devin-ai-integration[bot]"]))
+                        and (.body | test("\"kind\": \"(bug|security)\"")))
+                  ] | length')
+            echo "unresolved blocking findings on $REVIEWED_SHA for PR #$pr: $count"
+            blocking_map=$(echo "$blocking_map" | jq --arg p "$pr" --argjson c "$count" '. + {($p): $c}')
+            blocking=$((blocking + count))
+          done
           echo "blocking=$blocking" >> "$GITHUB_OUTPUT"
+          echo "blocking_map=$blocking_map" >> "$GITHUB_OUTPUT"
 
-      - name: Approve PR
+      - name: Approve PRs with no blocking findings
         if: >-
           steps.review.outputs.verdict == 'APPROVED' ||
-          ((steps.review.outputs.verdict == 'COMMENTED' ||
-            steps.review.outputs.verdict == 'STATUS_CLEAN') &&
-           steps.findings.outputs.blocking == '0')
+          steps.review.outputs.verdict == 'COMMENTED' ||
+          steps.review.outputs.verdict == 'STATUS_CLEAN'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_URL: ${{ steps.review.outputs.pr_url }}
-        run: gh pr review --approve "$PR_URL"
+          REPO: ${{ github.repository }}
+          PR_NUMBERS: ${{ steps.review.outputs.pr_numbers }}
+          BLOCKING_MAP: ${{ steps.findings.outputs.blocking_map }}
+        run: |
+          set -euo pipefail
+          # One status run can cover several PRs on the same head: approve
+          # each whose blocking count is zero, hold the rest. An APPROVED
+          # review verdict skips the findings step, leaving an empty map —
+          # every PR approves. COMMENTED/STATUS_CLEAN use the per-PR counts.
+          map="${BLOCKING_MAP:-}"
+          [ -z "$map" ] && map='{}'
+          for pr in $PR_NUMBERS; do
+            count=$(echo "$map" | jq -r --arg p "$pr" '.[$p] // 0')
+            if [ "$count" = "0" ]; then
+              gh pr review --approve "https://github.com/$REPO/pull/$pr"
+              echo "approved PR #$pr"
+            else
+              echo "::warning::PR #$pr held with $count unresolved blocking finding(s) — fix, reply to the threads and push"
+            fi
+          done
 
       - name: Hold approval until findings are fixed or resolved
         if: >-
@@ -250,6 +282,6 @@ jobs:
         env:
           VERDICT: ${{ steps.review.outputs.verdict }}
           BLOCKING: ${{ steps.findings.outputs.blocking }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.sha }}
         run: |
-          echo "::warning::Auto-approve held on $HEAD_SHA: Devin Review verdict '$VERDICT'${BLOCKING:+ with $BLOCKING unresolved blocking finding(s)}. Fix, reply to the finding threads and push — Devin's re-review resolves them and re-runs this job."
+          echo "::warning::Auto-approve held on $HEAD_SHA: Devin Review verdict '$VERDICT'${BLOCKING:+ with $BLOCKING unresolved blocking finding(s) total}. Fix, reply to the finding threads and push — Devin's re-review resolves them and re-runs this job."
