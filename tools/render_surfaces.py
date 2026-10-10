@@ -46,7 +46,7 @@ AUDIENCE_LABELS = {
     "developers": "Developers",
     "ai-engineers": "AI engineers",
     "security": "Security engineers",
-    "operations": "Operations",
+    "operations": "Local-first ops",
     "maintainers": "Maintainers",
     "end-users": "End users",
     "devops": "DevOps engineers",
@@ -149,9 +149,9 @@ def render_journeys(registry: dict) -> str:
         lines += [f"**{AUDIENCE_LABELS.get(audience, audience)}**", ""]
         for i, step in enumerate(journeys[audience], 1):
             repo = by_name[step["repo"]]
-            lines.append(
-                f"{i}. [`{repo['name']}`]({repo['url']}) — {step['why']}"
-            )
+            name = step.get("label") or repo["name"]
+            url = step.get("url") or repo["url"]
+            lines.append(f"{i}. [`{name}`]({url}) — {step['why']}")
         lines.append("")
     return "\n".join(lines).rstrip()
 
@@ -163,10 +163,15 @@ def journey_context(registry: dict) -> dict[str, list[dict]]:
         for i, step in enumerate(steps):
             ctx.setdefault(step["repo"], []).append({
                 "audience": AUDIENCE_LABELS.get(audience, audience),
+                "label": step.get("label"),
                 "step": i + 1,
                 "total": len(steps),
-                "after": steps[i - 1]["repo"] if i else None,
-                "before": steps[i + 1]["repo"] if i + 1 < len(steps) else None,
+                "after": (
+                    steps[i - 1].get("label") or steps[i - 1]["repo"]
+                ) if i else None,
+                "before": (
+                    steps[i + 1].get("label") or steps[i + 1]["repo"]
+                ) if i + 1 < len(steps) else None,
             })
     return ctx
 
@@ -182,7 +187,8 @@ def render_journeys_html(registry: dict) -> str:
                            key=lambda a: AUDIENCE_LABELS.get(a, a)):
         steps = registry["journeys"][audience]
         chain = " &rarr; ".join(
-            f'<a href="{by_name[s["repo"]]["url"]}"><code>{s["repo"]}</code></a>'
+            f'<a href="{s.get("url") or by_name[s["repo"]]["url"]}">'
+            f'<code>{s.get("label") or s["repo"]}</code></a>'
             for s in steps
         )
         lines.append(
@@ -202,7 +208,8 @@ def render_journeys_compact(registry: dict) -> str:
     for audience in sorted(registry.get("journeys") or {},
                            key=lambda a: AUDIENCE_LABELS.get(a, a)):
         chain = " → ".join(
-            f"[`{s['repo']}`]({by_name[s['repo']]['url']})"
+            f"[`{s.get('label') or s['repo']}`]"
+            f"({s.get('url') or by_name[s['repo']]['url']})"
             for s in registry["journeys"][audience]
         )
         lines.append(f"- **{AUDIENCE_LABELS.get(audience, audience)}:** {chain}")
@@ -235,9 +242,14 @@ def render_tool_block(repo: dict, registry: dict | None = None) -> str:
             if membership["before"]:
                 pos.append(f"before `{membership['before']}`")
             tail = f" — {', '.join(pos)}" if pos else ""
+            alias = (
+                f" (as `{membership['label']}`)"
+                if membership.get("label") and membership["label"] != repo["name"]
+                else ""
+            )
             lines.append(
                 f"> Path: {membership['audience']} · step "
-                f"{membership['step']}/{membership['total']}{tail}"
+                f"{membership['step']}/{membership['total']}{alias}{tail}"
             )
     return "\n".join(
         line + "  " if i < len(lines) - 1 else line
