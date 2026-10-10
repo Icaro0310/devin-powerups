@@ -1,6 +1,6 @@
 {
   "$schema": "https://github.com/Icaro0310/devin-powerups/registry.schema.json",
-  "version": 26,
+  "version": 27,
   "generated": "2026-10-10",
   "owner": "Icaro0310",
   "note": "Public maintainer toolkit: registry, template, scaffolder, and public-project report. Public Devin tools are listed below; the maintainer's private runtime remains kind=system and is excluded from public-project reports. Unrelated personal repositories are not part of this catalog. CI is inline per public project; see README.md.",
@@ -325,7 +325,7 @@
         "manager": "uv",
         "source": "pypi",
         "package": "devin-redact",
-        "version": "0.2.0",
+        "version": "0.2.1",
         "commands": [
           "devin-redact"
         ],
@@ -760,7 +760,7 @@
       "maturity": "usable",
       "official_overlap": "none",
       "overlap_note": null,
-      "version": "0.2.0",
+      "version": "0.2.1",
       "session": "sparkling-metal",
       "stack": "python",
       "ci": "inline",
