@@ -13,10 +13,8 @@ repo (all prefixed `[V4]`); this file is the index.
 | Item | Priority | Tracking |
 |---|---|---|
 | Adapter rollout PRs — review + merge the `feat/adapters-*` branches (8 repos): MCP+skill+plugin per package, read-only AI surfaces, `mcp` extras | high | explore#38+#39, assure#41+#42, state#37+#38, control#36, devkit#34, brain#37, judge#27, powerups#98 |
-| Action satellites (narrow def per D-2026-10-10d): create `devin-state-redact-action` first, prove end-to-end, then doctor/judge/evals | high | staged — redact first |
+| Action satellites (narrow def per D-2026-10-10d): `devin-state-redact-action` created + v1 tagged + smoke workflow live (state PR); evaluate doctor/judge/evals satellites next | high | redact proved — 3 pending |
 | `devkit_install` widening — spec permits a real install via MCP; kept dry-run. Revisit under review if a real need appears | low | D-2026-10-10e |
-| Docs/PR/commit language — spec says Portuguese, repos are all-English; owner decides which convention governs generated surfaces | low | D-2026-10-10e |
-| `orchestrator/.devin/rules/background-workers.md` — same fan-out exposure as the restricted skill, still live; conflicts with global `multiagente` rule — owner decides the policy resolution | medium | D-2026-10-10e |
 | `devin-brain` uv.lock policy — the repo never tracked a lockfile; `uv sync` leaves a ~large untracked diff. Either commit it (reproducible `--all-extras` installs, consistent with explore/assure/state/devkit which track theirs) or add `uv.lock` to `.gitignore`. Decide per-repo, or promote to an ecosystem-wide lockfile policy D-record | low | not filed; flagged in adapter rollout report |
 | P6 product-boundary probes → 2026-12-03 audit (F3 backup+janitor / F1 explore / F2 assure; signals preregistered in `docs/product-boundaries.md`) | high | docs + D-record (#49, #50) |
 | Meta-issue for PyPI publication backlog | optional | not created; registry `distribution_status` is the tracker |

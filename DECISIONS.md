@@ -511,7 +511,11 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   changes).
 - **Expected outcome:** one proved satellite, three pending — or a
   deferred item if the interpretation is challenged.
-- **Result:** pending first creation (`devin-state-redact-action`).
+- **Result:** approved by owner (2026-10-10) and executed —
+  `Icaro0310/devin-state-redact-action` created (public, `action.yml` +
+  `README` + `LICENSE`, tag `v1`), consumed end-to-end by the
+  `redact-action` smoke workflow in devin-state. Three candidates
+  remain: doctor/judge/evals.
 
 ## D-2026-10-10e — Adapter-rollout divergences vs the v3 spec, with positions
 
@@ -542,9 +546,9 @@ rollout. Repo reality wins per §0 unless noted.
   `mcp_server.do_*` still resolves via re-export, so the AST surface
   contract and parity tests are untouched.
 - **Docs/commits in English vs the spec's "idioma: português".**
-  Explicit open question for the owner — prompt instruction vs the
-  repos' observable all-English convention. Not decided by the agent;
-  pending item in BACKLOG.
+  Owner decision (2026-10-10): **English is official**, Portuguese is
+  deprecated for repo surfaces (docs, commits, PRs, generated logs).
+  The spec instruction is superseded.
 - **Legacy `.devin/` surfaces (both resolved).**
   `orchestrator/.devin/skills/.../SKILL.md` was rewritten restricted to
   `history` consults only — no `plan`, no `record`, no dispatch
