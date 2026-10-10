@@ -525,7 +525,13 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   the smoke exercises both failure paths plus a healthy pass.
   `devin-judge-action` deferred: verified no CI job produces agent
   artifacts today, so the satellite would be dead code; pre-commit +
-  MCP cover the tool. `devin-evals-action` next.
+  MCP cover the tool. **`devin-evals-action` shipped the same day**
+  (`v1`): `corpus verify` regression gate; the smoke asserts failure
+  *classification* (precondition vs MISMATCH count), not just failure —
+  and catching a trivially-green run from tampering the wrong file is
+  what made it worth writing. Required `devin-evals` 0.3.0 (regex
+  grader the shipped corpus already uses) + 0.3.1 (`__version__`
+  drift fix); both published via the existing workflow.
 - **Scanner self-flag — real bug, fixed (state `44411ad`).** Not a
   backlog candidate: `env_assignment` fired on any KEY/SECRET/TOKEN
   name bound to a code expression, so scanner configs, env parsers and

@@ -84,19 +84,47 @@ including third-party PRs and any compromised dep in the graph. The
   fails closed (exit 1 on backend error), which is the right semantic
   for a gate.
 
-## devin-evals-action — gate a corpus, not the repo
+## devin-evals-action — regression gate over a golden corpus
 
-`devin-evals` grades recorded transcripts/records (no_secrets, no_pii,
-exit codes, etc.). In CI it gates a **corpus**: regression-check a
-checked-in fixture corpus, or publication-gate recorded sessions before
-they ship. Without a corpus the action has nothing to do — so the
-corpus path is the required input and the repo is only context.
+Answers from reading the real package (2026-10-10):
 
-- inputs: `corpus` (required — directory of transcripts), `version`,
-  `fail-on-warn` analog if the graders expose severity tiers.
-- outputs: pass/fail per grader category, finding count.
-- BLOCKED means "the corpus fails graders" — e.g. a recorded session
-  that leaks a secret, not secrets in the repo.
+- **Input.** `devin-evals corpus verify --corpus <dir>` replays an
+  immutable golden corpus — `corpus.json` manifest (seed, per-case
+  `expected_status`, `known_gap`), `sessions.db`, `evals/*.json` — and
+  reports expected-vs-actual per case. This is the **regression**
+  semantics: the corpus is the baseline and a PR fails when a grader
+  change flips a case away from its expected verdict. It is *not* a
+  corpus lint; that is a different verb (`corpus generate`). The
+  in-repo `evals/action.yml` runs `devin-evals run` against an
+  arbitrary sessions.db — a different surface entirely, so the
+  satellite is not a wrapper of it.
+- **Trigger.** `corpus verify` on the shipped corpus completes in
+  ~1.3 s — deterministic pattern graders over synthetic sessions, no
+  model. "Evals is CPU-heavy" does not hold for this verb; it fits the
+  same path-filtered PR trigger as `test-evals.yml`
+  (`packages/evals/**`).
+- **BLOCKED semantics.** A case whose actual verdict diverges from
+  `expected_status` and is not covered by a documented `known_gap` is
+  a **MISMATCH** — the classification is per-case (`MISMATCH <id>
+  expected=X actual=Y`, defect class D01–D10). GAP results are
+  tolerated by default; `--strict` fails on gaps too. The action's
+  error annotation names the regressed defect, not just "evals
+  failed".
+
+Convention carried from the doctor bug (2026-10-10): **for every gate
+surface, the smoke asserts the classification of the failure, not just
+that a failure happened.** A wrong-reason failure is a shipped bug —
+the doctor action nearly shipped `NOT INSTALLED` misreported as
+`UNHEALTHY`; the reason-level assertion is what caught it.
+
+- inputs: `corpus` (required — a directory produced by
+  `devin-evals corpus generate`), `strict` (default `false`),
+  `version` (`devin-evals>=0.2,<0.3`).
+- outputs: `ok`, `matched`, `mismatched`, `gaps` (parsed from
+  `--out verify-report.json`).
+- Distinct failures: unreadable/malformed corpus → precondition error
+  (not a regression); mismatches → regression error listing each
+  defect.
 - CLI mapping: the action runs `devin-evals corpus verify --corpus
   $corpus` (golden-case grading). The weekly
   `devin-evals run --sessions-db ...` job is a different input path —
@@ -104,8 +132,9 @@ corpus path is the required input and the repo is only context.
 
 ## Rollout
 
-**Doctor → evals → judge (deferred).** Status 2026-10-10: `redact` and
-`doctor` live (`v1`, smoke green); `evals` next; `judge` deferred.
+**Doctor → evals → judge (deferred).** Status 2026-10-10: `redact`,
+`doctor` and `evals` live (`v1`, smoke green); `judge` deferred until
+a CI job produces agent artifacts.
 
 - Judge and evals don't gate the repo — they gate *agent-produced
   artifacts* (execution logs, corpora). Verified 2026-10-10 across all
