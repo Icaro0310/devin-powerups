@@ -200,6 +200,26 @@ class TestJourneyStepOverrides(unittest.TestCase):
         self.assertNotIn("javascript:", out)
         self.assertIn("devin-x", out)  # falls back to the repo url
 
+    def test_package_steps_link_module_dir(self):
+        reg = journey_registry({"qa": [{"repo": "pkg", "why": "x"}]})
+        reg["repositories"].append(repo(
+            name="pkg", url="https://github.com/Icaro0310/holder",
+            product_id="holder", audiences=["qa"],
+            package={"path": "packages/pkg"}))
+        out = rs.render_journeys(reg)
+        self.assertIn("(https://github.com/Icaro0310/holder"
+                      "/tree/main/packages/pkg)", out)
+
+    def test_holder_step_keeps_repo_root(self):
+        reg = journey_registry({"qa": [{"repo": "holder", "why": "x"}]})
+        reg["repositories"].append(repo(
+            name="holder", url="https://github.com/Icaro0310/holder",
+            product_id="holder", audiences=["qa"],
+            package={"path": "packages/main"}))
+        out = rs.render_journeys(reg)
+        self.assertIn("(https://github.com/Icaro0310/holder)", out)
+        self.assertNotIn("tree/main", out)
+
     def test_holder_block_marks_alias_step(self):
         reg = journey_registry(self.JOURNEYS)
         metrics = next(

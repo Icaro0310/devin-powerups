@@ -152,8 +152,7 @@ def render_journeys(registry: dict) -> str:
         for i, step in enumerate(journeys[audience], 1):
             repo = by_name[step["repo"]]
             name = step.get("label") or repo["name"]
-            url = step.get("url") or repo["url"]
-            lines.append(f"{i}. [`{name}`]({url}) — {step['why']}")
+            lines.append(f"{i}. [`{name}`]({_step_url(step, repo)}) — {step['why']}")
         lines.append("")
     return "\n".join(lines).rstrip()
 
@@ -178,13 +177,24 @@ def journey_context(registry: dict) -> dict[str, list[dict]]:
     return ctx
 
 
-def _step_display(step: dict, repo: dict) -> tuple[str, str]:
-    """(name, href) for a journey step; overrides only when well-formed."""
-    name = step.get("label") or repo["name"]
+def _step_url(step: dict, repo: dict) -> str:
+    """Step href: explicit override > package dir > repo root."""
     url = step.get("url") or repo["url"]
     if urllib.parse.urlparse(url).scheme not in ("http", "https"):
         url = repo["url"]
-    return name, url
+    if not step.get("url"):
+        # package entries (product_id != name) link to their module dir,
+        # not the monorepo root — same convention as the product cards
+        is_package = repo.get("product_id") and repo["product_id"] != repo["name"]
+        pkg = (repo.get("package") or {}).get("path", "").strip("/")
+        if is_package and pkg:
+            url = f"{repo['url'].rstrip('/')}/tree/main/{pkg}"
+    return url
+
+
+def _step_display(step: dict, repo: dict) -> tuple[str, str]:
+    """(name, href) for a journey step; overrides only when well-formed."""
+    return step.get("label") or repo["name"], _step_url(step, repo)
 
 
 def render_journeys_html(registry: dict) -> str:
@@ -221,7 +231,7 @@ def render_journeys_compact(registry: dict) -> str:
                            key=lambda a: AUDIENCE_LABELS.get(a, a)):
         chain = " → ".join(
             f"[`{s.get('label') or s['repo']}`]"
-            f"({s.get('url') or by_name[s['repo']]['url']})"
+            f"({_step_url(s, by_name[s['repo']])})"
             for s in registry["journeys"][audience]
         )
         lines.append(f"- **{AUDIENCE_LABELS.get(audience, audience)}:** {chain}")
