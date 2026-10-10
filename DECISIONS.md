@@ -488,3 +488,66 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   skill audited compliant — it documents only the read-only planner);
   rollout PRs under review.
 
+## D-2026-10-10d — Action satellite repos: definition + staged rollout
+
+- **Decision (owner position, recorded before acting):** a GitHub Action
+  satellite repo does **not** count as a "new repository" under the P5
+  freeze when it meets all of: (1) contains only `action.yml` +
+  `README` (+ LICENSE); (2) zero business logic — its only content is
+  invoking an already-published package; (3) no publishable package of
+  its own; (4) no taxonomy/registry membership — `registry.json` does
+  not gain an entry for it. It is a distribution vehicle for a surface
+  that already exists, not a product.
+- **Rollout constraint:** even approved, satellites are created one at
+  a time — `devin-state-redact-action` first (the `redact-check.yml` /
+  `secrets-scan.yml` reusable base already exists in this repo), prove
+  the pattern end-to-end, then evaluate `devin-doctor-action`,
+  `devin-judge-action` and `devin-evals-action`. If any reviewer reads
+  the freeze differently, the whole item defers to 2026-12-03 with zero
+  loss — nothing depends on the satellites existing.
+- **Reason:** §5 of the v3 spec requires the interpretation documented
+  before the first creation; the narrow definition above is what the
+  baseline cannot see (no product count, taxonomy, visibility or name
+  changes).
+- **Expected outcome:** one proved satellite, three pending — or a
+  deferred item if the interpretation is challenged.
+- **Result:** pending first creation (`devin-state-redact-action`).
+
+## D-2026-10-10e — Adapter-rollout divergences vs the v3 spec, with positions
+
+Bundled record of every spec-vs-repo divergence found during the
+rollout. Repo reality wins per §0 unless noted.
+
+- **`devkit_install` is dry-run-only.** Spec §2.16 *permits* a real
+  install via MCP ("additive, not destructive"). Position: keep the
+  conservative dry-run surface — "permitted" is not "required"; the
+  preflight plan covers the agent's real need (know what an install
+  would do) while writes stay user-confirmed. Widening to a real
+  install is a BACKLOG item under review, not a silent change.
+- **`backup_diff` beyond the named set.** Spec §2.14 named `verify`/
+  `status`; the adapter also exposes `backup_diff`. Read-only, same
+  risk class — registered as an accepted superset.
+- **Adapter layout vs §0.3 mold.** `mcp_server.py` lives in `src/<pkg>/`
+  (the `<pkg>-mcp` console script needs an importable module) and the
+  plugin root is self-contained `adapters/` (symlinks break
+  `git-subdir` installs). Documented in `docs/adapters.md`.
+- **`judge_decide` does not exist.** Spec §2.18 named it as the main
+  tool; the real MCP surface is `judge`/`classify`/`rate`/`decide`/
+  `gate`. Code wins (§0) — recorded, not renamed (rule 4 forbids
+  renames anyway).
+- **`switch/mcp_server.py` is 288 lines** — over the 50–200 guideline
+  in §0.2 rule 3. Exception recorded: four tools ≈ 70 lines each once
+  typed signatures and docstrings are counted; parity tests prove zero
+  business-logic leak, and splitting would create a second module for
+  no structural gain. Revisit if a fifth tool lands.
+- **Docs/commits in English vs the spec's "idioma: português".**
+  Explicit open question for the owner — prompt instruction vs the
+  repos' observable all-English convention. Not decided by the agent;
+  pending item in BACKLOG.
+- **Untracked `.devin/` surfaces.** Two legacy surfaces are local
+  config, not repo content: `orchestrator/.devin/skills/.../SKILL.md`
+  (rewritten restricted to `history` consults only) and
+  `orchestrator/.devin/rules/background-workers.md` (same fan-out
+  exposure vector, still live — owner call pending; it also conflicts
+  with the global `multiagente` rule, so the resolution is policy,
+  not mechanics).
