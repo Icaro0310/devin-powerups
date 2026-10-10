@@ -587,4 +587,6 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   both is the clean end-state, postponed to avoid inflating the gate
   PR. Named debt, not a bug; the parity test
   (`tests/test_gate_parity.py`) is what makes the shared pipeline
-  enforceable regardless of where it lives.
+  enforceable regardless of where it lives — and it imports only the
+  caller modules (`installer`, `updater`), never the evaluators
+  directly, so the extraction cannot break its imports.
