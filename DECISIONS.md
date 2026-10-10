@@ -461,11 +461,14 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   mutation stays CLI-only with human confirmation (`redact --apply`,
   `janitor --apply`/vacuum, `backup restore`, `switch use`,
   `skill-catalog promote/quarantine`, bridge/orchestrator execution,
-  devkit `apply_plan` all stay off the AI surface). `devin-brain`'s MCP
-  server keeps its full tool set — it is the product's primary surface
-  — but its skill/plugin document only the gated subset
-  (retain/recall/screen/list/conflicts/prime/verify); review ops
-  (`approve/retract/supersede/quarantine/release/extract`) are CLI-only.
+  devkit `apply_plan` all stay off the AI surface). `devin-brain`'s
+  plugin install launches `devin-memory-mcp --read-only`, so review ops
+  (`approve/retract/supersede/quarantine/release/extract`) are never
+  registered on the agent-facing server — enforced at registration,
+  not just undocumented; its skill/plugin document only the gated
+  subset (retain/recall/screen/list/conflicts/prime/verify). The
+  standalone server keeps the full tool set — it is the product's
+  primary surface and the human operator's review path.
 - **Reason:** "one logic, many faces" — adapters call the package core
   and never re-implement business rules; mutation on an AI-driven
   surface skips human confirmation. The `adapters/` root keeps each
