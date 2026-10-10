@@ -24,6 +24,12 @@ at all — the report FAILs, and that is the correct signal, not noise:
 the action asserts "this runner can run Devin workloads", which is only
 meaningful where one is expected.
 
+Owner decision (2026-10-10): **post-install gate, not installer.** The
+spec phrase "installation broken on the runner" reads as "an installed
+Devin is unhealthy" — the action never installs Devin (that is
+`devin-devkit` or a setup step's job); it asserts health of an install
+that already exists.
+
 Two legitimate consumers:
 
 1. **Self-hosted / persistent runners** that host a real Devin install —
@@ -35,12 +41,21 @@ Two legitimate consumers:
 Design:
 
 - `uses: Icaro0310/devin-doctor-action@v1`
-- inputs: `data-dir`, `config-dir` (default: the tool's standard
-  locations), `version` (`devin-doctor>=…,<…`), `probe-network`
-  (default `false` — CI must not make outbound calls unless asked),
-  `fail-on-warn` (default `false`; FAIL findings always fail).
+- inputs: `data-dir`, `config-dir` (optional), `version`
+  (`devin-doctor>=…,<…`), `fail-on-warn` (default `false`; FAIL findings
+  always fail), `probe-network` (default `false` — no outbound calls in
+  CI unless asked).
 - outputs: `overall` (`PASS`/`WARN`/`FAIL`), `failures` (count).
 - It does **not** checkout or scan repo content — no `paths` input.
+- **Distinct failure messages (owner requirement):** "Devin not
+  installed" is a violated precondition and must report differently
+  from "installed but unhealthy" — otherwise the first hides the
+  second. The action checks whether doctor finds a Devin install at
+  all, then reports which of the two failures fired.
+- **Smoke design:** richer than redact's — one consumer job can prove
+  both states (clean runner → "not installed"; runner with an
+  intentionally corrupted store → "unhealthy"), making it the first
+  satellite whose failure paths are exercised per run.
 
 ## devin-judge-action — gate a proposed action, not the repo
 
@@ -51,13 +66,13 @@ produced that *describes an action*: a generated plan, a migration
 description, a PR's ops summary. The gate answers "may this run
 unattended?" — an advisory block, never an execution.
 
-Open design question (needs owner input before build): **backend**.
-The default local NLI backend downloads ~400 MB on first run — heavy
-but keyless. The ACP backend is light but needs Devin credentials on
-the runner, which no satellite should demand by default. Likely answer:
-local backend with model caching (`actions/cache` on the HF dir), or
-make `backend` an input and document that `local` is the only
-credentials-free option.
+Backend decided by owner (2026-10-10): **local NLI, not ACP.** §2.18
+declares "local NLI offline" as a property of the tool itself — forcing
+ACP on the Action would contradict the package's own spec, and Devin
+credentials on a runner mean credentials in every workflow of the repo,
+including third-party PRs and any compromised dep in the graph. The
+~400 MB model is cached via `actions/cache` keyed
+`judge-model-<nli_version>`; annoying beats leaked.
 
 - inputs: `action-file` (required — path to the artifact to judge),
   `version`, `backend` (`local` default), `calibrator` (optional).
@@ -86,10 +101,21 @@ corpus path is the required input and the repo is only context.
 
 ## Rollout
 
-Doctor first (simplest semantics after redact, no heavy model, clear
-consumer), then evals (needs a real corpus fixture to be meaningful),
-then judge (blocked on the backend/caching question). Each gets the
-same smoke treatment as redact: one consumer workflow in the owning
-repo proving install → verb → verdict → exit code, scoped so a clean
-run stays green, with a D-record line noting the smoke proves wiring,
-not product regression.
+**Doctor → evals → judge (deferred).**
+
+- Judge and evals don't gate the repo — they gate *agent-produced
+  artifacts* (execution logs, corpora). Verified 2026-10-10 across all
+  workflows in the seven product repos plus powerups: **no CI job
+  produces agent execution logs today** — zero invocations of
+  `poordjaevin`, `sessions.db` capture, transcript artifacts or ACP
+  calls. In an ordinary human PR a judge-action would have nothing to
+  judge: fail-closed on missing input is noise, passing trivially is
+  worse. So `devin-judge-action` is **deferred until a producer of
+  agent artifacts exists in CI** — pre-commit + MCP cover the tool
+  meanwhile. Recorded as owner-visible decision, not an agent call.
+- Evals stays in the queue: it can gate the package's own fixture
+  corpus as a meaningful regression input.
+- Each satellite gets the same smoke treatment as redact: one consumer
+  workflow in the owning repo proving install → verb → verdict → exit
+  code, scoped so a clean run stays green, with a D-record line noting
+  the smoke proves wiring, not product regression.
