@@ -42,7 +42,16 @@ Result. Records are not eternal — revisit when new evidence arrives.
   the gate counted the `kind: analysis` threads as non-blocking and
   approved without intervention — the same system that held the 7
   caller PRs. Read the history as "the reviewer cannot clear
-  out-of-diff findings", not as "the gate is fragile".
+  out-of-diff findings", not as "the gate is fragile". Additional
+  enforcement evidence (2026-10-10, docker-publish PRs devin-assure#44
+  and devin-judge#29): a session attempted `resolveReviewThread` on two
+  stale-but-fixed blocking threads as `Icaro0310`; the gate kept
+  counting them ("resolved by anyone other than the Devin bot" still
+  blocks) and held both PRs until the threads were unresolved and
+  Devin's own re-review resolved them. The anti-bypass rule is
+  enforced in code, not just documented — a human resolving a finding
+  does not clear it, which is exactly the property the rule exists
+  for.
 - **Expected outcome:** admin merges on this class are audited by the
   per-finding proof comment; the root cause is backlog (see
   `BACKLOG.md` — "out-of-diff findings clearance mechanism", which
@@ -572,3 +581,10 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   requirement.
 - **Result:** decision recorded; implementation follows in a dedicated
   devkit PR after the in-flight updater gate lands.
+- **Deferred:** the shared evaluators (`evaluate_target`,
+  `evaluate_requirements`) live in `installer.py` today and `updater.py`
+  imports them — extraction into a `gates.py`/`plan.py` imported by
+  both is the clean end-state, postponed to avoid inflating the gate
+  PR. Named debt, not a bug; the parity test
+  (`tests/test_gate_parity.py`) is what makes the shared pipeline
+  enforceable regardless of where it lives.

@@ -32,15 +32,18 @@ Status vocabulary: `PASS` verified · `FAIL` reproducible defect ·
   receipts live at `%APPDATA%\uv\data\tools`, not `~/.local/share/uv/tools`;
   channel-migration detection was silently dead on Windows. Fixed (+ XDG
   honor on Unix), covered by tests.
-- **The class is closed structurally, not just patched** — after the
-  per-gate fixes, `install` and `update` still had duplicated gate logic
-  (the drift would have recurred). Both paths now call the same
-  evaluators in `installer.py`: `evaluate_target` (env metadata →
-  env unsupported → corporate → platform) and `evaluate_requirements`
-  (manager → git → node → spec). Path-specific gates stay in callers —
-  collision/preexisting/manual on install, not-installed/unmanaged/
-  version on update — because they are different semantics, not shared
-  policy. A future gate lands in one function and applies to both paths.
+- **The class is closed by evidence, not just structure** — after the
+  per-gate fixes, the duplicated gate logic was extracted into shared
+  evaluators in `installer.py` (`evaluate_target`,
+  `evaluate_requirements`), called by both paths. But structure alone
+  is a claim, so `tests/test_gate_parity.py` pins it: a matrix asserts
+  `build_plan` and `build_update_plan` hit the same canonical gate with
+  identical details across env/platform/requirement scenarios, fires
+  env-blocked even for a forbidden tool at the pinned version, and
+  asserts the intentional divergences (preexisting vs unmanaged,
+  install-blocked vs update-current) so they cannot drift either.
+  Extraction to a dedicated `gates.py` is deferred — named debt in
+  D-2026-10-10d.
 - **Ordering is a distinct failure mode** — the env gate moved *before*
   the version-current short-circuit (a forbidden tool at the pinned
   version reported `current`, hiding the violation), and prerequisites
