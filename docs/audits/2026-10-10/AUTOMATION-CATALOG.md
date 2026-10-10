@@ -11,8 +11,11 @@ Convenção de paths (placeholders — nunca comitar paths reais):
 `<DEVIN_CONFIG>` = `~/.config/Devin` / `%APPDATA%\Devin` (user-data do app
 Desktop). O `config.json` que o Devin lê para `hooks` vive noutra raiz:
 `<HOOKS_CONFIG>` = `~/.config/devin/config.json` /
-`%APPDATA%\devin\config.json` — diretório `devin` minúsculo, distinto do
-`Devin` do Electron.
+`%APPDATA%\devin\config.json` — diretório `devin` minúsculo. No Linux é
+raiz distinta do `Devin` do Electron (`~/.config/Devin`); no Windows o
+filesystem case-insensitive colapsa os dois — `%APPDATA%\devin` e
+`%APPDATA%\Devin` resolvem para o mesmo diretório, e o hooks config fica
+fisicamente dentro do user-data do app.
 
 > ⚠️ Todo este catálogo é de ambiente **pessoal**. Nada daqui é instalado
 > pelo DevKit e nada deve ser recriado num Corporate Windows: os jobs abaixo

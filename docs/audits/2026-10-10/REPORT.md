@@ -148,6 +148,9 @@ Reproducible test plan for the corporate machine (run behind the real proxy):
 ```powershell
 # stage: fetch through the proxy, not just inspect the CA store —
 # urllib honors HTTPS_PROXY and validates the Zscaler chain end-to-end.
+# Prove the proxy is actually in play first: on open egress the fetch
+# below succeeds with no proxy set and validates nothing about Zscaler.
+python -c "import urllib.request; print('proxies:', urllib.request.getproxies() or 'NONE (direct egress — fetch below is not a Zscaler test)')"
 # On failure the printed exception TYPE is the ticket for IT:
 #   URLError [SSL: CERTIFICATE_VERIFY_FAILED] -> MITM CA missing from the Windows store
 #   URLError [Errno 11001/11002 getaddrinfo]  -> DNS or host blocked upstream
