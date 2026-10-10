@@ -75,7 +75,10 @@ including third-party PRs and any compromised dep in the graph. The
 `judge-model-<nli_version>`; annoying beats leaked.
 
 - inputs: `action-file` (required — path to the artifact to judge),
-  `version`, `backend` (`local` default), `calibrator` (optional).
+  `version`, `backend`, `calibrator` (optional). `backend` accepts
+  `local` only: ACP was considered and rejected by the owner decision
+  above (runner credentials), so it is not an opt-in here — if a future
+  use case ever needs ACP it gets its own documented input.
 - outputs: `block` (bool), `verdict` (text).
 - Fails when `block` is true *or* the backend errors — the CLI already
   fails closed (exit 1 on backend error), which is the right semantic
