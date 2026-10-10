@@ -18,11 +18,13 @@ name: pr-approve
 #
 # Coverage rules:
 #   - A review counts when its commit_id is the head SHA, OR when its commit
-#     is tree-equal to the head (empty-diff pushes like re-trigger commits
-#     change the SHA but not the reviewed diff).
-#   - Blocking findings = unresolved review threads whose first comment is
-#     a devin-ai-integration bug|security note on the reviewed commit.
-#     Resolved threads (fixed or argued) no longer block the approval.
+#     is a strict ancestor of the head with an identical diff (empty-diff
+#     pushes like re-trigger commits change the SHA, not the reviewed code;
+#     rebases and real diffs are never adopted).
+#   - Blocking findings = review threads whose first comment is a
+#     devin-ai-integration bug|security note on the reviewed commit AND that
+#     are unresolved or were resolved by someone other than the Devin bot —
+#     a PR author resolving threads by hand does not clear the gate.
 #
 # Trusted authors are the owner's own PRs, dependabot, and workflows
 # (open-pr-bot opens PRs as github-actions[bot]; dispatch needs write
@@ -73,17 +75,22 @@ jobs:
         run: |
           set -euo pipefail
           deadline=$(( $(date +%s) + WAIT_MINUTES * 60 ))
-          head_tree=$(gh api "repos/$REPO/commits/$HEAD_SHA" --jq .commit.tree.sha)
           reviewed_sha=""
           while [ "$(date +%s)" -lt "$deadline" ]; do
-            reviews=$(gh api "repos/$REPO/pulls/$PR_NUMBER/reviews?per_page=100" \
-              | jq '[.[] | select(.user.login == "devin-ai-integration[bot]")]')
+            reviews=$(gh api "repos/$REPO/pulls/$PR_NUMBER/reviews?per_page=100" --paginate \
+              | jq -s '[add[] | select(.user.login == "devin-ai-integration[bot]")]')
             reviewed_sha=$(echo "$reviews" | jq -r --arg sha "$HEAD_SHA" \
               '[.[] | select(.commit_id == $sha)] | last | .commit_id // empty')
             if [ -z "$reviewed_sha" ]; then
-              for c in $(echo "$reviews" | jq -r '[.[].commit_id] | unique | .[]'); do
+              # Newest reviewed commit first; accept one whose diff is a strict
+              # ancestor of head (head = reviewed commit + empty-diff commits on
+              # top — behind_by 0 and zero changed files). Rebases/divergence
+              # and real diffs are rejected, so stale reviews can't slip in.
+              for c in $(echo "$reviews" | jq -r 'sort_by(.submitted_at) | reverse | .[].commit_id'); do
                 [ "$c" = "$HEAD_SHA" ] && continue
-                [ "$(gh api "repos/$REPO/commits/$c" --jq .commit.tree.sha)" = "$head_tree" ] \
+                cmp=$(gh api "repos/$REPO/compare/$c...$HEAD_SHA")
+                [ "$(echo "$cmp" | jq .behind_by)" = "0" ] \
+                  && [ "$(echo "$cmp" | jq '.files | length')" = "0" ] \
                   && { reviewed_sha="$c"; break; }
               done
             fi
@@ -91,11 +98,11 @@ jobs:
             sleep 30
           done
           if [ -z "$reviewed_sha" ]; then
-            echo "::warning::devin-ai-integration[bot] did not review $HEAD_SHA (or a tree-equal commit) within ${WAIT_MINUTES}m; approval skipped (fail-closed — a late review re-triggers this job via pull_request_review)."
+            echo "::warning::devin-ai-integration[bot] did not review $HEAD_SHA (or an ancestor with an identical diff) within ${WAIT_MINUTES}m; approval skipped (fail-closed — a late review re-triggers this job via pull_request_review)."
             echo "verdict=no-review" >> "$GITHUB_OUTPUT"
           else
             [ "$reviewed_sha" != "$HEAD_SHA" ] \
-              && echo "adopting review on tree-equal commit $reviewed_sha (identical diff to head $HEAD_SHA)"
+              && echo "adopting review on ancestor $reviewed_sha (identical diff to head $HEAD_SHA)"
             verdict=$(echo "$reviews" | jq -r --arg sha "$reviewed_sha" \
               '[.[] | select(.commit_id == $sha)] | last | .state')
             echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
@@ -121,6 +128,7 @@ jobs:
                       pageInfo { hasNextPage endCursor }
                       nodes {
                         isResolved
+                        resolvedBy { login }
                         comments(first: 1) {
                           nodes {
                             author { login }
@@ -135,9 +143,13 @@ jobs:
               }' \
             | jq -s --arg sha "$REVIEWED_SHA" '
                 [ .[].data.repository.pullRequest.reviewThreads.nodes[]
-                  | select(.isResolved == false)
+                  # Still blocking when unresolved, or when resolved by anyone
+                  # other than the Devin bot — a PR author resolving a finding
+                  # by hand must not clear the gate.
+                  | select(.isResolved == false
+                      or (((.resolvedBy.login // "") | startswith("devin-ai-integration")) | not))
                   | .comments.nodes[0]
-                  | select((.author.login | startswith("devin-ai-integration"))
+                  | select(((.author.login // "") | startswith("devin-ai-integration"))
                       and .originalCommit.oid == $sha
                       and (.body | test("\"kind\": \"(bug|security)\"")))
                 ] | length')
