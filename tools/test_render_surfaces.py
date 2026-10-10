@@ -153,6 +153,62 @@ class TestJourneys(unittest.TestCase):
         self.assertEqual(rs.render_journeys(reg), "## Paths by audience")
 
 
+class TestJourneyStepOverrides(unittest.TestCase):
+    """label/url overrides let a package appear under its own name."""
+
+    JOURNEYS = {
+        "qa": [
+            {"repo": "devin-evals", "why": "Replay sessions against graders"},
+            {
+                "repo": "devin-metrics",
+                "label": "devin-metrics-ext",
+                "url": "https://github.com/Icaro0310/devin-metrics"
+                       "/tree/main/packages/ext",
+                "why": "Roll up what changed",
+            },
+        ],
+    }
+
+    def test_paths_use_label_and_url(self):
+        out = rs.render_journeys(journey_registry(self.JOURNEYS))
+        self.assertIn("[`devin-metrics-ext`]", out)
+        self.assertIn("packages/ext", out)
+        self.assertNotIn("2. [`devin-metrics`]", out)
+
+    def test_compact_uses_label_and_url(self):
+        out = rs.render_journeys_compact(journey_registry(self.JOURNEYS))
+        self.assertIn("[`devin-metrics-ext`]", out)
+        self.assertIn("packages/ext", out)
+
+    def test_html_uses_label_and_url(self):
+        out = rs.render_journeys_html(journey_registry(self.JOURNEYS))
+        self.assertIn("<code>devin-metrics-ext</code>", out)
+        self.assertIn('href="https://github.com/Icaro0310/devin-metrics'
+                      '/tree/main/packages/ext"', out)
+
+    def test_html_escapes_malicious_overrides(self):
+        journeys = {
+            "qa": [{
+                "repo": "devin-evals",
+                "label": '"><script>alert(1)</script>',
+                "url": 'javascript:alert(1)',
+                "why": "x",
+            }],
+        }
+        out = rs.render_journeys_html(journey_registry(journeys))
+        self.assertNotIn("<script>", out)
+        self.assertNotIn("javascript:", out)
+        self.assertIn("devin-x", out)  # falls back to the repo url
+
+    def test_holder_block_marks_alias_step(self):
+        reg = journey_registry(self.JOURNEYS)
+        metrics = next(
+            r for r in reg["repositories"] if r["name"] == "devin-metrics")
+        out = rs.render_tool_block(metrics, reg)
+        self.assertIn("(as `devin-metrics-ext`)", out)
+        self.assertIn("after `devin-evals`", out)
+
+
 class TestCounts(unittest.TestCase):
     def test_counts(self):
         c = rs.counts(REGISTRY)

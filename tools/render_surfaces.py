@@ -23,8 +23,10 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import sys
+import urllib.parse
 from collections import defaultdict
 from pathlib import Path
 
@@ -176,6 +178,15 @@ def journey_context(registry: dict) -> dict[str, list[dict]]:
     return ctx
 
 
+def _step_display(step: dict, repo: dict) -> tuple[str, str]:
+    """(name, href) for a journey step; overrides only when well-formed."""
+    name = step.get("label") or repo["name"]
+    url = step.get("url") or repo["url"]
+    if urllib.parse.urlparse(url).scheme not in ("http", "https"):
+        url = repo["url"]
+    return name, url
+
+
 def render_journeys_html(registry: dict) -> str:
     """Site surface: one card per journey, steps as an ordered chain."""
     errors = validate_journeys(registry)
@@ -187,9 +198,10 @@ def render_journeys_html(registry: dict) -> str:
                            key=lambda a: AUDIENCE_LABELS.get(a, a)):
         steps = registry["journeys"][audience]
         chain = " &rarr; ".join(
-            f'<a href="{s.get("url") or by_name[s["repo"]]["url"]}">'
-            f'<code>{s.get("label") or s["repo"]}</code></a>'
-            for s in steps
+            '<a href="{}"><code>{}</code></a>'.format(
+                html.escape(url, quote=True), html.escape(name)
+            )
+            for name, url in (_step_display(s, by_name[s["repo"]]) for s in steps)
         )
         lines.append(
             f'  <div class="card"><h3>{AUDIENCE_LABELS.get(audience, audience)}</h3>'
