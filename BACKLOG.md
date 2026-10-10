@@ -80,3 +80,4 @@ what unblocks.
 - Workflow consolidation (P3b) — done; callers pin `@v1`.
 - `poordjaevin.version` registry field — partially self-healed: PyPI has
   0.1.1; the watchdog may still report the registry field stale.
+| GHCR image publishing — docker-publish.yml merged on 3 repos (state #40, assure #44, judge #29) but images only push after their next successful `publish` run or a manual dispatch; verify `ghcr.io/icaro0310/*` packages exist and inherit public visibility after first publish. `devin-office` image (spec: optional) not built — deferred. Judge: 0.1.2 must publish only AFTER PR #27 merges (gate subcommand lives there) | medium | not filed; flagged 2026-10-10 |
