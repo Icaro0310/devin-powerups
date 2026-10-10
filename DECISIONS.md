@@ -533,8 +533,17 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   it exits with an error naming the two choices instead of silently
   selecting `personal_windows`. Linux keeps the host-derived default
   (`linux`) because it is the only Linux environment. The `windows`
-  alias in `_ENVIRONMENT_ALIASES` is removed — an ambiguous name is not
-  a decision.
+  alias in `_ENVIRONMENT_ALIASES` is **deprecated, then removed** — an
+  ambiguous name is not a decision, but it is already released surface
+  (shipped in `devin-devkit 0.1.0` on PyPI), so direct removal would
+  break consumers of the published version. Sequence: the release that
+  lands this change keeps `--environment windows` resolving to
+  `personal_windows` but emits a deprecation warning that names the
+  exit — `use --environment personal-windows or corporate-windows`
+  (not merely "windows is deprecated", or users drop the flag and fall
+  into the new required-flag error by accident). Removal at the next
+  breaking release (batching with whatever breaking change comes next);
+  this clause closes when the alias is gone, not before.
 - **Reason:** the previous default violated the ecosystem rule recorded
   when the brain flipped to "safe by default, permissive is opt-in":
   the least restrictive environment captured whoever did not specify
@@ -549,7 +558,10 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
 - **Expected outcome:** no code path can reach a Windows install/update
   without an explicit environment decision; `normalize_environment`
   raises instead of defaulting when `host == "windows"` and
-  `environment is None`. Help text, platform guides and the bootstrap
-  guide state the requirement.
+  `environment is None`. Validation order: argparse stops checking
+  `--environment` choices so consumers own the message, but each
+  consumer validates **before** building its plan — a user-input error
+  surfaces first, never interleaved with plan-level failures. Help
+  text, platform guides and the bootstrap guide state the requirement.
 - **Result:** decision recorded; implementation follows in a dedicated
   devkit PR after the in-flight updater gate lands.
