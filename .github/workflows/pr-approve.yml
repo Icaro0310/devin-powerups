@@ -98,7 +98,8 @@ jobs:
             # gate as the job condition (status payloads carry no PR, so the
             # job-level check cannot see the author here).
             pr=$(gh api "repos/$REPO/commits/$HEAD_SHA/pulls" \
-              | jq '[.[] | select(.state == "open")][0]')
+              | jq --arg sha "$HEAD_SHA" \
+                '[.[] | select(.state == "open" and .head.sha == $sha)][0]')
             pr_number=$(echo "$pr" | jq -r '.number // empty')
             if [ -z "$pr_number" ]; then
               echo "no open PR for $HEAD_SHA — nothing to gate"
@@ -107,7 +108,7 @@ jobs:
             fi
             author=$(echo "$pr" | jq -r '.user.login // ""')
             case "$author" in
-              Icaro0310|dependabot[bot]|github-actions[bot]) ;;
+              Icaro0310|dependabot\[bot\]|github-actions\[bot\]) ;;
               *)
                 echo "PR #$pr_number by untrusted author '$author' — approval skipped (fail-closed)"
                 echo "verdict=untrusted-author" >> "$GITHUB_OUTPUT"
