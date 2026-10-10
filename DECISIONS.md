@@ -561,7 +561,14 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   `environment is None`. Validation order: argparse stops checking
   `--environment` choices so consumers own the message, but each
   consumer validates **before** building its plan — a user-input error
-  surfaces first, never interleaved with plan-level failures. Help
-  text, platform guides and the bootstrap guide state the requirement.
+  surfaces first, never interleaved with plan-level failures. The PR
+  should also land the install↔update **parity test**: run
+  `build_plan` and `build_update_plan` over the same tool matrix and
+  assert the same canonical gate per case. Shared `evaluate_*`
+  evaluators close the "gate missing" axis; only the parity test locks
+  the "gate in wrong position" axis (the 7th case of this audit),
+  which no amount of green tests on the installer alone can prove.
+  Help text, platform guides and the bootstrap guide state the
+  requirement.
 - **Result:** decision recorded; implementation follows in a dedicated
   devkit PR after the in-flight updater gate lands.
