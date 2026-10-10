@@ -46,8 +46,10 @@ Result. Records are not eternal — revisit when new evidence arrives.
 - **Expected outcome:** admin merges on this class are audited by the
   per-finding proof comment; the root cause is backlog (see
   `BACKLOG.md` — "out-of-diff findings clearance mechanism", which
-  carries an expiry clause: the workaround is deleted the day Devin
-  Review gains dismiss or out-of-diff re-check).
+  carries an expiry clause: the workaround is deleted once *either*
+  delivery path exists — Devin-side dismiss/re-check of out-of-diff
+  anchors, or the gate-side signed dismiss list — and the item closes
+  when the workaround is gone).
 - **Result:** recorded; first application is the auto-approve rollout
   tail (7 PRs, each with per-finding proof comment + `--admin`).
 
