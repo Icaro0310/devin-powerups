@@ -20,11 +20,15 @@ name: pr-approve
 #   - A review counts when its commit_id is the head SHA, OR when its commit
 #     is a strict ancestor of the head with an identical diff (empty-diff
 #     pushes like re-trigger commits change the SHA, not the reviewed code;
-#     rebases and real diffs are never adopted).
+#     rebases and real diffs are never adopted), OR when the "Devin Review"
+#     commit status is success on the head — clean analyses submit no PR
+#     review object, only the status (seen twice, 30s apart, so comments
+#     posted right after the status can't race the gate).
 #   - Blocking findings = review threads whose first comment is a
-#     devin-ai-integration bug|security note on the reviewed commit AND that
-#     are unresolved or were resolved by someone other than the Devin bot —
-#     a PR author resolving threads by hand does not clear the gate.
+#     devin-ai-integration bug|security note AND that are not outdated AND
+#     (unresolved or resolved by someone other than the Devin bot) — a PR
+#     author resolving threads by hand does not clear the gate, and threads
+#     marked outdated by a push don't hold it either.
 #
 # Trusted authors are the owner's own PRs, dependabot, and workflows
 # (open-pr-bot opens PRs as github-actions[bot]; dispatch needs write
@@ -76,6 +80,7 @@ jobs:
           set -euo pipefail
           deadline=$(( $(date +%s) + WAIT_MINUTES * 60 ))
           reviewed_sha=""
+          status_seen=""
           while [ "$(date +%s)" -lt "$deadline" ]; do
             reviews=$(gh api "repos/$REPO/pulls/$PR_NUMBER/reviews?per_page=100" --paginate \
               | jq -s '[add[] | select(.user.login == "devin-ai-integration[bot]")]')
@@ -93,6 +98,20 @@ jobs:
                   && [ "$(echo "$cmp" | jq '.files | length')" = "0" ] \
                   && { reviewed_sha="$c"; break; }
               done
+            fi
+            if [ -z "$reviewed_sha" ]; then
+              # Clean analyses submit no PR review — only the "Devin Review"
+              # commit status flips to success. Treat it as review evidence,
+              # but only after seeing it twice (30s apart) so finding comments
+              # posted right after the status can't race past the gate.
+              st=$(gh api "repos/$REPO/commits/$HEAD_SHA/status" \
+                | jq -r '[.statuses[] | select(.context == "Devin Review")] | .[0].state // empty')
+              if [ "$st" = "success" ] && [ "$status_seen" = "success" ]; then
+                reviewed_sha="$HEAD_SHA"
+                echo "Devin Review status success on $HEAD_SHA with no review object — clean analysis, adopting."
+              else
+                status_seen="$st"
+              fi
             fi
             [ -n "$reviewed_sha" ] && break
             sleep 30
@@ -128,6 +147,7 @@ jobs:
                       pageInfo { hasNextPage endCursor }
                       nodes {
                         isResolved
+                        isOutdated
                         resolvedBy { login }
                         comments(first: 1) {
                           nodes {
@@ -147,11 +167,13 @@ jobs:
                   # other than the Devin bot — a PR author resolving a finding
                   # by hand must not clear the gate. Exact login match: a
                   # devin-ai-integration-* prefixed account is not the bot.
+                  # Outdated threads don't block: the push that moved the code
+                  # already answered them (the re-review re-flags if needed).
+                  | select(.isOutdated == false)
                   | select(.isResolved == false
                       or ([(.resolvedBy.login // "")] | inside(["devin-ai-integration", "devin-ai-integration[bot]"]) | not))
                   | .comments.nodes[0]
                   | select(([.author.login // ""] | inside(["devin-ai-integration", "devin-ai-integration[bot]"]))
-                      and .originalCommit.oid == $sha
                       and (.body | test("\"kind\": \"(bug|security)\"")))
                 ] | length')
           echo "unresolved blocking findings on $REVIEWED_SHA: $blocking"
