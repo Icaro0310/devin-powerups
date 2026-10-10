@@ -602,3 +602,36 @@ rollout. Repo reality wins per §0 unless noted.
   or points at the skill as "planner" — the skill reference now
   describes read-only registry consultation. Both land in
   devin-control `feat/adapters-control`.
+
+## D-2026-10-10f — Autonomy policy: checkpoints reduced to external dependencies
+
+Owner direction (2026-10-10): eliminate every human checkpoint that does
+not genuinely require the owner. Autonomous decisions with minimal human
+contact are the target.
+
+- **Not delegable — external dependencies, not checkpoints.** Publisher
+  accounts (VS Code Marketplace, Open VSX), legal/developer agreements,
+  2FA, and the final "Publish to Marketplace" click on third-party
+  channels require the owner's identity. They remain owner items.
+- **Delegated to the agent — procedural checkpoints.** PR merges gated on
+  green CI plus completed bot review; version bumps and package publishes
+  via the existing `pypi-publish.yml` workflows; satellite repos under
+  the D-2026-10-10d shape; container images to GHCR. No per-action
+  confirmation.
+- **Still prohibited regardless of autonomy.** These are the freeze, not
+  checkpoints: repo fusion/creation outside the approved satellite shape,
+  deletion, renames, taxonomy reclassification, visibility changes —
+  until 2026-12-03 or a real governance trigger.
+- **Compensating control — verification discipline.** With procedural
+  checkpoints gone, the report becomes the only oversight channel. No
+  numeric or state claim (counts, versions, statuses, merges) enters a
+  report without a fresh authoritative command run in the same response.
+  This applies prompt rule §6 literally.
+- **Trigger.** Owner review caught three reporting inaccuracies in two
+  consecutive reports: open-PR count reported as 14 vs real 16 (the
+  command output listed 16; the report misread it), D-records claimed as
+  `a–e` when no `a` exists and `c/d/e` sit on unmerged PR #98, and the
+  devkit/skill-catalog release line conflated first-ever publication
+  (0.1.0, uploaded same-day by the retried workflows) with a version
+  bump. None were action errors; all were reporting errors. The fix is
+  the control above, not more checkpoints.
