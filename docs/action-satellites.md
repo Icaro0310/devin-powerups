@@ -171,3 +171,27 @@ classification, not just that a failure happened.** The evals smoke
 caught its own broken tamper this way on first use — the adulterated
 manifest produced a trivially-green run that an exit-code check would
 have accepted.
+
+## Container images (GHCR) — pinning contract
+
+Four images publish per package release via each repo's
+`docker-publish.yml`: `ghcr.io/icaro0310/devin-redact`,
+`devin-qa-pack`, `devin-evals`, `devin-judge` (wraps `poordjaevin`,
+ships with the NLI model baked in). The contract mirrors the satellite
+actions:
+
+- **Pin by package version, not by floating tag.** Every push tags
+  `:<package-version>` and `:latest`; consumers that need the same
+  pin discipline as the actions (`devin-redact>=0.2,<0.3`) pin the
+  version tag, e.g. `ghcr.io/icaro0310/devin-redact:0.2.1`.
+  `:latest` is convenience, not a contract.
+- **The image installs the published wheel, never the checkout.** The
+  version arg resolves from `pyproject.toml` at the release commit
+  (`workflow_run.head_sha`) on publish paths and from the PyPI index
+  on PR smokes — the latter prevents a not-yet-published bump from
+  failing the install (chicken-and-egg).
+- **Entrypoint is the CLI; read-only semantics come from the invoked
+  verb** — same delegation model as the satellites: the container is
+  a vehicle, `gate`/`scan`/`corpus verify`/`audit` are the gates.
+- **Arch:** `linux/amd64` until the multi-arch follow-up merges;
+  `linux/arm64` joins via `platforms:` in the same workflows.
