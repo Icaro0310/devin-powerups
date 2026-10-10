@@ -518,13 +518,26 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   gate works — it correctly returned BLOCKED on an over-broad scope;
   rescoped to `packages/backup/src`, now green). Three candidates
   remain: doctor/judge/evals.
-- **Finding recorded (not a blocker):** `devin-redact` self-flags on
-  its own package sources — janitor/redact contain
-  `env_assignment`-shaped regexes, and the tracked
-  `devin_redact.egg-info/PKG-INFO` trips `absolute_path`. Gating a
-  repo that *contains* the scanner needs fixture-aware scoping or a
-  scanner-side self-exclusion improvement; candidate backlog item for
-  devin-redact itself, plus an egg-info hygiene question.
+- **Scanner self-flag — real bug, fixed (state `44411ad`).** Not a
+  backlog candidate: `env_assignment` fired on any KEY/SECRET/TOKEN
+  name bound to a code expression, so scanner configs, env parsers and
+  policy generators — including the scanner's own source — hit BLOCKED
+  and would have deadlocked the redact pre-commit hook the day someone
+  edited `engine.py`. Fix: `_iter_matches` suppresses env_assignment
+  only when the RHS is a container literal or a call (shapes an env
+  value can never take); bare/quoted values still flag, so private
+  constants holding real secrets are still caught. Applies to scan and
+  redact identically. Verified: `packages/*/src` gates REVIEW, was
+  BLOCKED. **Correction:** the `egg-info/PKG-INFO` noted earlier is a
+  local build artifact only — `git ls-files` shows zero tracked
+  egg-info in all seven repos; `.gitignore` already covers it. No repo
+  fix needed.
+- **Smoke scope caveat:** the `redact-action` smoke workflow proves
+  only the satellite wiring (install → gate → verdict → exit code).
+  `packages/backup/src` is stable-clean, so the BLOCKED→exit-1 path is
+  not re-exercised per run; scanner behavior regressions are covered
+  by redact's own test suite, not the smoke. Recorded so nobody reads
+  the green check as scanner coverage.
 
 ## D-2026-10-10e — Adapter-rollout divergences vs the v3 spec, with positions
 
