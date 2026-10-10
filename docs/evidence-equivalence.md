@@ -1,6 +1,6 @@
 # Evidence Equivalence Study
 
-**Data:** 2026-10-09 → 2026-10-11
+**Data:** 2026-10-09 → 2026-10-10
 **Autor:** Devin
 **Estado:** investigação concluída
 
@@ -34,10 +34,10 @@ Investigação em três vagas, todas read-only:
    table_info`; conteúdo de linhas nunca publicado.
 2. **Discovery não autenticado (2026-10-09):** `tools/list` no MCP público,
    `api.devin.ai` sem credencial (403 confirmado), OpenAPI publicado.
-3. **Verificação autenticada (2026-10-06 e 2026-10-11):** o estudo de
+3. **Verificação autenticada (2026-10-06 e 2026-10-10):** o estudo de
    referência em `devin-internals-spec/docs/EVIDENCE-EQUIVALENCE.md` já
    tinha criado duas sessões-probe taggeadas `evidence-study` e documentado
-   GETs na API v3 com PAT de teste. Hoje (2026-10-11) foram repetidos —
+   GETs na API v3 com PAT de teste. Hoje (2026-10-10) foram repetidos —
    com o mesmo PAT, GETs apenas — `tools/list` MCP (25 tools, schema de
    `devin_session_events`), `GET /v3/self`, `GET
    /v3/organizations/{org}/sessions` (4 sessões), `devin_session_events`
@@ -48,6 +48,11 @@ Investigação em três vagas, todas read-only:
 Fontes primárias por afirmação em §6. Onde a evidência não cobre, o campo
 está marcado `unverified` — não inventado.
 
+Nota pendente do leg local: o artefacto N=10 é um **resumo JSON**, não o
+diretório-fixture que o contract-check consome — a reconciliação dos dois
+formatos (ou a extensão do contract-check) continua sub-tarefa aberta e
+não foi completada neste estudo.
+
 ## 1. Inventário local (baseline)
 
 Stores verificados nesta máquina (Linux; equivalente Windows documentado em
@@ -55,9 +60,9 @@ Stores verificados nesta máquina (Linux; equivalente Windows documentado em
 
 | Store | Path | Conteúdo | Verificado |
 |---|---|---|---|
-| `sessions.db` v17 | `~/.local/share/devin/cli/sessions.db` | 9 tabelas, 97 sessões, 529k `message_nodes`, 30k `tool_call_state` | hoje, direto |
-| `acp-messages/*.db` | `~/.config/Devin/User/acp-messages/` | 47 DBs por sessão GUI; `meta` + `messages(position,kind,payload)`; kinds: `tool_call`, `agent_thought`, `agent_message`, `user_message` | hoje, direto |
-| `state.vscdb` | `~/.config/Devin/User/globalStorage/` | KV VS Code-style, 990 itens; chaves `windsurf.acp.messageStore.session.acp/devin-cli/*` | hoje, direto |
+| `sessions.db` v17 | `~/.local/share/devin/cli/sessions.db` | 9 tabelas, 97 sessões, 529k `message_nodes`, 30k `tool_call_state` | 2026-10-10, direto |
+| `acp-messages/*.db` | `~/.config/Devin/User/acp-messages/` | 47 DBs por sessão GUI; `meta` + `messages(position,kind,payload)`; kinds: `tool_call`, `agent_thought`, `agent_message`, `user_message` | 2026-10-10, direto |
+| `state.vscdb` | `~/.config/Devin/User/globalStorage/` | KV VS Code-style, 990 itens; chaves `windsurf.acp.messageStore.session.acp/devin-cli/*` | 2026-10-10, direto |
 | `memory/memories.jsonl` | `~/.config/Devin/memory/` | memória persistente | presente |
 | `plugins/discovered.json` | `~/.local/share/devin/cli/plugins/` | manifestos de plugins instalados | presente |
 | `summaries/`, `logs/`, `session_locks/`, `skill_events_spool.lock` | `~/.config/Devin/` + `~/.local/share/devin/cli/` | artefactos auxiliares | presente |
@@ -90,7 +95,7 @@ vazio-vs-ilegível (ground truth unreadable → `unverifiable`, nunca
 
 ### 2.1 API v3
 
-Base `https://api.devin.ai/v3`, org-scoped. Verificado hoje com PAT:
+Base `https://api.devin.ai/v3`, org-scoped. Verificado 2026-10-10 com PAT:
 
 - `GET /v3/self` → principal/org ids (funciona).
 - `GET /v3/organizations/{org}/sessions?qs={json}` → lista; `qs` é um
@@ -115,7 +120,7 @@ unshipped). OpenAPI: `docs.devin.ai/{v1,v2,v3}-openapi.yaml`.
 ### 2.2 MCP
 
 `https://mcp.devin.ai/mcp` (JSON-RPC sobre SSE). `tools/list` é público sem
-auth; invocação exige o PAT. **25 tools** hoje (24 em 2026-10-06):
+auth; invocação exige o PAT. **25 tools** (2026-10-10) (24 em 2026-10-06):
 `devin_session_create/events/interact/search/insights/gather`,
 `devin_review_manage`, manages de automation/knowledge/playbook/schedule/
 oncall/campaign/blueprint/code-scan/billing-tag/mcp-server, `devin_user_list`,
@@ -163,7 +168,7 @@ Superfície de **extensibilidade**, não de evidência: plugins
 camada de customização partilhada entre cloud sessions, CLI e Desktop
 (`docs.devin.ai/cli/extensibility/plugins`, `product-guides/plugins`).
 O store de plugins do CLI vive em `~/.local/share/devin/cli/plugins/`
-(`discovered.json` — verificado hoje). `plugins_activated` é o vestígio no
+(`discovered.json` — verificado 2026-10-10). `plugins_activated` é o vestígio no
 event stream; `PreToolUse` hooks recebem `tool_provenance` (skill/MCP de
 origem — changelog v3000.10.21). Nenhuma superfície de plugins expõe
 evidência de sessão — gap é de natureza, não de implementação.
@@ -190,7 +195,7 @@ evidência de sessão — gap é de natureza, não de implementação.
   sessões, chat, diffs globais/por-ficheiro read-only, Remote-SSH para a VM
   da sessão, archive. UI sobre a API; não expõe transcripts/tool logs.
 - **SDK TypeScript `@cognition-ai/sdk`** (npm, `beta` tag, 0.0.1-beta.7 —
-  verificado hoje): `session.events()` stream **tipado** com tool calls
+  verificado 2026-10-10): `session.events()` stream **tipado** com tool calls
   normalizados (`detail` com command/exit_code/path), `status`, `activity`,
   `message_delta`, `pull_request`. Cloud sessions via ACP WebSocket;
   locais spawn do CLI. **Cobre per-tool-call — mais rico que REST.**
@@ -261,7 +266,10 @@ que o estudo de outubro sugeria.
 - **Viável:** adapter MCP como fonte de evidência para **sessões cloud**
   cobrindo o núcleo de verificação (campos 1-10, 14): session id, mensagens
   lineares, tool invocation/args/result/exit code/timestamps/ordering/estado
-  final, bash+output. Prova de conceito já existe em
+  final, bash+output. **Qualificação:** a cobertura foi verificada ao vivo
+  apenas para a categoria `shell`; `file`/`git`/`browser`/`mcp`/`secret`
+  estão enumeradas mas sem `contents` observados — fora de shell, campos
+  5/6/13 degradam para `unverified`, não `equivalent`. Prova de conceito já existe em
   `devin-qa-pack/adapters/mcp.py` (auditoria PASS sobre a probe de
   outubro). Combinado com REST v3 para metadata (ACU, PRs, tags,
   `child_session_ids`, `devin_mode`), a cobertura sobe para ~14/18 campos.
@@ -283,7 +291,7 @@ que o estudo de outubro sugeria.
 ## 6. Fontes
 
 - `devin-internals-spec/docs/SCHEMA.md` — DDL v17 dos três stores
-  (verificado de novo hoje: 97 sessões, 47 acp DBs, 990 items vscdb).
+  (verificado de novo 2026-10-10: 97 sessões, 47 acp DBs, 990 items vscdb).
 - `devin-internals-spec/docs/EVIDENCE-EQUIVALENCE.md` — estudo-mãe
   (2026-10-06): OpenAPI v1-v3, GETs autenticados, probes `evidence-study`,
   mapeamento MCP→`ParsedToolCall`.
@@ -303,7 +311,7 @@ que o estudo de outubro sugeria.
   `usacognition`, não `CognitionAI`).
 - `api.devin.ai/docs` — Swagger interno (endpoints fora da v3: presigned
   terminal/editor/images).
-- Live (hoje, read-only, PAT de teste): `tools/list` MCP → 25 tools;
+- Live (2026-10-10, read-only, PAT de teste): `tools/list` MCP → 25 tools;
   schema `devin_session_events` (actions/categories/filters); `GET /v3/self`;
   `GET /v3/organizations/{org}/sessions?qs={"limit":20}` → 4 sessões;
   `devin_session_events list` × 2 probes arquivadas (40/41 eventos);
@@ -319,7 +327,7 @@ Se autorizado, poder-se-ia: (a) correr uma probe sintética que exercite as
 categorias `file`/`git`/`browser`/`mcp`/`secret` para fechar os shapes por
 tipo — ~1h + ACU mínimo; (b) medir paginação/rate limits em sessão longa;
 (c) verificar `devin --export` numa sessão local real e confirmar o formato
-ATIF campo-a-campo (pode cobrir campos 11/16 hoje `parcial`); (d) testar
+ATIF campo-a-campo (pode cobrir campos 11/16 agora `parcial`); (d) testar
 `session.events()` do `@cognition-ai/sdk` contra uma sessão cloud; (e)
 verificar se `/v3/enterprise/audit-logs` e `sessions/insights` cobrem
 metadata que o `SessionResponse` omite (gated por tier?); (f) avaliar a
