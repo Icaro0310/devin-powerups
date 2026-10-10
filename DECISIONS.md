@@ -37,12 +37,12 @@ Result. Records are not eternal — revisit when new evidence arrives.
   `devin-powerups@8b220c9` lines or the fork limitation record —
   current heads carry `Devin Review: success` and green CI, yet the gate
   correctly stays fail-closed. Counter-evidence that this is a
-  pathological case, not a weak gate: this record's own PR
-  (devin-powerups#102) merged through the natural loop — Devin reviewed,
-  the gate counted its two `kind: analysis` threads as non-blocking and
-  approved — the same system that held the 7 caller PRs. Read the
-  history as "the reviewer cannot clear out-of-diff findings", not as
-  "the gate is fragile".
+  pathological case, not a weak gate: two consecutive devin-powerups
+  PRs (#102 and #103) merged through the natural loop — Devin reviewed,
+  the gate counted the `kind: analysis` threads as non-blocking and
+  approved without intervention — the same system that held the 7
+  caller PRs. Read the history as "the reviewer cannot clear
+  out-of-diff findings", not as "the gate is fragile".
 - **Expected outcome:** admin merges on this class are audited by the
   per-finding proof comment; the root cause is backlog (see
   `BACKLOG.md` — "out-of-diff findings clearance mechanism", which
@@ -70,7 +70,11 @@ Result. Records are not eternal — revisit when new evidence arrives.
   authors before any approval attempt).
 - **Expected outcome:** any PR that needs fork contributions approved
   requires a maintainer review, not a gate change; recurring
-  fork-finding threads cite this record.
+  fork-finding threads cite this record. Audit comments name the track:
+  findings covered by this limitation are referenced as
+  `limitation:fork-read-only`, not as `verified:stale` — the two tracks
+  (per-finding proof pair vs accepted policy) must not be conflated in
+  the same "verified" bucket.
 - **Result:** accepted limitation — active.
 
 ## D-2026-10-09 — F4.5: devin-devkit absorbs devin-skill-catalog
