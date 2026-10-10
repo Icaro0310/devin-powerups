@@ -21,12 +21,12 @@ Config: `<DEVIN_CONFIG>/../devin/config.json` (`hooks` section). Despacho
 genérico: `<PAS_ROOT>/scripts/session-dispatcher.py --event <E> --handler <id>`
 — o catálogo de handlers vive em `<PAS_ROOT>/.devin/catalog/`.
 
-| Evento | Handler instalado | Script | Fail |
-|---|---|---|---|
-| SessionStart | obsidian.recall | `scripts/obsidian-recall.py` | fail-open |
-| UserPromptSubmit | prompt logger | `scripts/prompt_logger.py` → `.devin/memory/session-*.jsonl` | fail-open |
-| Stop | learning.session-end | `scripts/session_learning.py` (incremental) | fail-open |
-| SessionEnd | history.export + learning.session-end | `scripts/devin-history-export.py` (env DEVIN_DB/GUI_DB_DIR/DEVIN_VAULT) + `session_learning.py` | fail-open |
+| Evento | Handler instalado | Script | Fail | Classe |
+|---|---|---|---|---|
+| SessionStart | obsidian.recall | `scripts/obsidian-recall.py` | fail-open | core |
+| UserPromptSubmit | prompt logger | `scripts/prompt_logger.py` → `.devin/memory/session-*.jsonl` | fail-open | core |
+| Stop | learning.session-end | `scripts/session_learning.py` (incremental) | fail-open | core |
+| SessionEnd | history.export + learning.session-end | `scripts/devin-history-export.py` (env DEVIN_DB/GUI_DB_DIR/DEVIN_VAULT) + `session_learning.py` | fail-open | core |
 
 Trigger definitions (50) em `<PAS_ROOT>/.devin/catalog/triggers/*.yaml` —
 cada YAML carrega `# Migra <TaskName>` com o nome da task do Windows Task
@@ -51,46 +51,55 @@ Todos os paths de script referenciados existem e são executáveis.
 
 ### VM / QwenPaw
 
-| Schedule | Comando | Equiv. Windows | Notas |
-|---|---|---|---|
-| `*/15 * * * *` | `vm-keepalive.sh` | DevinVM-KeepAlive | ssh via tailscale userspace |
-| `15 5 * * *` | `vm-backup.sh` | DevinVM-Backup | tar → ssh → scp, retenção 7d |
-| `0 9 * * *` | `vm-uptime-check.py` | DevinVM-UptimeCheck | email MailerSend só se down |
-| systemd `vm-ollama-tunnel` | `ssh -N -L 11435:… -L 8765:… devin-vm` | DevinVM-OllamaTunnel (logon) | Restart=always |
-| systemd `devin-vm-rtunnel` | reverse tunnel VM→laptop :2223 | — | |
+| Schedule | Comando | Equiv. Windows | Classe | Notas |
+|---|---|---|---|---|
+| `*/15 * * * *` | `vm-keepalive.sh` | DevinVM-KeepAlive | core* | ssh via tailscale userspace |
+| `15 5 * * *` | `vm-backup.sh` | DevinVM-Backup | core* | tar → ssh → scp, retenção 7d |
+| `0 9 * * *` | `vm-uptime-check.py` | DevinVM-UptimeCheck | opcional* | email MailerSend só se down |
+| systemd `vm-ollama-tunnel` | `ssh -N -L 11435:… -L 8765:… devin-vm` | DevinVM-OllamaTunnel (logon) | core* | Restart=always |
+| systemd `devin-vm-rtunnel` | reverse tunnel VM→laptop :2223 | — | core* | |
+
+`*` = depende da VM QwenPaw (só personal). Sem VM, todo o bloco é `n/a`.
 
 ### Ops / GitHub
 
-| Schedule | Comando | Notas |
-|---|---|---|
-| `7,47 * * * *` | `scripts/answer-runner.py` | Q&A autopilot; travas denylist+categoria+humanize+gate Djævin; máx 5/dia |
-| `30 4 * * 0` | `scripts/weekly-ecosystem-scout.mjs --apply` (node) | DevinWeeklyEcosystemScout |
-| `0 6 * * 0` | `scripts/weekly-testgen.mjs --apply` (node) | gera casos + email cobertura |
-| `45 4 * * *` | `scripts/fork-janitor.py` | apaga forks sem PR / PR >72h |
-| `*/15 * * * *` | `gh-notif-silence.sh` | unsub+done em threads de repos próprios |
-| `0 9 * * 1` | `scripts/gsc-report.py` | Google Search Console semanal |
-| `*/20 * * * *` | `mailbox-wake-watch.sh` | DevinMailboxRunner parcial (sem node) |
+| Schedule | Comando | Classe | Notas |
+|---|---|---|---|
+| `7,47 * * * *` | `scripts/answer-runner.py` | core | Q&A autopilot; travas denylist+categoria+humanize+gate Djævin; máx 5/dia |
+| `30 4 * * 0` | `scripts/weekly-ecosystem-scout.mjs --apply` (node) | opcional | DevinWeeklyEcosystemScout |
+| `0 6 * * 0` | `scripts/weekly-testgen.mjs --apply` (node) | opcional | gera casos + email cobertura |
+| `45 4 * * *` | `scripts/fork-janitor.py` | opcional | apaga forks sem PR / PR >72h |
+| `*/15 * * * *` | `gh-notif-silence.sh` | opcional | unsub+done em threads de repos próprios |
+| `0 9 * * 1` | `scripts/gsc-report.py` | opcional | Google Search Console semanal |
+| `*/20 * * * *` | `mailbox-wake-watch.sh` | core | DevinMailboxRunner parcial (sem node) |
 
 ### Monitoramento / vault
 
-| Schedule | Comando | Notas |
-|---|---|---|
-| `*/10 * * * *` | `scripts/ecosystem-health.sh` | laptop+VM, alerta Slack só em transição |
-| `*/5 * * * *` | `scripts/office-freshness-check.py` | watchdog do devin-office probe |
-| `*/5 * * * *` | `obsidian-watchdog.sh` | relança Obsidian AppImage se morrer; opt-out `~/.config/obsidian-watchdog.disabled` |
-| `*/30 * * * *` | `scripts/vault-compressor.py` | comprime notas do vault |
-| `*/5 * * * *` | `devin-dashboard/tools/laptop_reporter.py` | repo privado devin-dashboard |
-| `0 3 * * *` | `djaevin-quiz-run.sh` → `scripts/djaevin-nightly-quiz.py` | DevinDjaevinNightlyQuiz |
-| `0 5 * * 0` | `djaevin-calibration-run.sh` | DevinDjaevinWeeklyCalibration |
-| `15 3 * * *` | `devin-backup create` (venv) | já existia pré-migração |
-| `30 3 * * 0` | `devin-backup rotate --keep 10 --yes` | |
+| Schedule | Comando | Classe | Notas |
+|---|---|---|---|
+| `*/10 * * * *` | `scripts/ecosystem-health.sh` | core | laptop+VM, alerta Slack só em transição |
+| `*/5 * * * *` | `scripts/office-freshness-check.py` | core | watchdog do devin-office probe |
+| `*/5 * * * *` | `obsidian-watchdog.sh` | core | relança Obsidian AppImage se morrer; opt-out `~/.config/obsidian-watchdog.disabled` |
+| `*/30 * * * *` | `scripts/vault-compressor.py` | opcional | comprime notas do vault |
+| `*/5 * * * *` | `devin-dashboard/tools/laptop_reporter.py` | opcional | repo privado devin-dashboard |
+| `0 3 * * *` | `djaevin-quiz-run.sh` → `scripts/djaevin-nightly-quiz.py` | core | DevinDjaevinNightlyQuiz |
+| `0 5 * * 0` | `djaevin-calibration-run.sh` | core | DevinDjaevinWeeklyCalibration — alimenta o gate do answer-runner |
+| `15 3 * * *` | `devin-backup create` (venv) | core | já existia pré-migração |
+| `30 3 * * 0` | `devin-backup rotate --keep 10 --yes` | core | |
 
 ### systemd --user services (ativos)
 
-`mcp-hub` (:8764) · `slack-poll` (DMs→ACP) · `obsidian` (REST :27123) ·
-`tailscaled` (userspace) · `vm-ollama-tunnel` · `devin-vm-rtunnel` ·
-`devin-dashboard-tray` · `devin-office-probe` · `qwenpaw-bridge` (:5000 —
-**dead/disabled** na auditoria; `vm-ollama-tunnel` sozinho já serve 11435).
+| Service | Classe | Notas |
+|---|---|---|
+| `mcp-hub` (:8764) | core | hub de MCPs |
+| `slack-poll` | core | DMs→ACP (Slack brain) |
+| `obsidian` (REST :27123) | core | vault MCP |
+| `tailscaled` (userspace) | core | base dos túneis VM |
+| `vm-ollama-tunnel` | core* | ver tabela VM |
+| `devin-vm-rtunnel` | core* | ver tabela VM |
+| `devin-dashboard-tray` | opcional | |
+| `devin-office-probe` | core | roda `devin-control/packages/office/probe.py` — unit repontado hoje para o path canônico do monorepo |
+| `qwenpaw-bridge` (:5000) | **dead/disabled** | `vm-ollama-tunnel` já serve :11435; provável órfão — confirmar antes de remover |
 
 Linger ativo (`loginctl enable-linger`) — services arrancam no boot sem login.
 
@@ -161,8 +170,12 @@ Linger ativo (`loginctl enable-linger`) — services arrancam no boot sem login.
 - `qwenpaw-bridge.service` está dead/disabled mas o status "ollama_connected"
   é reivindicado na doc — verificar se o tunnel :11435 cobre ou se o
   bridge :5000 é órfão.
-- `devin-office-probe.service` roda código de repo arquivado (devin-office →
-  devin-control/packages/office) — funciona, mas o unit aponta para checkout
-  legado; atualizar para o path do monorepo.
+- `devin-office-probe.service` **já está correto** — verificação
+  pós-auditoria (`systemctl --user cat`) mostra o unit apontando para
+  `devin-control/packages/office/probe.py`, o path canônico pós-
+  consolidação. Foi repontado hoje (~20:08) após ~21h morto apontando
+  para o checkout removido do repo arquivado. Redação anterior deste
+  catálogo dizia "atualizar para o monorepo" — era a mesma task, já
+  corrigida.
 - Nenhum catálogo público existia antes desta auditoria; os trigger YAMLs do
   PAS são a fonte canônica (privados) — esta página é a projeção pública.

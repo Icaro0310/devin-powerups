@@ -16,12 +16,26 @@ Status vocabulary: `PASS` verified · `FAIL` reproducible defect ·
 
 ## Executive summary
 
-- **Two real defects found and fixed.** (1) `devin-doctor`'s update check
-  fetched a pre-monorepo manifest path → live 404 → the check silently
-  reported "registry unreachable" on every run (devin-explore#41).
-  (2) `devin-devkit update/outdated` had **no environment gate** — on a
-  corporate machine `update --apply` could force-install any remote tool
-  whose command sat on PATH (devin-devkit#36).
+- **One defect *class*, five instances, all fixed.** Every manifest-
+  consuming code path was enumerated after the first two findings: gates
+  present on the install path were absent on parallel paths.
+  (1) `devin-doctor` fetched a pre-monorepo manifest path → live 404 →
+  "registry unreachable" on every run (devin-explore#41).
+  (2) `update`/`outdated` had no environment gate — corporate could
+  force-install any remote tool with a PATH command (devin-devkit#36).
+  (3) `update` had no platform gate and no prerequisite gate.
+  (4) `update` force-reinstalled PATH commands it never installed,
+  contradicting the documented never-overwrite contract — now `unmanaged`.
+  (5) `freshness_hint` fired an outbound call without environment context —
+  now silent under `corporate_windows` and `DEVIN_DEVKIT_OFFLINE=1`.
+- **`_uv_tools_dir()` was wrong on Windows** — confirmed against uv docs:
+  receipts live at `%APPDATA%\uv\data\tools`, not `~/.local/share/uv/tools`;
+  channel-migration detection was silently dead on Windows. Fixed (+ XDG
+  honor on Unix), covered by tests.
+- **Windows default decided, not open** — `personal_windows` was the silent
+  default when `--environment` was omitted, inverting the recorded
+  safe-by-default rule. D-2026-10-10d requires explicit `--environment`
+  on Windows hosts; implementation follows in a dedicated PR.
 - **Corporate install path is enforced and tested** — `build_plan` rejects
   unsupported/delegation-capable tools before any install action, requires
   explicit `--environment`, and this is covered by installer tests.
@@ -50,11 +64,15 @@ Status vocabulary: `PASS` verified · `FAIL` reproducible defect ·
 | 2 | devin-devkit `updater.py:build_update_plan` | high | signature had no env/platform; `cli.py` had no `--environment` on outdated/update | same per-tool env gate as installer | any remote tool with a PATH command could be force-installed on corporate | **fixed** devin-devkit#36 (`environment-blocked` actions, fail closed) |
 | 3 | devin-devkit `cli.py` freshness hint | medium | `list` and install dry-run call `urlopen` to raw.githubusercontent.com, 15s | disclosed + suppressible on local-only machines | undisclosed network call during "preview" | **fixed** `DEVIN_DEVKIT_OFFLINE=1` in #36; documented in corporate guide |
 | 4 | devin-devkit README{,.linux,.windows,.corporate-windows}.md | medium | `pypi.org/pypi/devin-devkit` → 200; manifest has `requires_git` for skill-catalog | current install instructions | "not yet on PyPI"; "profiles do not need Git"; bridge described as GitHub archive (it is npm) | **fixed** in #36 |
-| 5 | devin-devkit `updater.py` PATH-only tools | medium | `test_plan_detects_tools_on_path_not_in_uv_list` pins behavior | README "never overwrites an existing command" | `update` force-installs tools not managed by uv/npm — inconsistent with install guarantee, but deliberate feature | flagged for product decision; not changed |
+| 5 | devin-devkit `updater.py` PATH-only tools | medium | README "never overwrites an existing command" vs `update --apply` behavior | doc and code agree | `update` force-installed PATH commands not managed by devkit — the doc promised more than `update` delivered | **fixed** #36: PATH-only tools → `unmanaged`, never touched (even under `--force`); adoption requires manual removal first |
+| 5b | devin-devkit `updater.py` platform gate | medium | `build_plan` rejects `host not in tool["platforms"]`; `build_update_plan` never checked | parallel paths apply the same gates | a linux-only remote tool present on a Windows PATH could get an update command | **fixed** #36: `unsupported` action |
+| 5c | devin-devkit `updater.py` prerequisite gate | medium | installer blocks missing uv/npm/git/Node<20 at plan time; updater emitted commands that only fail at apply | fail closed at plan time | plan advertised `update` actions the machine could not run | **fixed** #36: `blocked` action with the missing prerequisite |
+| 5d | devin-devkit `updater.py` env check ordering | low | env gate sat inside the version-compare branch | forbidden tools always report the violation | an env-forbidden tool at the pinned version reported `current`, hiding the breach | **fixed** #36: gate runs before the current short-circuit → `environment-blocked` |
+| 5e | devin-devkit `freshness_hint` env context | medium | hint called from `list` and install dry-run without environment | corporate local-only = no gratuitous outbound calls | opt-out only via global env var; resolved environment ignored | **fixed** #36: hint suppressed for `corporate_windows`; `DEVIN_DEVKIT_OFFLINE=1` kept for other environments |
 | 6 | devin-devkit `installer.py:129` corporate predicate | medium | `manifest.json` `devin-control` `requirements: ["node>=20","devin-cli"]` | all external needs gated | `requirements` field uninspected — but `devin-cli` is the *local* agent runtime, so rejecting it would be wrong; gate is correct as-is for declared delegation | no code change; documented |
 | 7 | devin-devkit `--manifest` hidden flag | low | `cli.py:36` argparse.SUPPRESS | local manifest for dev | user-supplied manifest redefines all env metadata — enforcement is data-driven | noted; acceptable for a dev flag, no schema validation exists |
 | 8 | devin-devkit `install_spec` unvalidated | low | `installer.py:177` | specs are registry-generated | a `-`-prefixed spec in a fetched manifest would parse as a uv flag (no shell, low impact) | recommended input validation, not done |
-| 9 | devin-devkit `_uv_tools_dir()` | low | hardcodes `~/.local/share/uv/tools` | platform-correct path | likely wrong on Windows (`%LOCALAPPDATA%\uv\tools`); channel-migration detection silently off there | **NOT VERIFIED** — needs a Windows run |
+| 9 | devin-devkit `_uv_tools_dir()` | medium | uv docs: tools dir is `%APPDATA%\uv\data\tools` on Windows, `$XDG_DATA_HOME/uv/tools` or `~/.local/share/uv/tools` on Unix | match `uv tool dir` output | hardcoded Unix path → receipts never found on Windows → channel-migration detection silently dead | **fixed** #36 + unit tests; one `uv tool dir` run on the real Windows host remains as final confirmation |
 | 10 | devin-assure `packages/qa-pack/adapters/mcp.py:52` | info | `DEFAULT_MCP_URL = https://mcp.devin.ai/mcp` | optional cloud audit adapter | hits hosted Devin MCP only when the adapter is invoked; not part of default local operation | documented; opt-in by design |
 | 11 | devin-explore `capabilities.py:38` | info | `NET_PROBE_HOST = "1.1.1.1:443"`, honors `HTTPS_PROXY` | diagnostic-only probe | one outbound TCP connect when `capabilities` runs; documented in doctor README | documented; diagnostic, not a dependency |
 | 12 | Stray `nul` file in devin-ecosystem/ | low | file existed at workspace root | not present | Windows `> nul` redirect artifact | removed locally during audit (was never committed) |
@@ -154,7 +172,8 @@ Allowlist candidates if installs fail: `pypi.org`, `files.pythonhosted.org`,
 
 | Command | Env | Result |
 |---|---|---|
-| `pytest packages/devkit/tests` (devin-devkit) | Linux, this host | 43 passed (incl. 5 new env-gate tests) |
+| `pytest packages/devkit/tests` (devin-devkit) | Linux, this host | 51 passed (incl. 10 new gate/path tests) |
+| `uv tool dir` vs `_uv_tools_dir()` | Linux, this host | match: `~/.local/share/uv/tools` |
 | `pytest tools/` (devin-powerups) | Linux, this host | 327 passed |
 | `uv run pytest packages/doctor` (devin-explore) | Linux, this host | 101 passed (incl. manifest-URL regression test) |
 | `curl` manifest URLs | live | old path 404 → new path 200 |
@@ -163,9 +182,10 @@ Allowlist candidates if installs fail: `pypi.org`, `files.pythonhosted.org`,
 | `pypi.org/pypi/{devin-devkit,devin-skill-catalog}` | live | both 200 |
 | crontab/systemd/hook script existence | this host | every referenced path exists and is executable |
 
-NOT VERIFIED: anything Windows (no Windows host), Zscaler (no proxy
-environment), `_uv_tools_dir` Windows path, real `uv tool install` of every
-profile end-to-end on a clean machine, npm bridge install.
+NOT VERIFIED: anything Windows (no Windows host — `_uv_tools_dir` is
+doc-verified, one `uv tool dir` run left as confirmation), Zscaler (no
+proxy environment), real `uv tool install` of every profile end-to-end on
+a clean machine, npm bridge install.
 
 ## Changes made by this audit
 
@@ -177,14 +197,17 @@ profile end-to-end on a clean machine, npm bridge install.
 
 ## Remaining risks / blockers
 
-1. `update` still force-installs PATH-present unmanaged tools (finding 5) —
-   product decision needed, not obviously wrong.
-2. Windows-default environment remains `personal_windows` when the flag is
-   omitted — documented but permissive; consider requiring explicit
-   `--environment` on Windows hosts (product decision).
+1. ~~`update` force-installs PATH-present unmanaged tools~~ — **resolved**
+   (finding 5, `unmanaged` action in #36).
+2. Windows-default environment `personal_windows` — **decided**: explicit
+   `--environment` required on Windows hosts (DECISIONS.md D-2026-10-10d);
+   implementation is a dedicated follow-up PR, not yet code.
 3. Zscaler compatibility is source-verified only; the test plan above must
    run on the real corporate machine before claiming compliance.
-4. `_uv_tools_dir` likely misdetects on Windows (finding 9) — unverified.
+4. `_uv_tools_dir` — **resolved at source level** (finding 9); on-machine
+   `uv tool dir` confirmation still pending on a Windows host.
 5. `devin-judge`'s NLI backend downloads model weights on first use —
    install-time on personal, but on corporate it must be staged/documented
    or the judge runs backend-less.
+6. `install_spec` is not validated against flag-like values (finding 8) —
+   low impact, recommended hardening.

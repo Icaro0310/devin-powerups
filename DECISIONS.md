@@ -524,3 +524,32 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   llms.txt show identical non-repeating paths; holder eco-blocks show
   the updated memberships.
 - **Result:** pending propagation.
+
+## D-2026-10-10d — Explicit `--environment` required on Windows hosts
+
+- **Decision:** on `windows` hosts, `devin-devkit install`, `update` and
+  `outdated` must not guess the environment. Passing `--environment`
+  (`personal-windows` or `corporate-windows`) becomes mandatory; omitting
+  it exits with an error naming the two choices instead of silently
+  selecting `personal_windows`. Linux keeps the host-derived default
+  (`linux`) because it is the only Linux environment. The `windows`
+  alias in `_ENVIRONMENT_ALIASES` is removed — an ambiguous name is not
+  a decision.
+- **Reason:** the previous default violated the ecosystem rule recorded
+  when the brain flipped to "safe by default, permissive is opt-in":
+  the least restrictive environment captured whoever did not specify
+  one, on the host where the mistake is most expensive (a corporate
+  machine could install tools its policy forbids). Requiring the flag
+  is more honest than defaulting to `corporate_windows` (which would
+  silently disable legitimate personal capability on personal machines)
+  and strictly more honest than defaulting to `personal_windows`.
+- **Evidence:** environment-boundary audit, 2026-10-10 — see
+  `docs/audits/2026-10-10/REPORT.md` (the same class of gap as the
+  missing env gate on `update`, PR devin-devkit#36).
+- **Expected outcome:** no code path can reach a Windows install/update
+  without an explicit environment decision; `normalize_environment`
+  raises instead of defaulting when `host == "windows"` and
+  `environment is None`. Help text, platform guides and the bootstrap
+  guide state the requirement.
+- **Result:** decision recorded; implementation follows in a dedicated
+  devkit PR after the in-flight updater gate lands.
