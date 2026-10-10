@@ -258,7 +258,7 @@
           },
           "audiences": {
             "type": "array",
-            "items": {"enum": ["qa", "developers", "security", "operations", "ai-engineers", "maintainers", "end-users"]},
+            "items": {"enum": ["qa", "developers", "security", "operations", "ai-engineers", "maintainers", "end-users", "devops", "data-scientists"]},
             "minItems": 1,
             "description": "Primary audiences the artifact serves."
           },
@@ -561,10 +561,9 @@
         "qa": {"$ref": "#/$defs/journeySteps"},
         "developers": {"$ref": "#/$defs/journeySteps"},
         "ai-engineers": {"$ref": "#/$defs/journeySteps"},
-        "security": {"$ref": "#/$defs/journeySteps"},
         "operations": {"$ref": "#/$defs/journeySteps"},
-        "maintainers": {"$ref": "#/$defs/journeySteps"},
-        "end-users": {"$ref": "#/$defs/journeySteps"}
+        "devops": {"$ref": "#/$defs/journeySteps"},
+        "data-scientists": {"$ref": "#/$defs/journeySteps"}
       }
     }
   }
