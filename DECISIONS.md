@@ -517,7 +517,15 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   `redact-action` smoke workflow in devin-state (first run proved the
   gate works — it correctly returned BLOCKED on an over-broad scope;
   rescoped to `packages/backup/src`, now green). Three candidates
-  remain: doctor/judge/evals.
+  remain: doctor/judge/evals — per-satellite shapes in
+  `docs/action-satellites.md` (the mechanism transplants, the gated
+  subject does not). **`devin-doctor-action` shipped the same day**
+  (`v1`): post-install gate asserting an existing install is healthy,
+  with distinct not-installed (precondition) vs unhealthy failures —
+  the smoke exercises both failure paths plus a healthy pass.
+  `devin-judge-action` deferred: verified no CI job produces agent
+  artifacts today, so the satellite would be dead code; pre-commit +
+  MCP cover the tool. `devin-evals-action` next.
 - **Scanner self-flag — real bug, fixed (state `44411ad`).** Not a
   backlog candidate: `env_assignment` fired on any KEY/SECRET/TOKEN
   name bound to a code expression, so scanner configs, env parsers and

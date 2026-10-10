@@ -101,7 +101,8 @@ corpus path is the required input and the repo is only context.
 
 ## Rollout
 
-**Doctor → evals → judge (deferred).**
+**Doctor → evals → judge (deferred).** Status 2026-10-10: `redact` and
+`doctor` live (`v1`, smoke green); `evals` next; `judge` deferred.
 
 - Judge and evals don't gate the repo — they gate *agent-produced
   artifacts* (execution logs, corpora). Verified 2026-10-10 across all
