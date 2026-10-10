@@ -32,6 +32,20 @@ Status vocabulary: `PASS` verified · `FAIL` reproducible defect ·
   receipts live at `%APPDATA%\uv\data\tools`, not `~/.local/share/uv/tools`;
   channel-migration detection was silently dead on Windows. Fixed (+ XDG
   honor on Unix), covered by tests.
+- **The class is closed structurally, not just patched** — after the
+  per-gate fixes, `install` and `update` still had duplicated gate logic
+  (the drift would have recurred). Both paths now call the same
+  evaluators in `installer.py`: `evaluate_target` (env metadata →
+  env unsupported → corporate → platform) and `evaluate_requirements`
+  (manager → git → node → spec). Path-specific gates stay in callers —
+  collision/preexisting/manual on install, not-installed/unmanaged/
+  version on update — because they are different semantics, not shared
+  policy. A future gate lands in one function and applies to both paths.
+- **Ordering is a distinct failure mode** — the env gate moved *before*
+  the version-current short-circuit (a forbidden tool at the pinned
+  version reported `current`, hiding the violation), and prerequisites
+  gate only actual reinstalls (a current tool stays `current` even with
+  uv/npm off PATH). Neither is visible to grep-style sweeps.
 - **Windows default decided, not open** — `personal_windows` was the silent
   default when `--environment` was omitted, inverting the recorded
   safe-by-default rule. D-2026-10-10d requires explicit `--environment`
@@ -172,7 +186,7 @@ Allowlist candidates if installs fail: `pypi.org`, `files.pythonhosted.org`,
 
 | Command | Env | Result |
 |---|---|---|
-| `pytest packages/devkit/tests` (devin-devkit) | Linux, this host | 51 passed (incl. 10 new gate/path tests) |
+| `pytest packages/devkit/tests` (devin-devkit) | Linux, this host | 55 passed (incl. 14 new gate/path/ordering tests) |
 | `uv tool dir` vs `_uv_tools_dir()` | Linux, this host | match: `~/.local/share/uv/tools` |
 | `pytest tools/` (devin-powerups) | Linux, this host | 327 passed |
 | `uv run pytest packages/doctor` (devin-explore) | Linux, this host | 101 passed (incl. manifest-URL regression test) |
@@ -192,7 +206,7 @@ a clean machine, npm bridge install.
 | Repo | Branch/PR | Change |
 |---|---|---|
 | devin-explore | fix/doctor-manifest-url → **PR #41** | manifest URL → monorepo path + regression test |
-| devin-devkit | fix/update-environment-gate → **PR #36** | env gate on update/outdated + `--environment` + `DEVIN_DEVKIT_OFFLINE` + doc corrections (PyPI/git/bridge) |
+| devin-devkit | fix/update-environment-gate → **PR #36** | env gate on update/outdated + `--environment` + platform/prereq/unmanaged gates + shared `evaluate_target`/`evaluate_requirements` pipeline + `DEVIN_DEVKIT_OFFLINE` + `_uv_tools_dir` Windows/XDG fix + doc corrections (PyPI/git/bridge) |
 | devin-powerups | docs/audit-2026-10-10 | this report + automation catalog + bootstrap guide |
 
 ## Remaining risks / blockers
