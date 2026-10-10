@@ -449,3 +449,37 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   llms.txt show identical non-repeating paths; holder eco-blocks show
   the updated memberships.
 - **Result:** pending propagation.
+
+## D-2026-10-10c — Adapter rollout: MCP + Devin Skill + Devin Plugin per package
+
+- **Decision:** every product package gains three thin AI-facing
+  adapters under a self-contained `adapters/` plugin root
+  (`.devin-plugin/plugin.json` + `skills/<pkg>/SKILL.md`), a
+  `src/<pkg>/mcp_server.py` MCP server with testable `do_*` functions,
+  an `mcp` optional extra and a `<cli>-mcp` console script. Mixed
+  tools expose only read-only/dry-run tools on those surfaces —
+  mutation stays CLI-only with human confirmation (`redact --apply`,
+  `janitor --apply`/vacuum, `backup restore`, `switch use`,
+  `skill-catalog promote/quarantine`, bridge/orchestrator execution,
+  devkit `apply_plan` all stay off the AI surface). `devin-brain`'s MCP
+  server keeps its full tool set — it is the product's primary surface
+  — but its skill/plugin document only the gated subset
+  (retain/recall/screen/list/conflicts/prime/verify); review ops
+  (`approve/retract/supersede/quarantine/release/extract`) are CLI-only.
+- **Reason:** "one logic, many faces" — adapters call the package core
+  and never re-implement business rules; mutation on an AI-driven
+  surface skips human confirmation. The `adapters/` root keeps each
+  plugin installable via `git` subdirectory without symlinks.
+- **Evidence:** `docs/adapters.md` (pattern); reference proofs
+  `devin-doctor`/`devin-qa-pack`/`devin-redact`; per-repo feature
+  branches `feat/adapters-*` with per-package `test_mcp.py` +
+  `test_skill.py` contract tests (CLI-JSON parity, banned-mutation
+  greps, `importorskip("mcp")` guards for `[dev]`-only CI).
+- **Expected outcome:** all 19 registry packages have a consistent,
+  installable, read-only AI surface; legacy skills no longer teach
+  destructive flags to agents.
+- **Result:** met locally — per-package suites green; legacy
+  `session-janitor` skill marked archived/dry-run-only (orchestrator
+  skill audited compliant — it documents only the read-only planner);
+  rollout PRs under review.
+

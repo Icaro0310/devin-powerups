@@ -12,6 +12,7 @@ repo (all prefixed `[V4]`); this file is the index.
 
 | Item | Priority | Tracking |
 |---|---|---|
+| Adapter rollout PRs — review + merge the `feat/adapters-*` / `docs/adapters-pattern` branches (8 repos): MCP+skill+plugin per package, read-only AI surfaces, `mcp` extras | high | PRs opened 2026-10-10 |
 | P6 product-boundary probes → 2026-12-03 audit (F3 backup+janitor / F1 explore / F2 assure; signals preregistered in `docs/product-boundaries.md`) | high | docs + D-record (#49, #50) |
 | Meta-issue for PyPI publication backlog | optional | not created; registry `distribution_status` is the tracker |
 | Align generated-guide install format (tarball URL) with the `git+https` banner format | low | not filed; flagged in P2.x |
