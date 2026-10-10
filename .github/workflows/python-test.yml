@@ -39,11 +39,17 @@ jobs:
 
       - name: Pre-install workspace deps
         if: inputs.pre-install != ''
-        run: pip install ${{ inputs.pre-install }}
+        env:
+          # caller-provided input must not reach the shell via inline
+          # interpolation — env values are never re-parsed
+          PRE_INSTALL: ${{ inputs.pre-install }}
+        run: pip install $PRE_INSTALL
 
       - name: Install
         if: ${{ !inputs.skip-install }}
-        run: pip install -e "${{ inputs.package-dir }}[dev]"
+        env:
+          PACKAGE_DIR: ${{ inputs.package-dir }}
+        run: pip install -e "${PACKAGE_DIR}[dev]"
 
       - name: Test
         run: pytest -q
