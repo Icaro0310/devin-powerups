@@ -25,14 +25,18 @@ name: reusable-pypi-publish
 # publisher is consumed by the first successful upload; if a token (or a
 # differently-configured publisher) creates the project first, the
 # pending entry goes stale and later OIDC runs fail with
-# `invalid-pending-publisher` until it is removed and re-created.
+# `invalid-pending-publisher`. Recovery: delete the stale pending entry
+# and add an ACTIVE publisher on the project's own Publishing settings —
+# a new pending publisher does not work once the project exists.
 #
 # PyPI validates the OIDC token's job_workflow_ref against the
 # publisher's configured repo/workflow, which must live in the TP
 # repository itself. A caller that `uses:` this central file gets
-# job_workflow_ref=<this repo>/pypi-publish.yml and is rejected, so each
-# product repo carries its own inline copy of this file (the ecosystem
-# pattern: one pypi-publish.yml per product repo).
+# job_workflow_ref=<this repo>/pypi-publish.yml and is rejected — so
+# `uses:` callers can no longer publish through this file AT ALL (the
+# removed token input was the only auth path they could satisfy; that is
+# intentional). Each product repo carries its own inline copy of this
+# file (the ecosystem pattern: one pypi-publish.yml per product repo).
 #
 # `module` only needs passing when the wheel's top_level.txt and
 # project.name ('-' → '_') both miss the importable module name.
