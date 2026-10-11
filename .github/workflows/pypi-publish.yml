@@ -13,27 +13,26 @@ name: reusable-pypi-publish
 # repository at the exact ref the caller pinned, so the gate and the
 # publisher can never drift to different commits.
 #
-# Two auth modes:
-#   - Trusted Publishing (recommended, zero secrets): configure a
-#     (pending) publisher on PyPI for the caller repo + workflow name +
-#     environment "pypi"; the OIDC token minted by id-token:write does
-#     the upload. Leave PYPI_API_TOKEN unset.
-#   - API token: set repo secret PYPI_API_TOKEN; passed as the action's
-#     password instead of OIDC.
+# Auth is Trusted Publishing (OIDC) only — there is no API-token mode.
+# A `password:` input is deliberately absent: an account-scoped PyPI
+# token can upload to ANY project on the account, so keeping one as a
+# "fallback" is pure attack surface. If OIDC fails, fix the publisher
+# configuration; do not reintroduce a token.
 #
-# Usage from a caller repo:
+# Configure TP BEFORE the first publish: create the Active Publisher on
+# PyPI for <repo> + this workflow filename + environment "pypi" (or a
+# pending publisher only when the project does not exist yet). A pending
+# publisher is consumed by the first successful upload; if a token (or a
+# differently-configured publisher) creates the project first, the
+# pending entry goes stale and later OIDC runs fail with
+# `invalid-pending-publisher` until it is removed and re-created.
 #
-#   jobs:
-#     publish:
-#       uses: Icaro0310/devin-powerups/.github/workflows/pypi-publish.yml@6016b68ae41c4012bce2bfdfaaa57b51949d9f1d # main
-#
-# Trusted Publishing caveat: PyPI validates the OIDC token's
-# job_workflow_ref against the publisher's configured repo/workflow,
-# which must live in the TP repository itself. A caller that `uses:`
-# this central file gets job_workflow_ref=<this repo>/pypi-publish.yml,
-# so TP rejects it — `uses:` works for API-token mode only. For TP, the
-# caller carries its own copy of this file (the ecosystem pattern: one
-# inline pypi-publish.yml per product repo).
+# PyPI validates the OIDC token's job_workflow_ref against the
+# publisher's configured repo/workflow, which must live in the TP
+# repository itself. A caller that `uses:` this central file gets
+# job_workflow_ref=<this repo>/pypi-publish.yml and is rejected, so each
+# product repo carries its own inline copy of this file (the ecosystem
+# pattern: one pypi-publish.yml per product repo).
 #
 # `module` only needs passing when the wheel's top_level.txt and
 # project.name ('-' → '_') both miss the importable module name.
@@ -58,9 +57,6 @@ on:
         required: false
         type: string
         default: ""
-    secrets:
-      PYPI_API_TOKEN:
-        required: false
 
 permissions:
   contents: read
@@ -89,6 +85,4 @@ jobs:
       - name: Upload to PyPI
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
         with:
-          # empty = OIDC trusted publishing; set PYPI_API_TOKEN to use a token
-          password: ${{ secrets.PYPI_API_TOKEN }}
           skip-existing: true
