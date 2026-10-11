@@ -78,12 +78,12 @@ lembre que unidades em crash-loop ficam invisíveis a `systemctl --failed`
 schtasks /create /tn "devin-backup"   /tr "devin-backup create --out %USERPROFILE%\backups" /sc daily  /st 03:15 /f
 schtasks /create /tn "devin-janitor"  /tr "devin-janitor run --apply"                          /sc daily  /st 04:30 /f
 schtasks /create /tn "devin-explore"  /tr "devin-doctor check"                                  /sc weekly /d MON /st 09:00 /f
-schtasks /create /tn "devin-history"  /tr "devin-history export --out %USERPROFILE%\devin-history-export" /sc weekly /d SUN /st 05:00 /f
-schtasks /create /tn "devin-brain"    /tr "devin-memory --db \"%USERPROFILE%\devin-memory\memory.db\" extract --latest --sessions-db \"%APPDATA%\devin\cli\sessions.db\"" /sc weekly /d SUN /st 07:00 /f
-schtasks /create /tn "devin-evals"    /tr "devin-evals run --evals %USERPROFILE%\devin-evals\cases --sessions-db %APPDATA%\devin\cli\sessions.db" /sc weekly /d SUN /st 06:00 /f
+schtasks /create /tn "devin-history"  /tr 'devin-history export --out "%USERPROFILE%\devin-history-export"' /sc weekly /d SUN /st 05:00 /f
+schtasks /create /tn "devin-brain"    /tr 'devin-memory --db "%USERPROFILE%\devin-memory\memory.db" extract --latest --sessions-db "%APPDATA%\devin\cli\sessions.db"' /sc weekly /d SUN /st 07:00 /f
+schtasks /create /tn "devin-evals"    /tr 'devin-evals run --evals "%USERPROFILE%\devin-evals\cases" --sessions-db "%APPDATA%\devin\cli\sessions.db"' /sc weekly /d SUN /st 06:00 /f
 schtasks /create /tn "devin-metrics"  /tr "devin-metrics summary"                               /sc daily  /st 04:45 /f
 schtasks /create /tn "devin-graph"    /tr "devin-graph build"                                   /sc weekly /d SUN /st 06:00 /f
-schtasks /create /tn "devin-office"   /tr "py \"<CAMINHO_DO_REPO>\daemon.py\" --port 8788"      /sc onlogon /f
+schtasks /create /tn "devin-office"   /tr 'py "<CAMINHO_DO_REPO>\daemon.py" --port 8788'      /sc onlogon /f
 ```
 
 `schtasks` em escopo de usuário não pede admin. Para o daemon, `/sc onlogon`
@@ -92,7 +92,8 @@ práticos: `schtasks` não tem opção "Start in" — chame `daemon.py` por
 caminho absoluto (como acima) ou edite a tarefa depois em Task Scheduler →
 Actions → Edit → "Start in" = diretório do checkout. E caminhos com espaços
 (ex.: `%APPDATA%` de usuários com espaço no nome) precisam de aspas
-escapadas dentro do `/tr`, como no exemplo do `devin-brain`.
+duplas internas — e aí o `/tr` deve ir em aspas simples (PowerShell não
+interpreta `\"` como escape), como no exemplo do `devin-brain`.
 
 ### 1.3 Windows Corporate (mesma sintaxe, restrições reais)
 
