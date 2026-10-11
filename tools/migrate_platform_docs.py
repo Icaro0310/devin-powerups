@@ -464,7 +464,7 @@ _RECURRING_JOBS: dict[str, dict[str, str]] = {
     "devin-office": {
         "cmd": "python <CAMINHO_DO_CHECKOUT>/daemon.py --port 8788",
         "cron": "@reboot",
-        "trigger": "-AtLogOn -User $env:USERNAME",
+        "trigger": "-AtLogOn -User \"$env:USERDOMAIN\\$env:USERNAME\"",
         "cmdfile": "py \"<CAMINHO_DO_CHECKOUT>\\daemon.py\" --port 8788",
         "sched": "/sc onlogon",
         "note": "Long-running daemon; schedule by boot/logon trigger, not an interval.",
