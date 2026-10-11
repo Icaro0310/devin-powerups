@@ -83,6 +83,27 @@ Result. Records are not eternal — revisit when new evidence arrives.
   date nobody reads.
 - **Result:** recorded; first application is the auto-approve rollout
   tail (7 PRs, each with per-finding proof comment + `--admin`).
+- **Addendum (2026-10-11) — distinct category: generator merges.**
+  Audit of the 15 admin merges found a class the pair-per-finding
+  vocabulary does not describe: the journey-recuration batch
+  ("refresh generated ecosystem blocks", 7 PRs across the repos; 2
+  merged APPROVED, 5 under REVIEW_REQUIRED). Verified per-PR: zero
+  blocking findings — review threads were `kind: analysis`, resolved;
+  `REVIEW_REQUIRED` persisted only because gate-bot approvals were
+  auto-dismissed when new commits pushed, i.e. approval churn, not
+  findings. Forcing those merges into per-finding language would
+  fabricate pairs for findings that never existed. The category,
+  named here: **generator merge** — generated output, identical across
+  repositories, review-exempt by nature. It does not need per-finding
+  pairs; it needs (a) a diff that is verifiably generator output
+  (`--check` clean or the generator's own render diffed), and (b) the
+  generator PR carrying the why. Admin path is acceptable on this
+  class for approval-dismissal churn alone, but only when the
+  blocking state is review-churn — if a real `bug|security` thread
+  exists, this record's main rule applies unchanged and the merge is
+  NOT a generator merge. Same-day PyPI wave note: the 8 token-removal
+  PRs merged naturally, which is the stronger signal — the class that
+  historically forced bypass went through the loop.
 
 ## D-2026-10-10 — Fork PRs are out of scope for the approval gate
 

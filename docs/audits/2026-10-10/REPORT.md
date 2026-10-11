@@ -265,21 +265,32 @@ Each item was re-checked against the artifact, not recalled.
   hand-written (commit b872822); it is absent from the generator's
   targets and from every table (`_NETWORK_RUNTIME`, `_PATH_FLAGS`,
   `_RECURRING_JOBS`, `_PLATFORM_EXTRAS`), so `--check` cannot see it.
-  Pending owner decision: promote it into the generator (recommended —
-  restores single-point inspectability) or keep a named manual
-  exception with its own drift check.
+  **Resolved 2026-10-11 (owner decision): promoted into the generator
+  as an extras target** — the DevKit is a `distribution` entry, not a
+  `devkit.tool`, but it shares the corporate-docs universe and was the
+  only surface a rename could break without `--check` catching it. One
+  generator, no parallel mechanism. Shipped: powerups#122 (generator,
+  stacked on #121) + devin-devkit#43 (generated guides).
 - **Link classification, all guides** (was "0 suspicious", an
   unverifiable search result): `interno` 2 (github.com → own repos),
   `oficial-devin` 1 (`mcp.devin.ai`), `documentação-técnica` 2
   (`docs.astral.sh`), `suspeito` 0. 44 further URL-shaped strings are
   code placeholders, not links: `proxy:port` ×42 (HTTPS_PROXY examples)
   and `localhost:8788` ×2 (office dashboard bind). Five real external
-  links total.
+  links total. Classification caveat for the next auditor: the single
+  `oficial-devin` hit is a server endpoint (`mcp.devin.ai/mcp`), not
+  documentation — **zero links to official Devin/Cognition docs**
+  (`docs.devin.ai`, `cognition.ai`) exist anywhere in the guides. That
+  is a choice, not a gap: the docs assume the reader already knows the
+  platform. Recorded so nobody repeats the scan asking the same
+  question.
 - **Source grep → network coverage.** Real outbound surfaces: doctor
   (manifest GET, `DEVIN_DOCTOR_OFFLINE=1`), qa-pack (opt-in MCP POST +
   allowlisted HEAD), office (probe POST → `OFFICE_HUB`, hub GET →
   `OFFICE_ECO_URL`, `OFFICE_CONTROL_ENABLED` spawn), devkit (installs +
-  manifest GET, `DEVIN_DEVKIT_OFFLINE=1`), judge (backend HTTP/local).
+  manifest GET; `DEVIN_DEVKIT_OFFLINE=1` lives on the open #36 branch,
+  not yet on main/published — generated guide text says so), judge
+  (backend HTTP/local).
   `devin-backup`'s only urllib use is `urllib.parse.quote` — false
   positive; its guide correctly declares no network calls.
 - **Zscaler cert path.** `C:\ProgramData\Zscaler\` is not a publicly
@@ -308,9 +319,24 @@ Each item was re-checked against the artifact, not recalled.
   `enforce_admins` is off). All 15 cluster in the first day: the
   journey-recuration batch, the auto-approve gate's own bootstrap PRs
   (which cannot approve themselves), and CI-hardening PRs. Day two ran
-  fully through the natural loop. Proxy caveat: `reviewDecision` is
-  current state — a dismissed post-merge approval would read the same,
-  but the batch clustering supports the admin-merge reading.
+  fully through the natural loop — including all 8 PyPI token-removal
+  PRs, the class that historically forced bypass. Proxy caveat:
+  `reviewDecision` is current state — a dismissed post-merge approval
+  would read the same, but the batch clustering supports the
+  admin-merge reading.
+- **Admin-merge classification, verified per-PR (2026-10-11).** The 15
+  split into three causes: 4 gate-bootstrap PRs (the auto-approve gate
+  cannot approve itself while being built — precondition, not bypass),
+  ~6 generator merges (journey-recuration batch — verified zero
+  blocking findings; review threads were `kind: analysis`, resolved;
+  REVIEW_REQUIRED persisted via auto-dismissed gate approvals on new
+  pushes), and ~5 CI-hardening PRs. The batch-regen merges were NOT
+  documented pair-per-finding — correctly, since no findings existed —
+  but the guardrail lacked vocabulary for them: they are now the named
+  **generator merge** category in D-2026-10-10's addendum (generated
+  output, identical across repos, review-exempt by nature; exempt only
+  while zero `bug|security` threads exist). 15→0 rate across the wave
+  reads as gate bootstrap cost, not health signal.
 - **Bootstrap-test scope.** "Subagents are stateless" is a framework
   guarantee for transcript/context only — spawned agents inherit the
   host environment, so `HTTPS_PROXY`, `REQUESTS_CA_BUNDLE`, `DEVIN_*`
