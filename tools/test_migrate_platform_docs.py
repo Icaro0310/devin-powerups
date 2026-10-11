@@ -111,7 +111,9 @@ def test_recurring_jobs_render() -> None:
     corp = "\n".join(migration._render_recurring("devin-backup", "windows", "corporate_windows"))
     win = "\n".join(migration._render_recurring("devin-janitor", "windows", "personal_windows"))
     assert "## Recurring runs" in linux and "15 3 * * *" in linux and "systemd --user" in linux
-    assert "schtasks /create" in corp and "Group Policy" in corp
+    # backup carries a path arg, so it registers via wrapper .cmd +
+    # ScheduledTask cmdlets; the corporate caveat text still applies.
+    assert "Register-ScheduledTask" in corp and ".cmd" in corp and "Group Policy" in corp
     assert "schtasks /create" in win and "no admin" in win
     assert migration._render_recurring("devin-search", "linux", "linux") == []
 
