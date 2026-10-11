@@ -625,12 +625,14 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   resolving `mod=""`, and a failed `resolve` skips the publish leg
   rather than starting it.
 - **Guarantee that must be stated, not implied:** **verified=shipped** —
-  the wheel that passed the `__version__` check and the wheel uploaded
-  to PyPI are the same bytes, carried through the `dist` artifact. An
-  attacker or a nondeterministic build cannot substitute different
-  bytes between verify and ship, because there is no second build.
-  This is the supply-chain property of record for this change, not an
-  implementation detail.
+  the verified bytes are the shipped bytes, carried through the `dist`
+  artifact; no second build exists between verify and upload, so
+  substitution by an attacker or a nondeterministic build is
+  impossible. Scope of the guarantee, precisely: it covers byte
+  identity between what the gate inspected and what PyPI received.
+  It does NOT assert that the check itself was correct, that the
+  wheel's contents are safe, or that the verify policy was right —
+  those remain separate, human-verified properties.
 - **Reason:** three real events drove it — `devin-redact 0.2.1` and
   `devin-evals 0.3.x` reached PyPI via dispatch from unmerged branches
   (index ahead of main, unreproducible from the canonical tree);
@@ -648,5 +650,8 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   loudly rather than silently skip; branch-publish cannot desync the
   index again; and the next stale-template copy fails at the meta-check
   (BACKLOG) rather than at a human remembering. Review convergence
-  expectation: N rounds of findings on any new workflow surface before
-  it stabilizes — budgeted, not a defect signal.
+  expectation, made falsifiable: N=3 rounds of findings for a new
+  workflow surface plus M per fix round the review forces (corrections
+  to gates are themselves finding-prone — observed three times this
+  round alone). Adjust N and M with data when the next surface lands;
+  the estimate exists to be compared against, not to sound right.
