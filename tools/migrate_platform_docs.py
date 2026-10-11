@@ -73,7 +73,42 @@ def _install_spec(entry: dict[str, Any], tool: dict[str, Any]) -> str:
     raise ValueError(f"{entry['name']}: no install specification for source {tool['source']!r}")
 
 
-def _install_line(entry: dict[str, Any], tool: dict[str, Any] | None, platform: str) -> list[str]:
+def _install_line(entry: dict[str, Any], tool: dict[str, Any] | None, platform: str, environment: str) -> list[str]:
+    if entry["name"] == "devin-devkit":
+        # The DevKit is the installer itself: the install section is about
+        # installing *it*, then using it to install a profile.
+        env_flag = environment.replace("_", "-")
+        fence = "powershell" if platform == "windows" else "bash"
+        lines = [
+            "```" + fence,
+            'uv tool install "git+https://github.com/Icaro0310/devin-devkit.git#subdirectory=packages/devkit"',
+            "```",
+            "",
+            "From a local checkout, `uv tool install .` also works. Then list profiles and preview an install:",
+            "",
+            "```" + fence,
+            "devin-devkit profiles",
+            f"devin-devkit install qa --environment {env_flag}",
+            "```",
+            "",
+            "The last command is a dry run; apply it explicitly:",
+            "",
+            "```" + fence,
+            f"devin-devkit install qa --environment {env_flag} --apply",
+            f"devin-devkit install full --environment {env_flag} --apply   # entire installable set",
+            "```",
+        ]
+        if environment == "corporate_windows":
+            lines.extend([
+                "",
+                "Do not omit `--environment corporate-windows` on a restricted machine, without it Windows defaults to the Personal Windows extended runtime.",
+            ])
+        if platform == "windows":
+            lines.extend([
+                "",
+                "If Node.js is not available, choose a profile without `devin-bridge` instead of forcing a partial installation.",
+            ])
+        return lines
     if entry["name"] == "devin-powerups":
         command = "py -3" if platform == "windows" else "python3"
         return [
@@ -276,6 +311,19 @@ _NETWORK_RUNTIME: dict[str, str] = {
         "in `weekly_repo_report.py --send`. Nothing phones home at "
         "import time; every call is an explicit command."
     ),
+    "devin-devkit": (
+        "the DevKit is the installer, it cannot be local-only in the "
+        "package sense: `install`/`update` fetch each tool's pinned spec "
+        "(PyPI or GitHub archive), and `outdated`/`update` fetch the remote "
+        "`manifest.json` to compare pins. Separately, `list` and dry-run "
+        "`install` call `freshness_hint()`, which fetches `manifest.json` "
+        "from `raw.githubusercontent.com` to warn when the bundled manifest "
+        "is stale, it self-skips on failure (15s timeout) but still opens "
+        "the connection, and there is no off-switch env var yet. On a "
+        "machine where any connection attempt is logged, avoid those "
+        "commands or stage a fresh manifest locally. What the DevKit "
+        "installs then runs under each tool's own local-only contract."
+    ),
 }
 
 # Per-entry non-default data flags for the "Devin paths" line. The
@@ -303,6 +351,14 @@ _DEFAULT_PATH_FLAGS = "`--data-dir`/`--config-dir` where the tool documents them
 # whose own contract is broader than local-only (audit 2026-10-11: bridge
 # launches devin.exe acp, external compute by design).
 _CORP_SCOPE_NOTE: dict[str, str] = {
+    "devin-devkit": (
+        "**Scope note:** the DevKit installs the other tools, so its own "
+        "contract is install-time by nature. The local-only promise applies "
+        "to what it installs; the plan fails closed when a selected profile "
+        "contains a tool that violates the constraints. The mode is explicit "
+        "because the OS cannot distinguish a personal from a restricted "
+        "corporate machine."
+    ),
     "devin-control": (
         "**Scope note:** this package is a bridge to the Devin agent runtime. "
         "It is documented here for completeness but sits outside the "
@@ -379,8 +435,51 @@ _DOCTOR_VSCODE_CORP = [
     "",
 ]
 
+def _devkit_dev_extra(platform: str) -> list[str]:
+    if platform == "windows":
+        cmd = ["cd ..\\devin-explore\\packages\\doctor", "uv venv", "uv pip install --python .venv\\Scripts\\python.exe -e ..\\devin-internals-spec -e ."]
+    else:
+        cmd = ["cd ../devin-explore/packages/doctor", "uv venv", "uv pip install --python .venv/bin/python -e ../devin-internals-spec -e ."]
+    return [
+        "## Local development with sibling checkouts",
+        "",
+        "For a package such as `devin-doctor`, keep the published version",
+        "constraint in its `pyproject.toml`; install sibling sources editably",
+        "only in the development environment:",
+        "",
+        "```" + ("powershell" if platform == "windows" else "bash"),
+        *cmd,
+        "```",
+        "",
+    ]
+
+
+_DEVKIT_COMPAT_EXTRA = [
+    "## Compatibility",
+    "",
+    "The generated [compatibility matrix](COMPATIBILITY.md) comes from",
+    "`devin-powerups/registry.json`. Entries marked `Local only` install",
+    "without VM, QwenPaw, external compute, workload delegation, or",
+    "required external integrations; other entries carry a registry reason.",
+    "",
+]
+
+_DEVKIT_AIRGAPPED_EXTRA = [
+    "## Offline / air-gapped",
+    "",
+    "The wheel-staging procedure above covers the tools; the DevKit itself",
+    "needs the network it manages, installing tools fetches PyPI/GitHub",
+    "archives. On air-gapped machines pre-stage the wheels plus a fresh",
+    "`manifest.json`, `outdated`/`update` cannot run without the remote",
+    "manifest.",
+    "",
+]
+
 # (entry name, doc key) -> extra section lines.
 _PLATFORM_EXTRAS: dict[tuple[str, str], list[str]] = {
+    ("devin-devkit", "windows"): _DEVKIT_COMPAT_EXTRA + _devkit_dev_extra("windows"),
+    ("devin-devkit", "linux"): _DEVKIT_COMPAT_EXTRA + _devkit_dev_extra("linux"),
+    ("devin-devkit", "corporate_windows"): _DEVKIT_COMPAT_EXTRA + _DEVKIT_AIRGAPPED_EXTRA + _devkit_dev_extra("windows"),
     ("devin-backup", "windows"): _adapters_extra("backup", short=False),
     ("devin-backup", "corporate_windows"): _adapters_extra("backup", short=True),
     ("devin-backup", "linux"): _adapters_extra("backup", short=False),
@@ -624,6 +723,10 @@ def render_guide(entry: dict[str, Any], tool: dict[str, Any] | None, platform: s
         lines.extend(["- `uv` and Python 3.10 or newer; `uv` can manage Python."])
         if tool.get("requires_git"):
             lines.append("- Git on `PATH` for a Git dependency in this package's current release.")
+    elif name == "devin-devkit":
+        lines.append("- `uv`, installed from the [official uv guide](https://docs.astral.sh/uv/getting-started/installation/). It can manage a compatible Python interpreter.")
+        lines.append("- Node.js 20 or newer and npm only when installing a profile containing `devin-bridge`.")
+        lines.append("- Git only for manual source checkouts; installable profiles use HTTPS archives.")
     elif name == "devin-office":
         lines.extend(["- Python 3.10 or newer.", "- Git for a source checkout.", "- Devin Desktop or CLI on the machine whose sessions you want to view."])
     elif name == "devin-powerups":
@@ -631,10 +734,21 @@ def render_guide(entry: dict[str, Any], tool: dict[str, Any] | None, platform: s
     else:
         lines.append("- Follow the requirements listed in [README.md](README.md).")
     lines.extend(["", "## Install", ""])
-    lines.extend(_install_line(entry, tool, platform))
+    lines.extend(_install_line(entry, tool, platform, environment))
     lines.extend(["", "## Devin paths", ""])
     flags = _PATH_FLAGS.get(name, _DEFAULT_PATH_FLAGS)
-    if platform == "windows":
+    if name == "devin-devkit":
+        if platform == "windows":
+            lines.extend([
+                "Session data normally lives under `%APPDATA%\\devin\\cli\\`; UI state and ACP stores under `%APPDATA%\\Devin\\User\\`.",
+                "The DevKit does not change those directories or Devin settings. `uv` exposes installed commands through its tools directory, if a command is not found run `uv tool update-shell` and open a new terminal.",
+            ])
+        else:
+            lines.extend([
+                "Session data normally lives under `${XDG_DATA_HOME:-$HOME/.local/share}/devin/cli/`; UI state and ACP stores under `${XDG_CONFIG_HOME:-$HOME/.config}/Devin/User/`.",
+                "The DevKit does not change those directories or Devin settings. `uv` exposes installed commands through its tools directory, ensure it is on `PATH` (`uv tool update-shell`).",
+            ])
+    elif platform == "windows":
         lines.extend([
             "Session data normally lives under `%APPDATA%\\devin\\cli\\`; UI state and ACP stores under `%APPDATA%\\Devin\\User\\`.",
             f"Use {flags} for non-default locations.",
@@ -688,6 +802,14 @@ def render_guide(entry: dict[str, Any], tool: dict[str, Any] | None, platform: s
             lines.append("- If a command is not found, ensure the `uv` tools directory is on `PATH` and run `uv tool update-shell`.")
     elif tool and tool["manager"] == "npm":
         lines.append("- If the bridge command is missing, check that npm's global executable directory is on `PATH` (`npm config get prefix`).")
+    elif name == "devin-devkit":
+        lines.extend([
+            "- If a command is not found, run `uv tool update-shell` and open a new terminal." if platform == "windows"
+            else "- If a command is not found, ensure the `uv` tools directory is on `PATH` and run `uv tool update-shell`.",
+            "- `install <profile>` is a dry run; `--apply` is required to install.",
+            "- Existing commands are never overwritten; a complete command set on `PATH` is reported but its versions are not verified, while a partial collision blocks the profile.",
+            "- If `devin-bridge` is installed but not found, check `npm config get prefix` and ensure npm's global executable directory is on `PATH`.",
+        ])
     elif name == "devin-office":
         lines.append("- Start the daemon from the repository directory with the OS-specific Python launcher shown above.")
     elif name == "devin-powerups":
@@ -710,10 +832,13 @@ def _atomic_write(path: Path, content: str) -> None:
 
 def plan_migration(registry: dict[str, Any], root: Path) -> list[dict[str, Any]]:
     tool_map = registry.get("devkit", {}).get("tools", {})
-    targets = set(tool_map) | {"devin-powerups", "qwenpaw-suite"}
+    # devin-devkit is the installer, a "distribution" entry rather than a
+    # devkit.tool, but it shares the corporate-docs universe as an extras
+    # target (decision 2026-10-11: one generator, no parallel mechanism).
+    targets = set(tool_map) | {"devin-powerups", "qwenpaw-suite", "devin-devkit"}
     plans = []
     for entry in registry.get("repositories", []):
-        if entry.get("visibility") != "public" or entry.get("kind") not in {"project", "infra"}:
+        if entry.get("visibility") != "public" or entry.get("kind") not in {"project", "infra", "distribution"}:
             continue
         if entry["name"] not in targets:
             continue
