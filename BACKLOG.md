@@ -22,9 +22,9 @@ repo (all prefixed `[V4]`); this file is the index.
 | ~~Generate `llms.txt` / `llms-full.txt` from the registry~~ — **done P6** (`tools/render_llms.py`, `LLMS:BEGIN/END` markers on the site files, drift step in `registry-drift.yml`; package-level llms.txt stay curated) | medium | closed #84 |
 | ~~Prove OIDC publishing~~ — **done 2026-10-09**. PyPI validates `job_workflow_ref` as `<repo>/.github/workflows/<file>@<ref>` where `<repo>` is the TP repository and `<ref>` is `refs/heads/main` or the repo's default-branch tip SHA — a central reusable workflow in devin-powerups cannot match a per-repo TP, so each product repo now carries its own `pypi-publish.yml` (inline job, `environment: pypi`) instead of `uses:`-calling the shared one. 15 active TPs repointed per-repo + 3 pending (`devin-switch`, `devin-skill-catalog`, `devin-devkit`). Proof: `devin-assure` published qa-pack/evals/metrics green with `PYPI_API_TOKEN` deleted (runs 37962301785, 37962412497, 37962416604); devin-control/devin-devkit also passed the OIDC exchange (uploads hit only the 429). Decision: token stays deleted in devin-assure; other repos keep it as `password:` fallback (empty → OIDC). | medium | closed |
 | Retry PyPI publishes blocked by HTTP 429 (account-level "too many new projects" rate limit): only `devin-devkit` and `devin-skill-catalog` first uploads remain — `devin-switch` v0.1.0 published 2026-10-09T18:00Z and got an active TP (`devin-control/pypi-publish.yml`, env `pypi-switch`). Pending publishers are per-package environments (`pypi-devkit`, `pypi-skill-catalog`) because PyPI requires a unique (repo+workflow+env) tuple per pending publisher; the publish workflows derive env from the package. Last retry 2026-10-09T19:29Z still 429; retry ≥ 2026-10-10T19:30Z via `pypi-publish.yml`; on success, `refresh_devkit_refs.py` flips `source_only`→`published`. | medium | workflow_dispatch; transient external limit |
-| Meta-check for wheel-gate coverage — the reusable `verify-wheel-version` gate closes today's partial coverage, but nothing stops a new package's `pypi-publish.yml` from omitting the call. Add a meta-check (registry-drift workflow or repo-scan tool) that fails when any `pypi-publish.yml` in the ecosystem does not invoke the reusable — otherwise partial coverage is the steady state and each new package is born with the gap. | high | raised 2026-10-11 after reusable rollout (#109 + 7 caller PRs) |
+| Meta-check for wheel-gate coverage — the reusable `verify-wheel-version` gate closes today's partial coverage, but nothing stops a new package's `pypi-publish.yml` from omitting the call. Add a meta-check (registry-drift workflow or repo-scan tool) that fails when any `pypi-publish.yml` in the ecosystem does not invoke the reusable — otherwise partial coverage is the steady state and each new package is born with the gap. | high | powerups#123 open — third banned shape added to the reusable secrets-scan guard (rides the required scan in every repo) |
 | Publish-guard exception policy — the merged-into-main guard aborts **before** upload but **after** the verify/download legs (cheap abort; scheduler leg rebuilds first — mild waste, still safe). Named policy: **no bypass**. A hotfix goes through a normal main PR first — a main merge is cheap, while a documented `--allow-non-main` flag would be a permanent supply-chain hole someone eventually uses for convenience, not emergency. If a real scenario ever forces a branch publish, revisit this item; do not add a flag preemptively. | medium | named 2026-10-11; guard shipped in 7 publish workflows |
-| `--environment` gate coverage (D-2026-10-10d, scope widened) — the required-flag decision covers install/update/outdated, but the bootstrap run proved **`outdated` and `update` accept no `--environment` flag at all, on published 0.1.0 AND on main** — the gate only exists on `install`. The dedicated devkit PR (pending after #36) must now: (a) add `--environment` to update/outdated, (b) fail closed on Windows hosts with no flag on all three paths, (c) carry the parity test across install/update/outdated, not just install↔update. This is the predicted 7th gate — found by running the doc, not by reviewing the diff. **2026-10-11 update:** devin-devkit#36 merged — `update`/`outdated` now carry the gate (+ `DEVIN_DEVKIT_OFFLINE`); remaining leg is `install` (PR in flight). | high | bootstrap fresh-agent run 2026-10-11; #36 merged, install leg pending |
+| ~~`--environment` gate coverage (D-2026-10-10d, scope widened)~~ — **closed 2026-10-11**: (a) `update`/`outdated` carry the gate via #36 (merged), (b) fail-closed on all three paths (+ `DEVIN_DEVKIT_OFFLINE`), (c) parity tests landed — update/outdated tests came with #36, install CLI parity tests via #44 (merged). The predicted 7th gate is done — found by running the doc, not by reviewing the diff. | high | #36 + #44 merged |
 | ~~Zscaler cert-path reword + guide regen~~ — **delivered 2026-10-11** (powerups#121 merged; satellite PRs pending): generator reworded to cert-store export routes (`certmgr.msc` / `Cert:` drive / IT-provided PEM); all 20 generated guides + the powerups guide + the manual devkit guide regenerated/fixed in one wave — powerups#121 ✅ merged, explore#54, assure#56, control#52, state#56, devkit#43, brain#51, internals-spec#36, judge#37, qwenpaw#5 still open. Same wave shipped the doctor-guide "VS Code extension" section (D-2026-10-11c) | medium | #121 merged; satellite merges pending |
 | ~~devin-devkit corporate guide under the generator~~ — **delivered 2026-10-11** (owner decision: extras target, not `devkit.tools`). The DevKit is the installer — a `distribution` registry entry that shares the corporate-docs universe; it was the only surface a rename could break without `--check` catching it. `plan_migration` accepts `distribution` kind + targets devin-devkit; per-name branches render install-the-installer (env-parameterized), paths, prereqs, troubleshooting; `_NETWORK_RUNTIME`/`_CORP_SCOPE_NOTE`/`_PLATFORM_EXTRAS` carry the real contract. powerups#122 (stacked on #121) + devin-devkit#43 | medium | PRs open, merges pending |
 | ~~`ATTIC.md` in stale archived-repo checkouts~~ — **delivered 2026-10-11 as a single central marker**: `/home/ikaros/devin/devin-ecosystem/ATTIC.md` maps all 10 stale absorbed checkouts → monorepo `package.path` (verified against `registry.json`), marks `devin-dashboard`/`awesome-devin` as live, and records the name-resolution rule + deferred deletion. Chosen over per-clone files: one marker covers the class, the dirs are a deletion candidate anyway. Optional follow-on: drop a one-line pointer inside each stale clone | low | central marker landed; per-clone pointers optional |
@@ -84,3 +84,37 @@ what unblocks.
 - Workflow consolidation (P3b) — done; callers pin `@v1`.
 - `poordjaevin.version` registry field — partially self-healed: PyPI has
   0.1.1; the watchdog may still report the registry field stale.
+- devin-devkit#36 Windows path/env-gate fixes — merged 2026-10-11
+  (`PureWindowsPath`/`PurePosixPath` seams for explicit `os_name`,
+  env-override honoring the explicit flavor, merge of main's regenerated
+  guides). Unblocked the corporate guide and the 7th gate in one merge.
+- devin-devkit#44 install `--environment` CLI parity tests — merged
+  2026-10-11.
+- Janitor `devin-judge` backend + tier-3 tombstones — devin-state#57;
+  Rule-1 dry-run test written first, `PoordjaevinJudge` translates
+  `poordjaevin ask` typed answers (delete requires confidence ≥ 0.6,
+  abstained/malformed → keep), Windows argv convention for binary specs,
+  GUI-state tombstones instead of physical delete, snapshot/24h/running
+  gates intact. 119 tests. Merges when review clears.
+- `devin-switch` export/import — devin-control#55; JSON archive
+  (`devin-switch/profile-archive` v1, base64+sha256 per file), export
+  never reads credentials, import is dry-run + `--apply`, staging-dir +
+  rename, path-traversal fail-closed. 89 tests.
+- Orchestrator `metrics.json` per run + `plan --cost-estimate` —
+  devin-control#53.
+- `.pre-commit-hooks.yaml` wave — devin-assure#57 (qa-pack audit gate),
+  devin-devkit#45 (skill-catalog lint gate), devin-explore#56 (doctor
+  check gate), devin-control#54 (switch doctor gate). devin-brain got no
+  hook by design: every `devin-memory` subcommand opens `memory.db` in cwd
+  — a mutation, not a gate.
+- `devin-memory compact` + `quarantine --digest` — devin-brain#52;
+  dedup via retract-not-delete (survivor keeps union of tags), digest is
+  content-keyed so the same quarantine set fingerprints identically across
+  machines. 189 tests.
+- PAS E2E runner topology — `weekly-ecosystem-scout.mjs` fix confirmed on
+  HEAD; live run 21 pass / 3 legitimate `no_tests` / 0 fail. Stale-map
+  fixes also landed in daily-maintenance, g3-overnight and the redact
+  fallback paths (PAS local commit `4b1b19d`).
+- G3 judge wiring — `g3-overnight.mjs` now drains `~/devin/g3-runs/*.json`
+  through `devin-skill-catalog promote/quarantine --g3-report` in dry-run
+  mode only; `--apply` stays a human action (Rule 1).
