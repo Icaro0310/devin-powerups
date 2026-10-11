@@ -347,9 +347,11 @@ the CLI assumptions the audit verified.
   `~/devin`) → `doctor: unavailable` on a real machine. CLI-latency
   item in BACKLOG; not papered over in the adapter.
 - **Open VSX state:** `icaro0310.devin-doctor` 0.1.1 published and
-  indexed (0.1.0 was a pre-review build). `verified: false` — namespace
-  control ≠ verified publisher; the warning is a separate identity
-  verification, tracked in BACKLOG.
+  indexed (0.1.0 was a pre-review build). `verified: false` on
+  `/api/icaro0310` — the account has *contributor* authority (enough to
+  publish) but the namespace has no *owner*; only a namespace-claim
+  issue in `EclipseFdn/open-vsx.org` grants ownership and clears the
+  "not a verified publisher" warning. Tracked in BACKLOG.
 - **Identity for future Marketplace publish:** direct Entra ID /
   managed identity pre-registered over an interim PAT — PAT deprecation
   (2026-12-01) lands two days before the P5 freeze ends (2026-12-03);
