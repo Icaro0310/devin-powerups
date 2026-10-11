@@ -185,8 +185,13 @@ actions:
   pin discipline as the actions (`devin-redact>=0.2,<0.3`) pin the
   version tag, e.g. `ghcr.io/icaro0310/devin-redact:0.2.1`.
   `:latest` is convenience, not a contract.
-- **"Version tag" means the full semver — `0.2.1`, `0.3.1` — and it is
-  immutable.** Do not confuse it with the *actions'* tag scheme: the
+- **"Version tag" means the full semver — `0.2.1`, `0.3.1` — pinned by
+  convention, not by enforcement.** Verified 2026-10-11: none of the
+  `docker-publish.yml` workflows (devin-state, devin-assure,
+  devin-judge) rejects a repush of an existing tag, and GHCR tags are
+  mutable — the pin holds because publishes stay release-driven, not
+  because an exists-check guards it (tracked in `BACKLOG.md`). Do not
+  confuse it with the *actions'* tag scheme: the
   satellites' `@v1` is a **floating major** that receives minor/patch
   updates silently (it was moved to `v1.2` on 2026-10-10), so
   `@v1` is a compatibility window, not a pin. An exact action pin
