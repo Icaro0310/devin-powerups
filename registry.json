@@ -317,7 +317,11 @@
           "linux"
         ],
         "status": "published",
-        "category": "governance"
+        "category": "governance",
+        "extras": [
+          "local",
+          "mcp"
+        ]
       },
       "devin-state": {
         "manager": "uv",

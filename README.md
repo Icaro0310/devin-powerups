@@ -292,7 +292,7 @@ workload delegation or required external integrations.
 
 The Python maintainer scripts work on Windows and Linux. `new-repo.py` invokes
 Git; creating a GitHub remote is a separate, explicit action. The template's
-CI tests Python projects on Windows and Ubuntu; `devin-bridge` tests Node on
+CI tests Python projects on Windows and Ubuntu; `devin-control` tests Node on
 both platforms.
 
 ## Contributing

@@ -21,7 +21,7 @@ python3 tools/weekly_repo_report.py --help
 ## Devin paths
 
 Session data normally lives under `${XDG_DATA_HOME:-$HOME/.local/share}/devin/cli/`; UI state and ACP stores under `${XDG_CONFIG_HOME:-$HOME/.config}/Devin/User/`.
-Use the tool's documented `--data-dir` or `--config-dir` flags for non-default locations.
+Use `--data-dir`/`--config-dir` where the tool documents them for non-default locations.
 
 ## Environment notes
 
