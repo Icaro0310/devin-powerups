@@ -404,7 +404,7 @@ _RECURRING_JOBS: dict[str, dict[str, str]] = {
     "devin-backup": {
         "cmd": "devin-backup create --out ~/backups",
         "cron": "15 3 * * *",
-        "win": "devin-backup create --out %USERPROFILE%\\backups",
+        "cmdfile": "devin-backup create --out \"%USERPROFILE%\\backups\"",
         "sched": "/sc daily /st 03:15",
         "note": "Nightly snapshot; pair with a weekly `devin-backup rotate --keep 10 --yes`. Or let the tool self-schedule with `devin-backup install` (cron / Task Scheduler / elapsed backends).",
     },
@@ -425,21 +425,21 @@ _RECURRING_JOBS: dict[str, dict[str, str]] = {
     "devin-history": {
         "cmd": "devin-history export --out ~/devin-history-export",
         "cron": "0 5 * * 0",
-        "win": "devin-history export --out \"%USERPROFILE%\\devin-history-export\"",
+        "cmdfile": "devin-history export --out \"%USERPROFILE%\\devin-history-export\"",
         "sched": "/sc weekly /d SUN /st 05:00",
         "note": "Weekly archive of sessions to notes (`--out` is required); run before janitor cleanup.",
     },
     "devin-brain": {
         "cmd": "devin-memory --db ~/devin-memory/memory.db extract --latest --sessions-db ~/.local/share/devin/cli/sessions.db",
         "cron": "0 7 * * 0",
-        "win": "devin-memory --db \"%USERPROFILE%\\devin-memory\\memory.db\" extract --latest --sessions-db \"%APPDATA%\\devin\\cli\\sessions.db\"",
+        "cmdfile": "devin-memory --db \"%USERPROFILE%\\devin-memory\\memory.db\" extract --latest --sessions-db \"%APPDATA%\\devin\\cli\\sessions.db\"",
         "sched": "/sc weekly /d SUN /st 07:00",
         "note": "Weekly knowledge extraction from recent sessions (proposed entries, human-approved). `--db` pins the memory store, otherwise `extract` writes ./memory.db under whatever directory the scheduler runs from.",
     },
     "devin-evals": {
         "cmd": "devin-evals run --evals ~/devin-evals/cases --sessions-db ~/.local/share/devin/cli/sessions.db",
         "cron": "0 6 * * 0",
-        "win": "devin-evals run --evals \"%USERPROFILE%\\devin-evals\\cases\" --sessions-db \"%APPDATA%\\devin\\cli\\sessions.db\"",
+        "cmdfile": "devin-evals run --evals \"%USERPROFILE%\\devin-evals\\cases\" --sessions-db \"%APPDATA%\\devin\\cli\\sessions.db\"",
         "sched": "/sc weekly /d SUN /st 06:00",
         "note": "Weekly regression replay; `--evals` (dir of *.json cases) and `--sessions-db` are both required, so create the case dir first. A checkout ships examples under `evals/` and `corpus/evals/`; installed from PyPI you author or copy your own. Corpus stays deterministic and offline.",
     },
@@ -460,7 +460,7 @@ _RECURRING_JOBS: dict[str, dict[str, str]] = {
     "devin-office": {
         "cmd": "python <CAMINHO_DO_CHECKOUT>/daemon.py --port 8788",
         "cron": "@reboot",
-        "win": "py \"<CAMINHO_DO_CHECKOUT>\\daemon.py\" --port 8788",
+        "cmdfile": "py \"<CAMINHO_DO_CHECKOUT>\\daemon.py\" --port 8788",
         "sched": "/sc onlogon",
         "note": "Long-running daemon; schedule by boot/logon trigger, not an interval.",
         "note_linux": "Long-running daemon. Prefer a `systemd --user` service (`WorkingDirectory=<CAMINHO_DO_CHECKOUT>`, `Restart=on-failure`) over `@reboot`.",
@@ -485,22 +485,40 @@ def _render_recurring(name: str, platform: str, environment: str) -> list[str]:
             "",
             "Equivalent `systemd --user` timer works too; enable lingering if it must run without a login session.",
         ])
-    elif environment == "corporate_windows":
-        lines.extend([
-            "```powershell",
-            f"schtasks /create /tn \"{name}\" /tr '{job['win']}' {job['sched']} /f",
-            "```",
-            "",
-            "User-scope `schtasks` needs no admin. If Group Policy disables Task Scheduler (`0x80070005` \"Access is denied\"), run the command manually or use the tool's own `install` subcommand where available. Options needing elevation, \"Run whether user is logged on or not\", highest privileges, are usually policy-blocked; when they are, a user-scope logon trigger (`/sc onlogon`) is the realistic fallback.",
-        ])
     else:
+        # Commands with path arguments that may contain spaces go through a
+        # wrapper .cmd file: embedding quotes inside /tr is a losing game
+        # across cmd.exe and PowerShell 5.1 native-arg parsing.
+        cmdfile = job.get("cmdfile")
+        if cmdfile:
+            task_path = f"%USERPROFILE%\\devin-tasks\\{name}.cmd"
+            tr = f'"{task_path}"'
+            prelude = [
+                f"Save this as `{task_path}` (quoting works normally inside a `.cmd` file):",
+                "",
+                "```batch",
+                cmdfile,
+                "```",
+                "",
+            ]
+        else:
+            tr = f'"{job["win"]}"'
+            prelude = []
+        lines.extend(prelude)
         lines.extend([
             "```powershell",
-            f"schtasks /create /tn \"{name}\" /tr '{job['win']}' {job['sched']} /f",
+            f"schtasks /create /tn \"{name}\" /tr {tr} {job['sched']} /f",
             "```",
             "",
-            "Runs under your account, no admin needed. Adjust `/sc`/`/st` (or `/sc onlogon` for daemons) to taste.",
         ])
+        if environment == "corporate_windows":
+            lines.append(
+                "User-scope `schtasks` needs no admin. If Group Policy disables Task Scheduler (`0x80070005` \"Access is denied\"), run the command manually or use the tool's own `install` subcommand where available. Options needing elevation, \"Run whether user is logged on or not\", highest privileges, are usually policy-blocked; when they are, a user-scope logon trigger (`/sc onlogon`) is the realistic fallback."
+            )
+        else:
+            lines.append(
+                "Runs under your account, no admin needed. Adjust `/sc`/`/st` (or `/sc onlogon` for daemons) to taste."
+            )
     lines.append("")
     return lines
 

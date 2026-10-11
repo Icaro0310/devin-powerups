@@ -74,26 +74,46 @@ lembre que unidades em crash-loop ficam invisíveis a `systemctl --failed`
 
 ### 1.2 Windows Personal (Task Scheduler, escopo de usuário)
 
+Jobs com caminho que pode ter espaço (`%USERPROFILE%`, `%APPDATA%`,
+`<CAMINHO_DO_REPO>`) usam um wrapper `.cmd` — embutir aspas dentro do
+`/tr` falha diferente em cmd.exe e PowerShell 5.1. Salve o comando em
+`%USERPROFILE%\devin-tasks\<nome>.cmd` (dentro do arquivo a aspa funciona
+normal) e aponte o `/tr` para o arquivo:
+
+```batch
+:: %USERPROFILE%\devin-tasks\devin-backup.cmd
+devin-backup create --out "%USERPROFILE%\backups"
+
+:: %USERPROFILE%\devin-tasks\devin-history.cmd
+devin-history export --out "%USERPROFILE%\devin-history-export"
+
+:: %USERPROFILE%\devin-tasks\devin-brain.cmd
+devin-memory --db "%USERPROFILE%\devin-memory\memory.db" extract --latest --sessions-db "%APPDATA%\devin\cli\sessions.db"
+
+:: %USERPROFILE%\devin-tasks\devin-evals.cmd
+devin-evals run --evals "%USERPROFILE%\devin-evals\cases" --sessions-db "%APPDATA%\devin\cli\sessions.db"
+
+:: %USERPROFILE%\devin-tasks\devin-office.cmd
+py "<CAMINHO_DO_REPO>\daemon.py" --port 8788
+```
+
 ```powershell
-schtasks /create /tn "devin-backup"   /tr "devin-backup create --out %USERPROFILE%\backups" /sc daily  /st 03:15 /f
-schtasks /create /tn "devin-janitor"  /tr "devin-janitor run --apply"                          /sc daily  /st 04:30 /f
-schtasks /create /tn "devin-explore"  /tr "devin-doctor check"                                  /sc weekly /d MON /st 09:00 /f
-schtasks /create /tn "devin-history"  /tr 'devin-history export --out "%USERPROFILE%\devin-history-export"' /sc weekly /d SUN /st 05:00 /f
-schtasks /create /tn "devin-brain"    /tr 'devin-memory --db "%USERPROFILE%\devin-memory\memory.db" extract --latest --sessions-db "%APPDATA%\devin\cli\sessions.db"' /sc weekly /d SUN /st 07:00 /f
-schtasks /create /tn "devin-evals"    /tr 'devin-evals run --evals "%USERPROFILE%\devin-evals\cases" --sessions-db "%APPDATA%\devin\cli\sessions.db"' /sc weekly /d SUN /st 06:00 /f
-schtasks /create /tn "devin-metrics"  /tr "devin-metrics summary"                               /sc daily  /st 04:45 /f
-schtasks /create /tn "devin-graph"    /tr "devin-graph build"                                   /sc weekly /d SUN /st 06:00 /f
-schtasks /create /tn "devin-office"   /tr 'py "<CAMINHO_DO_REPO>\daemon.py" --port 8788'      /sc onlogon /f
+schtasks /create /tn "devin-backup"   /tr "%USERPROFILE%\devin-tasks\devin-backup.cmd"   /sc daily  /st 03:15 /f
+schtasks /create /tn "devin-janitor"  /tr "devin-janitor run --apply"                     /sc daily  /st 04:30 /f
+schtasks /create /tn "devin-explore"  /tr "devin-doctor check"                            /sc weekly /d MON /st 09:00 /f
+schtasks /create /tn "devin-history"  /tr "%USERPROFILE%\devin-tasks\devin-history.cmd"  /sc weekly /d SUN /st 05:00 /f
+schtasks /create /tn "devin-brain"    /tr "%USERPROFILE%\devin-tasks\devin-brain.cmd"    /sc weekly /d SUN /st 07:00 /f
+schtasks /create /tn "devin-evals"    /tr "%USERPROFILE%\devin-tasks\devin-evals.cmd"    /sc weekly /d SUN /st 06:00 /f
+schtasks /create /tn "devin-metrics"  /tr "devin-metrics summary"                         /sc daily  /st 04:45 /f
+schtasks /create /tn "devin-graph"    /tr "devin-graph build"                             /sc weekly /d SUN /st 06:00 /f
+schtasks /create /tn "devin-office"   /tr "%USERPROFILE%\devin-tasks\devin-office.cmd"   /sc onlogon /f
 ```
 
 `schtasks` em escopo de usuário não pede admin. Para o daemon, `/sc onlogon`
 (disparo no logon) é o trigger correto — não um intervalo. Dois detalhes
-práticos: `schtasks` não tem opção "Start in" — chame `daemon.py` por
-caminho absoluto (como acima) ou edite a tarefa depois em Task Scheduler →
-Actions → Edit → "Start in" = diretório do checkout. E caminhos com espaços
-(ex.: `%APPDATA%` de usuários com espaço no nome) precisam de aspas
-duplas internas — e aí o `/tr` deve ir em aspas simples (PowerShell não
-interpreta `\"` como escape), como no exemplo do `devin-brain`.
+práticos: `schtasks` não tem opção "Start in" — o wrapper `.cmd` do office
+chama `daemon.py` por caminho absoluto (acima), ou edite a tarefa depois em
+Task Scheduler → Actions → Edit → "Start in" = diretório do checkout.
 
 ### 1.3 Windows Corporate (mesma sintaxe, restrições reais)
 
