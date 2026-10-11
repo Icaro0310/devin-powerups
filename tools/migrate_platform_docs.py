@@ -491,10 +491,20 @@ def _render_recurring(name: str, platform: str, environment: str) -> list[str]:
         # across cmd.exe and PowerShell 5.1 native-arg parsing.
         cmdfile = job.get("cmdfile")
         if cmdfile:
-            task_path = f"%USERPROFILE%\\devin-tasks\\{name}.cmd"
+            # %PUBLIC% never contains spaces, so the stored action stays
+            # space-free after expansion and plain double quotes suffice in
+            # cmd.exe, PowerShell 5.1 and PowerShell 7.
+            task_dir = "%PUBLIC%\\devin-tasks"
+            task_path = f"{task_dir}\\{name}.cmd"
             tr = f'"{task_path}"'
             prelude = [
-                f"Save this as `{task_path}` (quoting works normally inside a `.cmd` file):",
+                "Quoted path arguments inside `/tr` fail differently in cmd.exe and PowerShell 5.1, so this job goes through a wrapper `.cmd` file (quoting inside the file works normally). `%PUBLIC%` is used because it never contains spaces, keeping the stored action space-free:",
+                "",
+                "```powershell",
+                f"New-Item -ItemType Directory -Force \"$env:PUBLIC\\devin-tasks\"",
+                "```",
+                "",
+                f"Save this as `{task_path}`:",
                 "",
                 "```batch",
                 cmdfile,

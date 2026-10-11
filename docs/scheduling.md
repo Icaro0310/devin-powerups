@@ -76,37 +76,42 @@ lembre que unidades em crash-loop ficam invisíveis a `systemctl --failed`
 
 Jobs com caminho que pode ter espaço (`%USERPROFILE%`, `%APPDATA%`,
 `<CAMINHO_DO_REPO>`) usam um wrapper `.cmd` — embutir aspas dentro do
-`/tr` falha diferente em cmd.exe e PowerShell 5.1. Salve o comando em
-`%USERPROFILE%\devin-tasks\<nome>.cmd` (dentro do arquivo a aspa funciona
-normal) e aponte o `/tr` para o arquivo:
+`/tr` falha diferente em cmd.exe e PowerShell 5.1. Os wrappers ficam em
+`%PUBLIC%\devin-tasks` porque `%PUBLIC%` nunca tem espaço, então a ação
+armazenada continua sem espaço depois de expandir e `/tr` basta em aspas
+duplas simples (válido em cmd.exe, PS 5.1 e PS 7):
+
+```powershell
+New-Item -ItemType Directory -Force "$env:PUBLIC\devin-tasks"
+```
 
 ```batch
-:: %USERPROFILE%\devin-tasks\devin-backup.cmd
+:: %PUBLIC%\devin-tasks\devin-backup.cmd
 devin-backup create --out "%USERPROFILE%\backups"
 
-:: %USERPROFILE%\devin-tasks\devin-history.cmd
+:: %PUBLIC%\devin-tasks\devin-history.cmd
 devin-history export --out "%USERPROFILE%\devin-history-export"
 
-:: %USERPROFILE%\devin-tasks\devin-brain.cmd
+:: %PUBLIC%\devin-tasks\devin-brain.cmd
 devin-memory --db "%USERPROFILE%\devin-memory\memory.db" extract --latest --sessions-db "%APPDATA%\devin\cli\sessions.db"
 
-:: %USERPROFILE%\devin-tasks\devin-evals.cmd
+:: %PUBLIC%\devin-tasks\devin-evals.cmd
 devin-evals run --evals "%USERPROFILE%\devin-evals\cases" --sessions-db "%APPDATA%\devin\cli\sessions.db"
 
-:: %USERPROFILE%\devin-tasks\devin-office.cmd
+:: %PUBLIC%\devin-tasks\devin-office.cmd
 py "<CAMINHO_DO_REPO>\daemon.py" --port 8788
 ```
 
 ```powershell
-schtasks /create /tn "devin-backup"   /tr "%USERPROFILE%\devin-tasks\devin-backup.cmd"   /sc daily  /st 03:15 /f
-schtasks /create /tn "devin-janitor"  /tr "devin-janitor run --apply"                     /sc daily  /st 04:30 /f
-schtasks /create /tn "devin-explore"  /tr "devin-doctor check"                            /sc weekly /d MON /st 09:00 /f
-schtasks /create /tn "devin-history"  /tr "%USERPROFILE%\devin-tasks\devin-history.cmd"  /sc weekly /d SUN /st 05:00 /f
-schtasks /create /tn "devin-brain"    /tr "%USERPROFILE%\devin-tasks\devin-brain.cmd"    /sc weekly /d SUN /st 07:00 /f
-schtasks /create /tn "devin-evals"    /tr "%USERPROFILE%\devin-tasks\devin-evals.cmd"    /sc weekly /d SUN /st 06:00 /f
-schtasks /create /tn "devin-metrics"  /tr "devin-metrics summary"                         /sc daily  /st 04:45 /f
-schtasks /create /tn "devin-graph"    /tr "devin-graph build"                             /sc weekly /d SUN /st 06:00 /f
-schtasks /create /tn "devin-office"   /tr "%USERPROFILE%\devin-tasks\devin-office.cmd"   /sc onlogon /f
+schtasks /create /tn "devin-backup"   /tr "%PUBLIC%\devin-tasks\devin-backup.cmd"   /sc daily  /st 03:15 /f
+schtasks /create /tn "devin-janitor"  /tr "devin-janitor run --apply"                 /sc daily  /st 04:30 /f
+schtasks /create /tn "devin-explore"  /tr "devin-doctor check"                        /sc weekly /d MON /st 09:00 /f
+schtasks /create /tn "devin-history"  /tr "%PUBLIC%\devin-tasks\devin-history.cmd"   /sc weekly /d SUN /st 05:00 /f
+schtasks /create /tn "devin-brain"    /tr "%PUBLIC%\devin-tasks\devin-brain.cmd"     /sc weekly /d SUN /st 07:00 /f
+schtasks /create /tn "devin-evals"    /tr "%PUBLIC%\devin-tasks\devin-evals.cmd"     /sc weekly /d SUN /st 06:00 /f
+schtasks /create /tn "devin-metrics"  /tr "devin-metrics summary"                     /sc daily  /st 04:45 /f
+schtasks /create /tn "devin-graph"    /tr "devin-graph build"                         /sc weekly /d SUN /st 06:00 /f
+schtasks /create /tn "devin-office"   /tr "%PUBLIC%\devin-tasks\devin-office.cmd"    /sc onlogon /f
 ```
 
 `schtasks` em escopo de usuário não pede admin. Para o daemon, `/sc onlogon`
