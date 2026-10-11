@@ -76,43 +76,61 @@ lembre que unidades em crash-loop ficam invisíveis a `systemctl --failed`
 
 Jobs com caminho que pode ter espaço (`%USERPROFILE%`, `%APPDATA%`,
 `<CAMINHO_DO_REPO>`) usam um wrapper `.cmd` — embutir aspas dentro do
-`/tr` falha diferente em cmd.exe e PowerShell 5.1. Os wrappers ficam em
-`%PUBLIC%\devin-tasks` porque `%PUBLIC%` nunca tem espaço, então a ação
-armazenada continua sem espaço depois de expandir e `/tr` basta em aspas
-duplas simples (válido em cmd.exe, PS 5.1 e PS 7):
+`/tr` falha diferente em cmd.exe e PowerShell 5.1. O wrapper fica em
+`%USERPROFILE%\devin-tasks` (diretório do próprio usuário, sem adulteração
+cross-user) e o registro usa os cmdlets `ScheduledTask`, que recebem o
+caminho literalmente — sem labirinto de aspas em nenhum shell:
 
 ```powershell
-New-Item -ItemType Directory -Force "$env:PUBLIC\devin-tasks"
+New-Item -ItemType Directory -Force "$env:USERPROFILE\devin-tasks"   # cmd.exe: mkdir "%USERPROFILE%\devin-tasks"
 ```
 
 ```batch
-:: %PUBLIC%\devin-tasks\devin-backup.cmd
+:: %USERPROFILE%\devin-tasks\devin-backup.cmd
 devin-backup create --out "%USERPROFILE%\backups"
 
-:: %PUBLIC%\devin-tasks\devin-history.cmd
+:: %USERPROFILE%\devin-tasks\devin-history.cmd
 devin-history export --out "%USERPROFILE%\devin-history-export"
 
-:: %PUBLIC%\devin-tasks\devin-brain.cmd
+:: %USERPROFILE%\devin-tasks\devin-brain.cmd
 devin-memory --db "%USERPROFILE%\devin-memory\memory.db" extract --latest --sessions-db "%APPDATA%\devin\cli\sessions.db"
 
-:: %PUBLIC%\devin-tasks\devin-evals.cmd
+:: %USERPROFILE%\devin-tasks\devin-evals.cmd
 devin-evals run --evals "%USERPROFILE%\devin-evals\cases" --sessions-db "%APPDATA%\devin\cli\sessions.db"
 
-:: %PUBLIC%\devin-tasks\devin-office.cmd
+:: %USERPROFILE%\devin-tasks\devin-office.cmd
 py "<CAMINHO_DO_REPO>\daemon.py" --port 8788
 ```
 
 ```powershell
-schtasks /create /tn "devin-backup"   /tr "%PUBLIC%\devin-tasks\devin-backup.cmd"   /sc daily  /st 03:15 /f
-schtasks /create /tn "devin-janitor"  /tr "devin-janitor run --apply"                 /sc daily  /st 04:30 /f
-schtasks /create /tn "devin-explore"  /tr "devin-doctor check"                        /sc weekly /d MON /st 09:00 /f
-schtasks /create /tn "devin-history"  /tr "%PUBLIC%\devin-tasks\devin-history.cmd"   /sc weekly /d SUN /st 05:00 /f
-schtasks /create /tn "devin-brain"    /tr "%PUBLIC%\devin-tasks\devin-brain.cmd"     /sc weekly /d SUN /st 07:00 /f
-schtasks /create /tn "devin-evals"    /tr "%PUBLIC%\devin-tasks\devin-evals.cmd"     /sc weekly /d SUN /st 06:00 /f
-schtasks /create /tn "devin-metrics"  /tr "devin-metrics summary"                     /sc daily  /st 04:45 /f
-schtasks /create /tn "devin-graph"    /tr "devin-graph build"                         /sc weekly /d SUN /st 06:00 /f
-schtasks /create /tn "devin-office"   /tr "%PUBLIC%\devin-tasks\devin-office.cmd"    /sc onlogon /f
+schtasks /create /tn "devin-janitor"  /tr "devin-janitor run --apply"   /sc daily  /st 04:30 /f
+schtasks /create /tn "devin-explore"  /tr "devin-doctor check"          /sc weekly /d MON /st 09:00 /f
+schtasks /create /tn "devin-metrics"  /tr "devin-metrics summary"       /sc daily  /st 04:45 /f
+schtasks /create /tn "devin-graph"    /tr "devin-graph build"           /sc weekly /d SUN /st 06:00 /f
+
+$action  = New-ScheduledTaskAction -Execute "$env:USERPROFILE\devin-tasks\devin-backup.cmd"
+$trigger = New-ScheduledTaskTrigger -Daily -At 3:15AM
+Register-ScheduledTask -TaskName "devin-backup" -Action $action -Trigger $trigger
+
+$action  = New-ScheduledTaskAction -Execute "$env:USERPROFILE\devin-tasks\devin-history.cmd"
+$trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At 5AM
+Register-ScheduledTask -TaskName "devin-history" -Action $action -Trigger $trigger
+
+$action  = New-ScheduledTaskAction -Execute "$env:USERPROFILE\devin-tasks\devin-brain.cmd"
+$trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At 7AM
+Register-ScheduledTask -TaskName "devin-brain" -Action $action -Trigger $trigger
+
+$action  = New-ScheduledTaskAction -Execute "$env:USERPROFILE\devin-tasks\devin-evals.cmd"
+$trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At 6AM
+Register-ScheduledTask -TaskName "devin-evals" -Action $action -Trigger $trigger
+
+$action  = New-ScheduledTaskAction -Execute "$env:USERPROFILE\devin-tasks\devin-office.cmd"
+$trigger = New-ScheduledTaskTrigger -AtLogOn
+Register-ScheduledTask -TaskName "devin-office" -Action $action -Trigger $trigger
 ```
+
+Em cmd.exe o mesmo registro se faz pela GUI do Task Scheduler (Action = o
+caminho do `.cmd`), sem precisar de aspas aninhadas.
 
 `schtasks` em escopo de usuário não pede admin. Para o daemon, `/sc onlogon`
 (disparo no logon) é o trigger correto — não um intervalo. Dois detalhes
