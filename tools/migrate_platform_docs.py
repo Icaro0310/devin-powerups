@@ -536,7 +536,9 @@ def _render_recurring(name: str, platform: str, environment: str) -> list[str]:
             )
         else:
             lines.append(
-                "Runs under your account, no admin needed. Adjust `/sc`/`/st` (or `/sc onlogon` for daemons) to taste."
+                ("Runs under your account, no admin needed. Adjust the `New-ScheduledTaskTrigger` arguments (or `-AtLogOn` for daemons) to taste."
+                if cmdfile else
+                "Runs under your account, no admin needed. Adjust `/sc`/`/st` (or `/sc onlogon` for daemons) to taste.")
             )
     lines.append("")
     return lines
