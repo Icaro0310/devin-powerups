@@ -725,3 +725,45 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   author still has context, instead of surfacing in a nightly audit.
   Callers pin `secrets-scan.yml@v1`, so the guard only propagates when
   the floating `v1` tag is re-pointed after this branch merges.
+
+## D-2026-10-11c — VS Code extension: container-is-not-local-only + CLI↔extension contract
+
+- **Decision:** the `icaro0310.devin-doctor` VS Code adapter is a new
+  surface class: the extension itself is local-only (thin shell over
+  `devin-doctor check --json`), but it runs inside an editor container
+  that makes network calls by design — marketplace auto-update,
+  telemetry, extension host. Two consequences, both shipped:
+  (a) the corporate-Windows coverage lands as a **section inside the
+  package's guide** (`_PLATFORM_EXTRAS` keyed to `devin-explore`, the
+  registry entry that renders the doctor guide), not as a 21st guide
+  file — every future `adapters/vscode/` gets the same treatment in its
+  own package's guide; (b) `check --json` is treated as a versioned
+  contract: the extension declares `"devin-doctor-cli": ">=0.1,<0.2"`
+  in `package.json`, enforces it at runtime against `payload.version`,
+  and validates the rendered shape (`overall`, `version`,
+  `summary.{pass,warn,fail}`, `findings[].{check,status,message,fix?}`)
+  — drift fails loudly or flags the badge instead of rendering garbage.
+- **Date:** 2026-10-11.
+- **Reason:** the `local_only: true` registry contract was written for
+  Python CLIs; claiming it for an editor-hosted surface would have
+  produced the "editor makes external calls on a local-first request"
+  helpdesk ticket. And the extension/CLI pair versions independently —
+  the same drift class as the `__version__` incident, in the opposite
+  direction.
+- **Evidence:** generated section in devin-explore
+  `packages/doctor/README.corporate-windows.md` (marketplace
+  auto-update, VS Code telemetry, extension host, sideload-vs-
+  marketplace IT policy, workspace trust); contract enforcement +
+  tests in `devin-explore#55`; Python-side schema assertions in
+  `test_check_json_schema`. Verified fact discovered while wiring the
+  extras key: the registry has **no `devin-doctor` tool name** —
+  `devin-explore`'s entry renders `packages/doctor`.
+- **Expected outcome:** corporate rollout of the extension carries the
+  container caveats with it; a CLI schema change or a version outside
+  the pinned range surfaces as a named warning, never silent drift.
+- **Result:** shipped — generator section + guide regen wave (10 PRs,
+  powerups#121 stacked on #120), extension contract PR devin-explore#55
+  (0.2.0, stacked on #53). Observed side-finding logged separately:
+  `check --json` on a populated data dir exceeds the extension's 120 s
+  subprocess cap (disk-usage walk) — a CLI-latency property, not
+  contract drift.

@@ -318,3 +318,40 @@ Each item was re-checked against the artifact, not recalled.
   real clean target (fresh container or the corporate validation host)
   with env sanitized first; the BOOTSTRAP.md doc itself is now at
   `docs/BOOTSTRAP.md`, linked from the repo README.
+
+## Post-publish addendum (2026-10-11, VS Code extension surface)
+
+Recorded while closing the `icaro0310.devin-doctor` rollout — the first
+surface that runs inside a network-active host, so it inherited none of
+the CLI assumptions the audit verified.
+
+- **The extension is covered by the doctor guide, as a new section — not
+  a 21st guide file.** `_PLATFORM_EXTRAS` gained
+  `("devin-explore", "corporate_windows")` (verified: no `devin-doctor`
+  tool name exists in the registry; `devin-explore`'s entry renders
+  `packages/doctor`). The section covers marketplace auto-update, VS
+  Code telemetry, extension host, sideload-vs-marketplace IT policy,
+  workspace trust — the corporate-Windows checklist a CLI never needed.
+- **Zscaler + section shipped as one regen wave.** Generator reworded
+  (`certmgr.msc` / `Cert:` drive / IT PEM replaces the unsupported
+  `C:\ProgramData\Zscaler\` claim); 20 generated guides + powerups +
+  manual devkit guide updated across 10 PRs. `pytest
+  tools/test_migrate_platform_docs.py` 7/7; `--check` clean.
+- **CLI↔extension contract pinned (D-2026-10-11c).** `check --json` is
+  a versioned API: `"devin-doctor-cli": ">=0.1,<0.2"` in the extension
+  manifest, enforced at runtime, `validateDoctorPayload` fails loudly on
+  shape drift, `test/cli-contract.test.js` keeps declared and enforced
+  ranges in sync, `test_check_json_schema` pins the Python side.
+- **Live-smoke finding:** `check --json` on a populated data dir
+  exceeds the extension's 120 s subprocess cap (disk-usage walk over
+  `~/devin`) → `doctor: unavailable` on a real machine. CLI-latency
+  item in BACKLOG; not papered over in the adapter.
+- **Open VSX state:** `icaro0310.devin-doctor` 0.1.1 published and
+  indexed (0.1.0 was a pre-review build). `verified: false` — namespace
+  control ≠ verified publisher; the warning is a separate identity
+  verification, tracked in BACKLOG.
+- **Identity for future Marketplace publish:** direct Entra ID /
+  managed identity pre-registered over an interim PAT — PAT deprecation
+  (2026-12-01) lands two days before the P5 freeze ends (2026-12-03);
+  a PAT now schedules a governance-touching migration inside the freeze
+  tail (checkpoint 🔴 if it ever happens).
