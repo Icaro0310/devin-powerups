@@ -93,15 +93,19 @@ set "PATH=%USERPROFILE%\.local\bin;%PATH%"
 devin-backup create --out "%USERPROFILE%\backups"
 
 :: %USERPROFILE%\devin-tasks\devin-history.cmd
+set "PATH=%USERPROFILE%\.local\bin;%PATH%"
 devin-history export --out "%USERPROFILE%\devin-history-export"
 
 :: %USERPROFILE%\devin-tasks\devin-brain.cmd
+set "PATH=%USERPROFILE%\.local\bin;%PATH%"
 devin-memory --db "%USERPROFILE%\devin-memory\memory.db" extract --latest --sessions-db "%APPDATA%\devin\cli\sessions.db"
 
 :: %USERPROFILE%\devin-tasks\devin-evals.cmd
+set "PATH=%USERPROFILE%\.local\bin;%PATH%"
 devin-evals run --evals "%USERPROFILE%\devin-evals\cases" --sessions-db "%APPDATA%\devin\cli\sessions.db"
 
 :: %USERPROFILE%\devin-tasks\devin-office.cmd
+set "PATH=%USERPROFILE%\.local\bin;%PATH%"
 py "<CAMINHO_DO_REPO>\daemon.py" --port 8788
 ```
 

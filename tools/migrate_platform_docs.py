@@ -464,7 +464,7 @@ _RECURRING_JOBS: dict[str, dict[str, str]] = {
     "devin-office": {
         "cmd": "python <CAMINHO_DO_CHECKOUT>/daemon.py --port 8788",
         "cron": "@reboot",
-        "trigger": "-AtLogOn",
+        "trigger": "-AtLogOn -User $env:USERNAME",
         "cmdfile": "py \"<CAMINHO_DO_CHECKOUT>\\daemon.py\" --port 8788",
         "sched": "/sc onlogon",
         "note": "Long-running daemon; schedule by boot/logon trigger, not an interval.",
@@ -502,7 +502,7 @@ def _render_recurring(name: str, platform: str, environment: str) -> list[str]:
             # no /tr quoting maze in any shell.
             task_path = f"%USERPROFILE%\\devin-tasks\\{name}.cmd"
             lines.extend([
-                "Quoted path arguments inside `/tr` fail differently in cmd.exe and PowerShell 5.1, so this job goes through a wrapper `.cmd` file in your own profile directory (quoting inside the file works normally, and no other user can replace it). The task inherits your user `PATH`, so the wrapper first prepends the standard tool directory (`%USERPROFILE%\\.local\\bin`); if the tool lives elsewhere, write its full path inside the `.cmd`. Register with the `ScheduledTask` cmdlets, which take the path literally and replace cleanly on rerun (`-Force`):",
+                "Quoted path arguments inside `/tr` fail differently in cmd.exe and PowerShell 5.1, so this job goes through a wrapper `.cmd` file in your own profile directory (quoting inside the file works normally, and no other user can replace it). The task inherits your user `PATH`, so the wrapper first prepends the standard tool directory (`%USERPROFILE%\\.local\\bin`); if the tool lives elsewhere, write its full path inside the `.cmd`. Register from PowerShell with the `ScheduledTask` cmdlets, which take the path literally and replace cleanly on rerun (`-Force`):",
                 "",
                 "```powershell",
                 "New-Item -ItemType Directory -Force \"$env:USERPROFILE\\devin-tasks\"   # cmd.exe: mkdir \"%USERPROFILE%\\devin-tasks\"",
@@ -533,7 +533,7 @@ def _render_recurring(name: str, platform: str, environment: str) -> list[str]:
             ])
         if environment == "corporate_windows":
             lines.append(
-                "User-scope `schtasks` needs no admin. If Group Policy disables Task Scheduler (`0x80070005` \"Access is denied\"), run the command manually or use the tool's own `install` subcommand where available. Options needing elevation, \"Run whether user is logged on or not\", highest privileges, are usually policy-blocked; when they are, a user-scope logon trigger (`/sc onlogon`, or `New-ScheduledTaskTrigger -AtLogOn`) is the realistic fallback."
+                "User-scope registration (`schtasks` or the `ScheduledTask` cmdlets) needs no admin. If Group Policy disables Task Scheduler (`0x80070005` \"Access is denied\"), run the command manually or use the tool's own `install` subcommand where available. Options needing elevation, \"Run whether user is logged on or not\", highest privileges, are usually policy-blocked; when they are, a user-scope logon trigger (`/sc onlogon`, or `New-ScheduledTaskTrigger -AtLogOn`) is the realistic fallback."
             )
         else:
             lines.append(
