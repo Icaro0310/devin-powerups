@@ -68,7 +68,7 @@ jobs:
 ```
 
 ```yaml
-# codeql.yml — pass `language` only when it differs (e.g. devin-bridge).
+# codeql.yml — pass `language` only when it differs (e.g. devin-control).
 name: CodeQL
 on:
   push:
@@ -119,10 +119,10 @@ job-level permissions even when the workflow-level block already matches.
 
 | Repo | Workflow | Why it stays inline |
 |---|---|---|
-| `devin-bridge` | `ci.yml` | Node.js toolchain, not Python — `python-test.yml` does not apply |
-| `devin-evals` | `ci.yml` | Extra `corpus` job (EV-3 golden-case gate) |
-| `devin-memory` | `ci.yml` | Installs sibling deps from git pins before `pip install -e .` |
-| `devin-qa-pack` | `ci.yml` | Python matrix 3.10/3.11/3.12 + different action pins |
+| `devin-control` | `ci.yml` | Node.js toolchain, not Python — `python-test.yml` does not apply |
+| `devin-assure` | `ci.yml` | Extra `corpus` job (EV-3 golden-case gate) |
+| `devin-brain` | `ci.yml` | Installs sibling deps from git pins before `pip install -e .` |
+| `devin-assure` | `ci.yml` | Python matrix 3.10/3.11/3.12 + different action pins |
 
 These are the exceptions the audit expects to find. A repo drifting from
 the caller template without an entry here is a bug; a repo listed here
