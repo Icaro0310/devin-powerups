@@ -1,0 +1,197 @@
+# Action satellites — per-repo design (D-2026-10-10d rollout)
+
+The redact satellite proved the wiring (composite + pinned
+`setup-python` + `pip install <published pkg>` + one CLI verb → exit
+code), but the other three candidates are **not the same shape**. The
+transplantable part is the mechanism; the subject being gated, the
+inputs and the meaning of "fail" are per-satellite. This note fixes the
+design before any repo is created — satellites are created one at a
+time and each needs this section reviewed first.
+
+| | subject gated | fail means | primary input |
+|---|---|---|---|
+| redact-action (done) | the checked-out repo | secrets found | `paths` |
+| doctor-action | the **runner's** Devin environment | env has FAIL findings | dirs to check |
+| judge-action | an **action artifact** (text describing a proposed operation) | proposed op is destructive | an action file |
+| evals-action | a **corpus** of transcripts/records | verdict diverges from `expected_status` (unexcused mismatch) | a corpus dir |
+
+## devin-doctor-action — environment assertion, not repo scan
+
+`devin-doctor check` inspects the *machine's* Devin state
+(`--data-dir`/`--config-dir`, sessions.db, config sanity) and exits 1
+on any FAIL. On a fresh `ubuntu-latest` runner there is no Devin state
+at all — the report FAILs, and that is the correct signal, not noise:
+the action asserts "this runner can run Devin workloads", which is only
+meaningful where one is expected.
+
+Owner decision (2026-10-10): **post-install gate, not installer.** The
+spec phrase "installation broken on the runner" reads as "an installed
+Devin is unhealthy" — the action never installs Devin (that is
+`devin-devkit` or a setup step's job); it asserts health of an install
+that already exists.
+
+Two legitimate consumers:
+
+1. **Self-hosted / persistent runners** that host a real Devin install —
+   the action is a drift check on the environment itself.
+2. **Post-setup assertion** in devin-* CI — a job that installs the
+   toolchain (or builds a devcontainer) calls the action to prove the
+   environment ended up sane before the real steps run.
+
+Design:
+
+- `uses: Icaro0310/devin-doctor-action@v1`
+- inputs: `data-dir`, `config-dir` (optional), `version`
+  (`devin-doctor>=…,<…`), `fail-on-warn` (default `false`; FAIL findings
+  always fail), `probe-network` (default `false` — no outbound calls in
+  CI unless asked).
+- outputs: `overall` (`PASS`/`WARN`/`FAIL`), `failures` (count).
+- It does **not** checkout or scan repo content — no `paths` input.
+- **Distinct failure messages (owner requirement):** "Devin not
+  installed" is a violated precondition and must report differently
+  from "installed but unhealthy" — otherwise the first hides the
+  second. The action checks whether doctor finds a Devin install at
+  all, then reports which of the two failures fired.
+- **Smoke design:** richer than redact's — one consumer job can prove
+  both states (clean runner → "not installed"; runner with an
+  intentionally corrupted store → "unhealthy"), making it the first
+  satellite whose failure paths are exercised per run.
+
+## devin-judge-action — gate a proposed action, not the repo
+
+`poordjaevin gate --action-file <f>` judges a described operation and
+exits 1 ("block, require explicit confirmation") when it detects money
+movement or data deletion. In CI the artifact is whatever the pipeline
+produced that *describes an action*: a generated plan, a migration
+description, a PR's ops summary. The gate answers "may this run
+unattended?" — an advisory block, never an execution.
+
+Backend decided by owner (2026-10-10): **local NLI, not ACP.** §2.18
+declares "local NLI offline" as a property of the tool itself — forcing
+ACP on the Action would contradict the package's own spec, and Devin
+credentials on a runner mean credentials in every workflow of the repo,
+including third-party PRs and any compromised dep in the graph. The
+~400 MB model is cached via `actions/cache` keyed
+`judge-model-<nli_version>`; annoying beats leaked.
+
+- inputs: `action-file` (required — path to the artifact to judge),
+  `version`, `backend`, `calibrator` (optional). `backend` accepts
+  `local` only: ACP was considered and rejected by the owner decision
+  above (runner credentials), so it is not an opt-in here — if a future
+  use case ever needs ACP it gets its own documented input.
+- outputs: `block` (bool), `verdict` (text).
+- Fails when `block` is true *or* the backend errors — the CLI already
+  fails closed (exit 1 on backend error), which is the right semantic
+  for a gate.
+
+## devin-evals-action — regression gate over a golden corpus
+
+Answers from reading the real package (2026-10-10):
+
+- **Input.** `devin-evals corpus verify --corpus <dir>` replays an
+  immutable golden corpus — `corpus.json` manifest (seed, per-case
+  `expected_status`, `known_gap`), `sessions.db`, `evals/*.json` — and
+  reports expected-vs-actual per case. This is the **regression**
+  semantics: the corpus is the baseline and a PR fails when a grader
+  change flips a case away from its expected verdict. It is *not* a
+  corpus lint; that is a different verb (`corpus generate`). The
+  in-repo `evals/action.yml` runs `devin-evals run` against an
+  arbitrary sessions.db — a different surface entirely, so the
+  satellite is not a wrapper of it.
+- **Trigger.** `corpus verify` on the shipped corpus completes in
+  ~1.3 s — deterministic pattern graders over synthetic sessions, no
+  model. "Evals is CPU-heavy" does not hold for this verb; it fits the
+  same path-filtered PR trigger as `test-evals.yml`
+  (`packages/evals/**`).
+- **BLOCKED semantics.** A case whose actual verdict diverges from
+  `expected_status` and is not covered by a documented `known_gap` is
+  a **MISMATCH** — the classification is per-case (`MISMATCH <id>
+  expected=X actual=Y`, defect class D01–D10). GAP results are
+  tolerated by default; `--strict` fails on gaps too. The action's
+  error annotation names the regressed defect, not just "evals
+  failed".
+
+Convention carried from the doctor bug (2026-10-10): **for every gate
+surface, the smoke asserts the classification of the failure, not just
+that a failure happened.** A wrong-reason failure is a shipped bug —
+the doctor action nearly shipped `NOT INSTALLED` misreported as
+`UNHEALTHY`; the reason-level assertion is what caught it.
+
+- inputs: `corpus` (required — a directory produced by
+  `devin-evals corpus generate`), `strict` (default `false`),
+  `version` (`devin-evals>=0.2,<0.3`).
+- outputs: `ok`, `matched`, `mismatched`, `gaps` (parsed from
+  `--out verify-report.json`).
+- Distinct failures: unreadable/malformed corpus → precondition error
+  (not a regression); mismatches → regression error listing each
+  defect.
+- CLI mapping: the action runs `devin-evals corpus verify --corpus
+  $corpus` (golden-case grading). The weekly
+  `devin-evals run --sessions-db ...` job is a different input path —
+  regression replay of real sessions, not the CI corpus gate.
+
+## Rollout
+
+**Doctor → evals → judge (deferred).** Status 2026-10-10: `redact`,
+`doctor` and `evals` live (`v1`, smoke green); `judge` deferred until
+a CI job produces agent artifacts.
+
+- Judge and evals don't gate the repo — they gate *agent-produced
+  artifacts* (execution logs, corpora). Verified 2026-10-10 across all
+  workflows in the seven product repos plus powerups: **no CI job
+  produces agent execution logs today** — zero invocations of
+  `poordjaevin`, `sessions.db` capture, transcript artifacts or ACP
+  calls. In an ordinary human PR a judge-action would have nothing to
+  judge: fail-closed on missing input is noise, passing trivially is
+  worse. So `devin-judge-action` is **deferred until a producer of
+  agent artifacts exists in CI** — pre-commit + MCP cover the tool
+  meanwhile. Recorded as owner-visible decision, not an agent call.
+- Evals is out of the queue: it shipped (`v1`) gating the package's own
+  fixture corpus as a meaningful regression input. `judge` is the only
+  satellite still queued.
+- Each satellite gets the same smoke treatment as redact: one consumer
+  workflow in the owning repo proving install → verb → verdict → exit
+  code, scoped so a clean run stays green, with a D-record line noting
+  the smoke proves wiring, not product regression.
+
+## What each smoke proves — and what it does not
+
+The three smokes are **not symmetric**; reading a green check as
+coverage of the underlying product is wrong in different ways per
+satellite:
+
+| Satellite | Proves per run | Does NOT prove |
+|---|---|---|
+| redact-action | wiring: install → `gate` → verdict → exit code | scanner behavior — `backup/src` is stable-clean, so BLOCKED→exit-1 is not re-exercised (scanner coverage lives in redact's own suite) |
+| doctor-action | both failure classifications — a clean runner must fail `not_installed`, a corrupted store must fail `unhealthy` — plus a healthy pass | the full FAIL-finding matrix; only the stores/schema path is exercised by the fixtures |
+| evals-action | three classifications — real corpus passes, flipped `expected_status` fails as regression (`mismatched >= 1`), missing corpus fails as precondition (mismatches empty) | grader correctness itself; it proves expected-vs-actual comparison and reporting, not that graders detect new defect classes |
+
+Shared rule (precedent, see DECISIONS.md): **assert the failure's
+classification, not just that a failure happened.** The evals smoke
+caught its own broken tamper this way on first use — the adulterated
+manifest produced a trivially-green run that an exit-code check would
+have accepted.
+
+## Container images (GHCR) — pinning contract
+
+Four images publish per package release via each repo's
+`docker-publish.yml`: `ghcr.io/icaro0310/devin-redact`,
+`devin-qa-pack`, `devin-evals`, `devin-judge` (wraps `poordjaevin`,
+ships with the NLI model baked in). The contract mirrors the satellite
+actions:
+
+- **Pin by package version, not by floating tag.** Every push tags
+  `:<package-version>` and `:latest`; consumers that need the same
+  pin discipline as the actions (`devin-redact>=0.2,<0.3`) pin the
+  version tag, e.g. `ghcr.io/icaro0310/devin-redact:0.2.1`.
+  `:latest` is convenience, not a contract.
+- **The image installs the published wheel, never the checkout.** The
+  version arg resolves from `pyproject.toml` at the release commit
+  (`workflow_run.head_sha`) on publish paths and from the PyPI index
+  on PR smokes — the latter prevents a not-yet-published bump from
+  failing the install (chicken-and-egg).
+- **Entrypoint is the CLI; read-only semantics come from the invoked
+  verb** — same delegation model as the satellites: the container is
+  a vehicle, `gate`/`scan`/`corpus verify`/`audit` are the gates.
+- **Arch:** `linux/amd64` until the multi-arch follow-up merges;
+  `linux/arm64` joins via `platforms:` in the same workflows.

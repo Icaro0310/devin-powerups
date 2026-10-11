@@ -524,3 +524,189 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   llms.txt show identical non-repeating paths; holder eco-blocks show
   the updated memberships.
 - **Result:** pending propagation.
+
+## D-2026-10-10c — Adapter rollout: MCP + Devin Skill + Devin Plugin per package
+
+- **Decision:** every product package gains three thin AI-facing
+  adapters under a self-contained `adapters/` plugin root
+  (`.devin-plugin/plugin.json` + `skills/<pkg>/SKILL.md`), a
+  `src/<pkg>/mcp_server.py` MCP server with testable `do_*` functions,
+  an `mcp` optional extra and a `<cli>-mcp` console script. Mixed
+  tools expose only read-only/dry-run tools on those surfaces —
+  mutation stays CLI-only with human confirmation (`redact --apply`,
+  `janitor --apply`/vacuum, `backup restore`, `switch use`,
+  `skill-catalog promote/quarantine`, bridge/orchestrator execution,
+  devkit `apply_plan` all stay off the AI surface). `devin-brain`'s
+  plugin install launches `devin-memory-mcp --read-only`, so review ops
+  (`approve/retract/supersede/quarantine/release/extract`) are never
+  registered on the agent-facing server — enforced at registration,
+  not just undocumented; its skill/plugin document only the gated
+  subset (retain/recall/screen/list/conflicts/prime/verify). After
+  review, the default was flipped: the standalone server is also
+  read-only by default and the full surface requires the explicit
+  `--allow-review-ops` opt-in — mutation on the AI surface is opt-in,
+  never opt-out.
+- **Reason:** "one logic, many faces" — adapters call the package core
+  and never re-implement business rules; mutation on an AI-driven
+  surface skips human confirmation. The `adapters/` root keeps each
+  plugin installable via `git` subdirectory without symlinks.
+- **Evidence:** `docs/adapters.md` (pattern); reference proofs
+  `devin-doctor`/`devin-qa-pack`/`devin-redact`; per-repo feature
+  branches `feat/adapters-*` with per-package `test_mcp.py` +
+  `test_skill.py` contract tests (CLI-JSON parity, banned-mutation
+  greps, `importorskip("mcp")` guards for `[dev]`-only CI).
+- **Expected outcome:** all 19 registry packages have a consistent,
+  installable, read-only AI surface; legacy skills no longer teach
+  destructive flags to agents.
+- **Result:** met locally — per-package suites green; legacy
+  `session-janitor` skill marked archived/dry-run-only (orchestrator
+  skill audited compliant — it documents only the read-only planner);
+  rollout PRs under review.
+
+## D-2026-10-10d — Action satellite repos: definition + staged rollout
+
+- **Decision (owner position, recorded before acting):** a GitHub Action
+  satellite repo does **not** count as a "new repository" under the P5
+  freeze when it meets all of: (1) contains only `action.yml` +
+  `README` (+ LICENSE); (2) zero business logic — its only content is
+  invoking an already-published package; (3) no publishable package of
+  its own; (4) no taxonomy/registry membership — `registry.json` does
+  not gain an entry for it. It is a distribution vehicle for a surface
+  that already exists, not a product.
+- **Rollout constraint:** even approved, satellites are created one at
+  a time — `devin-state-redact-action` first (the `redact-check.yml` /
+  `secrets-scan.yml` reusable base already exists in this repo), prove
+  the pattern end-to-end, then evaluate `devin-doctor-action`,
+  `devin-judge-action` and `devin-evals-action`. If any reviewer reads
+  the freeze differently, the whole item defers to 2026-12-03 with zero
+  loss — nothing depends on the satellites existing.
+- **Reason:** §5 of the v3 spec requires the interpretation documented
+  before the first creation; the narrow definition above is what the
+  baseline cannot see (no product count, taxonomy, visibility or name
+  changes).
+- **Expected outcome:** one proved satellite, three pending — or a
+  deferred item if the interpretation is challenged.
+- **Result:** approved by owner (2026-10-10) and executed —
+  `Icaro0310/devin-state-redact-action` created (public, `action.yml` +
+  `README` + `LICENSE`, tag `v1`), consumed end-to-end by the
+  `redact-action` smoke workflow in devin-state (first run proved the
+  gate works — it correctly returned BLOCKED on an over-broad scope;
+  rescoped to `packages/backup/src`, now green). Three candidates
+  remain: doctor/judge/evals — per-satellite shapes in
+  `docs/action-satellites.md` (the mechanism transplants, the gated
+  subject does not). **`devin-doctor-action` shipped the same day**
+  (`v1`): post-install gate asserting an existing install is healthy,
+  with distinct not-installed (precondition) vs unhealthy failures —
+  the smoke exercises both failure paths plus a healthy pass.
+  `devin-judge-action` deferred: verified no CI job produces agent
+  artifacts today, so the satellite would be dead code; pre-commit +
+  MCP cover the tool. **`devin-evals-action` shipped the same day**
+  (`v1`): `corpus verify` regression gate; the smoke asserts failure
+  *classification* (precondition vs MISMATCH count), not just failure —
+  and catching a trivially-green run from tampering the wrong file is
+  what made it worth writing. Required `devin-evals` 0.3.0 (regex
+  grader the shipped corpus already uses) + 0.3.1 (`__version__`
+  drift fix); both published via the existing workflow.
+- **Scanner self-flag — real bug, fixed (state `44411ad`).** Not a
+  backlog candidate: `env_assignment` fired on any KEY/SECRET/TOKEN
+  name bound to a code expression, so scanner configs, env parsers and
+  policy generators — including the scanner's own source — hit BLOCKED
+  and would have deadlocked the redact pre-commit hook the day someone
+  edited `engine.py`. Fix: `_iter_matches` suppresses env_assignment
+  only when the RHS is a container literal or a call (shapes an env
+  value can never take); bare/quoted values still flag, so private
+  constants holding real secrets are still caught. Applies to scan and
+  redact identically. Verified: `packages/*/src` gates REVIEW, was
+  BLOCKED. **Correction:** the `egg-info/PKG-INFO` noted earlier is a
+  local build artifact only — `git ls-files` shows zero tracked
+  egg-info in all seven repos; `.gitignore` already covers it. No repo
+  fix needed.
+- **Smoke scope caveat:** the `redact-action` smoke workflow proves
+  only the satellite wiring (install → gate → verdict → exit code).
+  `packages/backup/src` is stable-clean, so the BLOCKED→exit-1 path is
+  not re-exercised per run; scanner behavior regressions are covered
+  by redact's own test suite, not the smoke. Recorded so nobody reads
+  the green check as scanner coverage.
+- **Convention precedent (2026-10-10):** assert the failure's
+  *classification*, not just that a failure happened. It paid for
+  itself on first use: the evals smoke's tamper edited `corpus.json`
+  but `verify` reads `evals/*.json`, so the adulterated run passed
+  green — an exit-code-only assertion would have shipped a smoke that
+  tests nothing. The `mismatched >= 1` assertion caught it. When the
+  cost of reason-level assertions is questioned, this is the evidence.
+
+## D-2026-10-10e — Adapter-rollout divergences vs the v3 spec, with positions
+
+Bundled record of every spec-vs-repo divergence found during the
+rollout. Repo reality wins per §0 unless noted.
+
+- **`devkit_install` is dry-run-only.** Spec §2.16 *permits* a real
+  install via MCP ("additive, not destructive"). Position: keep the
+  conservative dry-run surface — "permitted" is not "required"; the
+  preflight plan covers the agent's real need (know what an install
+  would do) while writes stay user-confirmed. Widening to a real
+  install is a BACKLOG item under review, not a silent change.
+- **`backup_diff` beyond the named set.** Spec §2.14 named `verify`/
+  `status`; the adapter also exposes `backup_diff`. Read-only, same
+  risk class — registered as an accepted superset.
+- **Adapter layout vs §0.3 mold.** `mcp_server.py` lives in `src/<pkg>/`
+  (the `<pkg>-mcp` console script needs an importable module) and the
+  plugin root is self-contained `adapters/` (symlinks break
+  `git-subdir` installs). Documented in `docs/adapters.md`.
+- **`judge_decide` does not exist.** Spec §2.18 named it as the main
+  tool; the real MCP surface is `judge`/`classify`/`rate`/`decide`/
+  `gate`. Code wins (§0) — recorded, not renamed (rule 4 forbids
+  renames anyway).
+- **`switch/mcp_server.py` was 288 lines** — over the 50–200 guideline
+  in §0.2 rule 3. Resolved by split, not exception: the `do_*` payloads
+  moved to `mcp_actions.py` (171 lines, pure functions) and
+  `mcp_server.py` keeps only SDK wiring + tool registration (157 lines).
+  `mcp_server.do_*` still resolves via re-export, so the AST surface
+  contract and parity tests are untouched.
+- **Docs/commits in English vs the spec's "idioma: português".**
+  Owner decision (2026-10-10): **English is official**, Portuguese is
+  deprecated for repo surfaces (docs, commits, PRs, generated logs).
+  The spec instruction is superseded.
+- **Legacy `.devin/` surfaces (both resolved).**
+  `orchestrator/.devin/skills/.../SKILL.md` was rewritten restricted to
+  `history` consults only — no `plan`, no `record`, no dispatch
+  instructions (strict Rule-1 reading: teaching fan-out *is* exposing
+  it). `orchestrator/.devin/rules/background-workers.md` kept the
+  background-worker policy (it matches the owner's global `multiagente`
+  rule) but no longer attributes fan-out authority to devin-orchestrator
+  or points at the skill as "planner" — the skill reference now
+  describes read-only registry consultation. Both land in
+  devin-control `feat/adapters-control`.
+
+## D-2026-10-10f — Autonomy policy: checkpoints reduced to external dependencies
+
+Owner direction (2026-10-10): eliminate every human checkpoint that does
+not genuinely require the owner. Autonomous decisions with minimal human
+contact are the target.
+
+- **Not delegable — external dependencies, not checkpoints.** Publisher
+  accounts (VS Code Marketplace, Open VSX), legal/developer agreements,
+  2FA, and the final "Publish to Marketplace" click on third-party
+  channels require the owner's identity. They remain owner items.
+- **Delegated to the agent — procedural checkpoints.** PR merges gated on
+  green CI plus completed bot review; version bumps and package publishes
+  via the existing `pypi-publish.yml` workflows; satellite repos under
+  the D-2026-10-10d shape; container images to GHCR. No per-action
+  confirmation.
+- **Still prohibited regardless of autonomy.** These are the freeze, not
+  checkpoints: repo fusion/creation outside the approved satellite shape,
+  deletion, renames, taxonomy reclassification, visibility changes —
+  until 2026-12-03 or a real governance trigger.
+- **Compensating control — verification discipline.** With procedural
+  checkpoints gone, the report becomes the only oversight channel. No
+  numeric or state claim (counts, versions, statuses, merges) enters a
+  report without a fresh authoritative command run in the same response.
+  This applies prompt rule §6 literally.
+- **Trigger.** Owner review caught three reporting inaccuracies in two
+  consecutive reports: open-PR count reported as 14 vs real 16 (the
+  command output listed 16; the report misread it), D-records claimed as
+  `a–e` when no `a` exists and `c/d/e` sit on unmerged PR #98, and the
+  devkit/skill-catalog release line conflated first-ever publication
+  (0.1.0, uploaded same-day by the retried workflows) with a version
+  bump. None were action errors; all were reporting errors. The fix is
+  the control above, not more checkpoints.
