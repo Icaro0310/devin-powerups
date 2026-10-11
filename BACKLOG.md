@@ -76,3 +76,4 @@ what unblocks.
 - Workflow consolidation (P3b) — done; callers pin `@v1`.
 - `poordjaevin.version` registry field — partially self-healed: PyPI has
   0.1.1; the watchdog may still report the registry field stale.
+| PyPI pending publishers for `devin-devkit` + `devin-skill-catalog` — stale pending TPs now block OIDC (`invalid-pending-publisher: project already exists`). **User action on PyPI**: delete the pending publishers under account → Publishing, then add active TPs on each project's publishing settings (repo `Icaro0310/devin-devkit`, workflow `pypi-publish.yml`, env `pypi-devkit` / `pypi-skill-catalog`). After green re-dispatch, delete `PYPI_API_TOKEN` from the six repos and revoke the account token (D-2026-10-11b). | high | external — owner PyPI settings; raised 2026-10-11 after token-removal rollout |

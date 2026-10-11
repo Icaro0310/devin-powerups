@@ -655,3 +655,34 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   to gates are themselves finding-prone — observed three times this
   round alone). Adjust N and M with data when the next surface lands;
   the estimate exists to be compared against, not to sound right.
+
+## D-2026-10-11b — Publish auth: OIDC-only, token path removed
+
+- **Decision:** the six `pypi-publish.yml` workflows that passed
+  `password: secrets.PYPI_API_TOKEN` no longer do (state#45,
+  explore#47, devkit#39, control#42, brain#44, judge#33). With the
+  input set, `pypa/gh-action-pypi-publish` authenticated every upload
+  with the account token and silently disabled Trusted Publishing —
+  each run produced PyPI's "API token was used ... even though the
+  project has a Trusted Publisher configured" email. OIDC is now the
+  only auth path; there is no code path left that can fall back to
+  the token without a workflow edit.
+- **Verification:** one `workflow_dispatch` per package (skip-existing
+  makes uploads no-ops; the OIDC exchange is what is exercised). OIDC
+  green for **12/14 tuples** — redact/backup/janitor, doctor/graph/
+  history/pm/search, orchestrator/switch, devin-memory, poordjaevin —
+  zero "disabling Trusted Publishing" warnings. The two failures are
+  `devin-devkit` and `devin-skill-catalog`: `invalid-pending-publisher:
+  valid token, but project already exists` — their **pending** TPs were
+  registered before first upload and became invalid when the account
+  token created the projects. Fix is PyPI-side (owner): remove the stale
+  pending publishers, add active TPs on each project's publishing
+  settings (`Icaro0310/devin-devkit` + `pypi-publish.yml` + env
+  `pypi-devkit`/`pypi-skill-catalog`).
+- **Token disposition:** `PYPI_API_TOKEN` stays dormant in the six repos
+  as rollback until the devkit pair is green on OIDC; then delete the
+  repo secrets and revoke the account token on PyPI — an unused account
+  token uploadable to every project is pure attack surface. The earlier
+  "empty password → OIDC fallback" policy is superseded: a populated
+  secret made the fallback unconditional, which is exactly what
+  generated the repeated warnings.
