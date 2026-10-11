@@ -502,7 +502,7 @@ def _render_recurring(name: str, platform: str, environment: str) -> list[str]:
             # no /tr quoting maze in any shell.
             task_path = f"%USERPROFILE%\\devin-tasks\\{name}.cmd"
             lines.extend([
-                "Quoted path arguments inside `/tr` fail differently in cmd.exe and PowerShell 5.1, so this job goes through a wrapper `.cmd` file in your own profile directory (quoting inside the file works normally, and no other user can replace it). The task inherits your user `PATH`; if the tool is not on it, write the tool's full path inside the `.cmd`. Register with the `ScheduledTask` cmdlets, which take the path literally and replace cleanly on rerun (`-Force`):",
+                "Quoted path arguments inside `/tr` fail differently in cmd.exe and PowerShell 5.1, so this job goes through a wrapper `.cmd` file in your own profile directory (quoting inside the file works normally, and no other user can replace it). The task inherits your user `PATH`, so the wrapper first prepends the standard tool directory (`%USERPROFILE%\\.local\\bin`); if the tool lives elsewhere, write its full path inside the `.cmd`. Register with the `ScheduledTask` cmdlets, which take the path literally and replace cleanly on rerun (`-Force`):",
                 "",
                 "```powershell",
                 "New-Item -ItemType Directory -Force \"$env:USERPROFILE\\devin-tasks\"   # cmd.exe: mkdir \"%USERPROFILE%\\devin-tasks\"",
@@ -511,6 +511,7 @@ def _render_recurring(name: str, platform: str, environment: str) -> list[str]:
                 f"Save this as `{task_path}`:",
                 "",
                 "```batch",
+                "set \"PATH=%USERPROFILE%\\.local\\bin;%PATH%\"",
                 cmdfile,
                 "```",
                 "",

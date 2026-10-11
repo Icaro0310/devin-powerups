@@ -80,8 +80,8 @@ Jobs com caminho que pode ter espaço (`%USERPROFILE%`, `%APPDATA%`,
 `%USERPROFILE%\devin-tasks` (diretório do próprio usuário, sem adulteração
 cross-user) e o registro usa os cmdlets `ScheduledTask`, que recebem o
 caminho literalmente — sem labirinto de aspas em nenhum shell. A task herda
-o `PATH` do usuário: se a ferramenta não estiver nele, escreva o caminho
-completo dentro do `.cmd`. `-Force` torna o re-registro idempotente:
+o `PATH` do usuário: o wrapper já antecede `%USERPROFILE%\.local\bin`;
+se a ferramenta estiver noutro sítio, escreva o caminho completo no `.cmd`. `-Force` torna o re-registro idempotente:
 
 ```powershell
 New-Item -ItemType Directory -Force "$env:USERPROFILE\devin-tasks"   # cmd.exe: mkdir "%USERPROFILE%\devin-tasks"
@@ -89,6 +89,7 @@ New-Item -ItemType Directory -Force "$env:USERPROFILE\devin-tasks"   # cmd.exe: 
 
 ```batch
 :: %USERPROFILE%\devin-tasks\devin-backup.cmd
+set "PATH=%USERPROFILE%\.local\bin;%PATH%"
 devin-backup create --out "%USERPROFILE%\backups"
 
 :: %USERPROFILE%\devin-tasks\devin-history.cmd
