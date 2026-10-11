@@ -310,8 +310,9 @@ and how their Devin-specific capability improves the base tool.
   Windows/Linux guides, CI and conventions (`tools/new-repo.py`).
 - You want a public activity report that reads only public GitHub commit
   metadata — no private repo contents, no session data.
-- You want one token-based PyPI publish workflow reused across every Python
-  repo instead of per-repo publish plumbing.
+- You want a uniform PyPI publish pattern across the ecosystem — per-repo
+  `pypi-publish.yml` jobs authenticating via OIDC trusted publishing,
+  no tokens in workflow code.
 
 ## When NOT to use this
 
@@ -343,10 +344,11 @@ GitHub commits API. Email delivery is optional and uses secrets and
 variables you configure in your own fork; if they are missing, the workflow
 keeps the HTML artifact and skips the email.
 
-**How do other repos publish to PyPI?** They call the reusable workflow:
-`uses: Icaro0310/devin-powerups/.github/workflows/pypi-publish.yml@main`
-with a `PYPI_API_TOKEN` secret. One token-based workflow, no per-repo OIDC
-setup.
+**How do other repos publish to PyPI?** Each product repo carries its own
+inline `pypi-publish.yml` job with `environment: pypi[-<pkg>]`, publishing
+via OIDC trusted publishing — PyPI validates `job_workflow_ref` against the
+TP-registered repo, so a `uses:` call into this hub cannot satisfy a
+per-repo TP. No `PYPI_API_TOKEN` appears in workflow code.
 
 ## License
 
