@@ -439,15 +439,17 @@ _DOCTOR_VSCODE_CORP = [
 
 def _devkit_dev_extra(platform: str) -> list[str]:
     if platform == "windows":
-        cmd = ["cd ..\\devin-explore\\packages\\doctor", "uv venv", "uv pip install --python .venv\\Scripts\\python.exe -e ..\\devin-internals-spec -e ."]
+        cmd = ["cd ..\\devin-explore\\packages\\doctor", "uv venv", "uv pip install --python .venv\\Scripts\\python.exe -e ..\\..\\..\\devin-internals-spec -e ."]
     else:
-        cmd = ["cd ../devin-explore/packages/doctor", "uv venv", "uv pip install --python .venv/bin/python -e ../devin-internals-spec -e ."]
+        cmd = ["cd ../devin-explore/packages/doctor", "uv venv", "uv pip install --python .venv/bin/python -e ../../../devin-internals-spec -e ."]
     return [
         "## Local development with sibling checkouts",
         "",
         "For a package such as `devin-doctor`, keep the published version",
         "constraint in its `pyproject.toml`; install sibling sources editably",
-        "only in the development environment:",
+        "only in the development environment. With `devin-explore` and",
+        "`devin-internals-spec` checked out next to this repository, run",
+        "from the `devin-devkit` repository root:",
         "",
         "```" + ("powershell" if platform == "windows" else "bash"),
         *cmd,
@@ -728,7 +730,7 @@ def render_guide(entry: dict[str, Any], tool: dict[str, Any] | None, platform: s
     elif name == "devin-devkit":
         lines.append("- `uv`, installed from the [official uv guide](https://docs.astral.sh/uv/getting-started/installation/). It can manage a compatible Python interpreter.")
         lines.append("- Node.js 20 or newer and npm only when installing a profile containing `devin-bridge`.")
-        lines.append("- Git only for manual source checkouts; installable profiles use HTTPS archives.")
+        lines.append("- Git on `PATH` for the `git+` DevKit installation below and for manual source checkouts; installable profile tools use HTTPS archives.")
     elif name == "devin-office":
         lines.extend(["- Python 3.10 or newer.", "- Git for a source checkout.", "- Devin Desktop or CLI on the machine whose sessions you want to view."])
     elif name == "devin-powerups":
