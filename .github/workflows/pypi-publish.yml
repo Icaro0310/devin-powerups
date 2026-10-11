@@ -27,6 +27,14 @@ name: reusable-pypi-publish
 #     publish:
 #       uses: Icaro0310/devin-powerups/.github/workflows/pypi-publish.yml@6016b68ae41c4012bce2bfdfaaa57b51949d9f1d # main
 #
+# Trusted Publishing caveat: PyPI validates the OIDC token's
+# job_workflow_ref against the publisher's configured repo/workflow,
+# which must live in the TP repository itself. A caller that `uses:`
+# this central file gets job_workflow_ref=<this repo>/pypi-publish.yml,
+# so TP rejects it — `uses:` works for API-token mode only. For TP, the
+# caller carries its own copy of this file (the ecosystem pattern: one
+# inline pypi-publish.yml per product repo).
+#
 # `module` only needs passing when the wheel's top_level.txt and
 # project.name ('-' → '_') both miss the importable module name.
 

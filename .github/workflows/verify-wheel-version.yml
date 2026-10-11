@@ -66,7 +66,9 @@ jobs:
           # with '-' normalized to '_'. A wrong pick fails the import
           # loudly — a non-matching package is blocked, not passed.
           if [ -z "$PKG" ]; then
-            tl=$(ls /tmp/verchk/*.dist-info/top_level.txt 2>/dev/null | head -1)
+            # find, not ls|head: a wheel can omit top_level.txt, and under
+            # pipefail a failed ls kills the step before the fallback runs.
+            tl=$(find /tmp/verchk -name top_level.txt -print -quit 2>/dev/null || true)
             if [ -n "$tl" ]; then
               PKG=$(head -1 "$tl" | tr -d '[:space:]')
             else
