@@ -79,7 +79,9 @@ Jobs com caminho que pode ter espaço (`%USERPROFILE%`, `%APPDATA%`,
 `/tr` falha diferente em cmd.exe e PowerShell 5.1. O wrapper fica em
 `%USERPROFILE%\devin-tasks` (diretório do próprio usuário, sem adulteração
 cross-user) e o registro usa os cmdlets `ScheduledTask`, que recebem o
-caminho literalmente — sem labirinto de aspas em nenhum shell:
+caminho literalmente — sem labirinto de aspas em nenhum shell. A task herda
+o `PATH` do usuário: se a ferramenta não estiver nele, escreva o caminho
+completo dentro do `.cmd`. `-Force` torna o re-registro idempotente:
 
 ```powershell
 New-Item -ItemType Directory -Force "$env:USERPROFILE\devin-tasks"   # cmd.exe: mkdir "%USERPROFILE%\devin-tasks"
@@ -110,23 +112,23 @@ schtasks /create /tn "devin-graph"    /tr "devin-graph build"           /sc week
 
 $action  = New-ScheduledTaskAction -Execute "$env:USERPROFILE\devin-tasks\devin-backup.cmd"
 $trigger = New-ScheduledTaskTrigger -Daily -At 3:15AM
-Register-ScheduledTask -TaskName "devin-backup" -Action $action -Trigger $trigger
+Register-ScheduledTask -Force -TaskName "devin-backup" -Action $action -Trigger $trigger
 
 $action  = New-ScheduledTaskAction -Execute "$env:USERPROFILE\devin-tasks\devin-history.cmd"
 $trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At 5AM
-Register-ScheduledTask -TaskName "devin-history" -Action $action -Trigger $trigger
+Register-ScheduledTask -Force -TaskName "devin-history" -Action $action -Trigger $trigger
 
 $action  = New-ScheduledTaskAction -Execute "$env:USERPROFILE\devin-tasks\devin-brain.cmd"
 $trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At 7AM
-Register-ScheduledTask -TaskName "devin-brain" -Action $action -Trigger $trigger
+Register-ScheduledTask -Force -TaskName "devin-brain" -Action $action -Trigger $trigger
 
 $action  = New-ScheduledTaskAction -Execute "$env:USERPROFILE\devin-tasks\devin-evals.cmd"
 $trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At 6AM
-Register-ScheduledTask -TaskName "devin-evals" -Action $action -Trigger $trigger
+Register-ScheduledTask -Force -TaskName "devin-evals" -Action $action -Trigger $trigger
 
 $action  = New-ScheduledTaskAction -Execute "$env:USERPROFILE\devin-tasks\devin-office.cmd"
 $trigger = New-ScheduledTaskTrigger -AtLogOn
-Register-ScheduledTask -TaskName "devin-office" -Action $action -Trigger $trigger
+Register-ScheduledTask -Force -TaskName "devin-office" -Action $action -Trigger $trigger
 ```
 
 Em cmd.exe o mesmo registro se faz pela GUI do Task Scheduler (Action = o
