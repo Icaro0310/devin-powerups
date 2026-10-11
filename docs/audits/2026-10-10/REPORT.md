@@ -232,7 +232,7 @@ a clean machine, npm bridge install.
 |---|---|---|
 | devin-explore | fix/doctor-manifest-url → **PR #41** | manifest URL → monorepo path + regression test |
 | devin-devkit | fix/update-environment-gate → **PR #36** | env gate on update/outdated + `--environment` + platform/prereq/unmanaged gates + shared `evaluate_target`/`evaluate_requirements` pipeline + `DEVIN_DEVKIT_OFFLINE` + `_uv_tools_dir` Windows/XDG fix + doc corrections (PyPI/git/bridge) |
-| devin-powerups | docs/audit-2026-10-10 | this report + automation catalog + bootstrap guide |
+| devin-powerups | docs/audit-2026-10-10 | this report + automation catalog; the bootstrap guide moved to `docs/BOOTSTRAP.md` (canonical location — an artifact-dated path is not where a new agent is pointed first) |
 
 ## Remaining risks / blockers
 
@@ -250,3 +250,71 @@ a clean machine, npm bridge install.
    or the judge runs backend-less.
 6. `install_spec` is not validated against flag-like values (finding 8) —
    low impact, recommended hardening.
+
+## Post-review addendum (2026-10-11, owner review)
+
+Corrections and verifications recorded after the wave report was reviewed.
+Each item was re-checked against the artifact, not recalled.
+
+- **Guide universe.** "20 guides" = the 19 entries in
+  `registry.devkit.tools` (which include `devin-internals-spec` and
+  `devin-judge`) + `devin-powerups`. The earlier §4.1 list is the stale
+  one — `devkit.tools` is the auditable denominator. `devin-devkit` is
+  not a devkit tool (see next item).
+- **devin-devkit is a manual exception.** Its corporate guide was
+  hand-written (commit b872822); it is absent from the generator's
+  targets and from every table (`_NETWORK_RUNTIME`, `_PATH_FLAGS`,
+  `_RECURRING_JOBS`, `_PLATFORM_EXTRAS`), so `--check` cannot see it.
+  Pending owner decision: promote it into the generator (recommended —
+  restores single-point inspectability) or keep a named manual
+  exception with its own drift check.
+- **Link classification, all guides** (was "0 suspicious", an
+  unverifiable search result): `interno` 2 (github.com → own repos),
+  `oficial-devin` 1 (`mcp.devin.ai`), `documentação-técnica` 2
+  (`docs.astral.sh`), `suspeito` 0. 44 further URL-shaped strings are
+  code placeholders, not links: `proxy:port` ×42 (HTTPS_PROXY examples)
+  and `localhost:8788` ×2 (office dashboard bind). Five real external
+  links total.
+- **Source grep → network coverage.** Real outbound surfaces: doctor
+  (manifest GET, `DEVIN_DOCTOR_OFFLINE=1`), qa-pack (opt-in MCP POST +
+  allowlisted HEAD), office (probe POST → `OFFICE_HUB`, hub GET →
+  `OFFICE_ECO_URL`, `OFFICE_CONTROL_ENABLED` spawn), devkit (installs +
+  manifest GET, `DEVIN_DEVKIT_OFFLINE=1`), judge (backend HTTP/local).
+  `devin-backup`'s only urllib use is `urllib.parse.quote` — false
+  positive; its guide correctly declares no network calls.
+- **Zscaler cert path.** `C:\ProgramData\Zscaler\` is not a publicly
+  documented certificate source — the documented route is the Windows
+  certificate store (`certmgr.msc` / `Cert:` drive export) or the
+  Client Connector / IT. Pending: drop the path in the generator's
+  `_ZSCALER` and re-generate; bundled with the devkit-coverage decision
+  so the guide wave runs once.
+- **Orphan sweep** (`find` over the whole workspace): 44
+  `README.corporate-windows.md` files. All 21 live targets are present;
+  the remainder are stale copies in archived-repo checkouts
+  (devin-backup/dream/evals/graph/history/janitor/metrics/pm/search/
+  skill-catalog), a duplicated `devin-explore` tree, a `prod/` tree and
+  the template copy — local cleanup, no repo changes needed.
+- **Freeze wording.** "Zero production code changes" was imprecise:
+  `tools/migrate_platform_docs.py` and its tests are code. Precise
+  record: zero changes to publishable package code; `tools/` changes
+  are doc-generation tooling outside the freeze scope; no repo
+  created/merged/renamed, no public/private taxonomy change.
+- **Language conflict.** Prompt (PT) vs D-record (EN official, PT
+  deprecated): identified and resolved for the D-record; reversible via
+  the generator if the policy changes.
+- **Merge-gate health.** 123 merges 10/10–10/11 across the nine repos:
+  108 merged on the APPROVED path, 15 merged while `reviewDecision`
+  was REVIEW_REQUIRED — i.e. the admin path (all `mergedBy` the owner;
+  `enforce_admins` is off). All 15 cluster in the first day: the
+  journey-recuration batch, the auto-approve gate's own bootstrap PRs
+  (which cannot approve themselves), and CI-hardening PRs. Day two ran
+  fully through the natural loop. Proxy caveat: `reviewDecision` is
+  current state — a dismissed post-merge approval would read the same,
+  but the batch clustering supports the admin-merge reading.
+- **Bootstrap-test scope.** "Subagents are stateless" is a framework
+  guarantee for transcript/context only — spawned agents inherit the
+  host environment, so `HTTPS_PROXY`, `REQUESTS_CA_BUNDLE`, `DEVIN_*`
+  variables can leak into a "clean machine" test. The next run needs a
+  real clean target (fresh container or the corporate validation host)
+  with env sanitized first; the BOOTSTRAP.md doc itself is now at
+  `docs/BOOTSTRAP.md`, linked from the repo README.

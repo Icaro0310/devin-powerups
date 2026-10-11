@@ -77,7 +77,10 @@ Result. Records are not eternal — revisit when new evidence arrives.
   carries an expiry clause: the workaround is deleted once a delivery
   path exists that clears stale anchors of both classes — Devin-side
   dismiss/re-check, or the gate-side signed dismiss list — and the
-  item closes when the workaround is gone).
+  item closes when the workaround is gone). Check-in point is the next
+  corporate validation window (the Zscaler-verification pass), not a
+  quarterly tick — an event someone will actually be inside, not a
+  date nobody reads.
 - **Result:** recorded; first application is the auto-approve rollout
   tail (7 PRs, each with per-finding proof comment + `--admin`).
 
@@ -695,3 +698,30 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   pending publishers (PyPI-side owner action tracked in BACKLOG).
   Token secrets stay dormant until then, so the record closes only
   when the revocation step completes.
+- **Addendum (2026-10-11, owner review):** the "dormant rollback"
+  disposition was overruled — a rollback that requires editing the
+  workflow anyway is dead weight, not a safety net. Corrected order:
+  revoke the account token and delete all repo secrets FIRST, close
+  the pending-TP cleanup, then re-dispatch; nothing depends on the
+  token existing. Execution so far: `PYPI_API_TOKEN` deleted from all
+  **seven** repos that held it (the six above plus
+  `devin-internals-spec`, missed by the per-repo check — grep, not
+  enumeration, is the proof: `grep -rn 'PYPI_API_TOKEN'
+  **/.github/workflows/`). The same grep caught two workflows the six
+  PRs missed: the reusable `devin-powerups/pypi-publish.yml` (token
+  input + password removed, header now documents
+  active-publisher-before-first-upload) and `devin-assure`. It also
+  surfaced that `devin-internals-spec`'s publish only ever worked via
+  token (it `uses:`-called the reusable workflow, which TP always
+  rejects) — fixed by giving it an inline `pypi-publish.yml`
+  (internals-spec#35) like every other product repo. Remaining owner
+  steps, unchanged: revoke the account token; remove the stale
+  pending publishers and add active TPs for devkit + skill-catalog
+  (and now internals-spec); then the re-dispatches verify OIDC.
+- **Addendum 2 (2026-10-11):** the publish-auth meta-check now rides
+  the required `secrets-scan` job (step "Assert publish workflows are
+  OIDC-only") in every caller, plus a self-scan `ci.yml` on the hub —
+  token-auth drift fails the required check at commit time, where the
+  author still has context, instead of surfacing in a nightly audit.
+  Callers pin `secrets-scan.yml@v1`, so the guard only propagates when
+  the floating `v1` tag is re-pointed after this branch merges.
