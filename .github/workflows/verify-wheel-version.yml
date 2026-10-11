@@ -68,7 +68,7 @@ jobs:
           if [ -z "$PKG" ]; then
             # find, not ls|head: a wheel can omit top_level.txt, and under
             # pipefail a failed ls kills the step before the fallback runs.
-            tl=$(find /tmp/verchk -name top_level.txt -print -quit 2>/dev/null || true)
+            tl=$(find /tmp/verchk -maxdepth 2 -path '/tmp/verchk/*.dist-info/top_level.txt' -print -quit 2>/dev/null || true)
             if [ -n "$tl" ]; then
               PKG=$(head -1 "$tl" | tr -d '[:space:]')
             else
