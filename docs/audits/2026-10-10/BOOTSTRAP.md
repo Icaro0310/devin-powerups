@@ -5,21 +5,27 @@ partir de um checkout limpo, sem conhecimento pessoal do mantenedor.
 
 ## Passo 0 — Identificar o ambiente
 
-| Sinal | Ambiente |
+| Sinal | Ambiente (valor do CLI — com hífen) |
 |---|---|
 | Linux + pode usar VM QwenPaw/recursos externos | `linux` (extended) |
-| Windows + uso pessoal, VM/externos autorizados | `personal_windows` (extended) |
-| Windows + restrição corporativa (proxy/Zscaler, sem admin, sem delegação) | `corporate_windows` (local-only) |
+| Windows + uso pessoal, VM/externos autorizados | `personal-windows` (extended) |
+| Windows + restrição corporativa (proxy/Zscaler, sem admin, sem delegação) | `corporate-windows` (local-only) |
 
 O DevKit **nunca infere** corporate pelo SO — um Windows sem flag vira
-`personal_windows`. Se há qualquer restrição, passe `--environment
-corporate-windows` explicitamente em `install`, `update` e `outdated`.
+`personal_windows` (o conceito; o valor do CLI é com hífen). Se há
+qualquer restrição, passe `--environment corporate-windows`
+explicitamente em `install`. Atenção: `update`/`outdated` **ainda não
+aceitam** `--environment` (nem em `main`, nem na wheel publicada) — a
+cobertura desses caminhos é item pendente do D-2026-10-10d, não funciona
+hoje.
 
 ## Passo 1 — Fonte da verdade
 
 1. `registry.json` (devin-powerups) — canônico: artefatos, ambientes,
-   perfis, status de distribuição. Não edite artefatos gerados; a correção
-   vai no registry ou no gerador em `tools/`.
+   perfis, status de distribuição. Path do checkout:
+   `~/devin/devin-ecosystem/devin-powerups/registry.json` (clone
+   `Icaro0310/devin-powerups` se ausente). Não edite artefatos gerados;
+   a correção vai no registry ou no gerador em `tools/`.
 2. `devin-devkit` — o instalador. Manifest gerado embutido no pacote.
 3. Produtos: devin-explore, devin-assure, devin-state, devin-control,
    devin-judge, devin-brain (+ devin-internals-spec, devin-powerups,
@@ -29,6 +35,8 @@ corporate-windows` explicitamente em `install`, `update` e `outdated`.
 ## Passo 2 — Instalar o DevKit
 
 ```bash
+# Linux, se uv ainda não existir:
+curl -LsSf https://astral.sh/uv/install.sh | sh
 uv tool install devin-devkit          # PyPI — Linux e Windows
 ```
 
@@ -44,6 +52,10 @@ devin-devkit profiles
 devin-devkit install <perfil> --environment <env>          # dry-run SEMPRE
 devin-devkit install <perfil> --environment <env> --apply
 ```
+
+Em dúvida sobre o perfil: `operations` é o ponto de partida seguro
+(inspeção/backup/manutenção, sem delegação); `full` cobre tudo que é
+instalável no ambiente.
 
 O plano falha fechado: ferramenta sem suporte no ambiente, dependência
 externa/delegação em corporate, colisão parcial de comandos ou gerenciador
@@ -78,10 +90,11 @@ nunca instalar em corporate.
 devin-devkit list                 # inventário
 devin-devkit outdated             # pins remotos vs instalados
 devin-doctor check                # diagnóstico do install/ambiente
-
-# Numa máquina corporate, sem a flag o plano assume personal_windows:
-devin-devkit outdated --environment corporate-windows
 ```
+
+`devin-doctor check` pode levar **vários minutos sem output** em hosts
+com `sessions.db` grande (scan de DB é CPU-bound, não rede) — é normal,
+não está travado.
 
 Recuperação: install é por-tool isolado (`uv tool`) — falha num tool não
 desfaz os anteriores; reinstale com `uv tool install --force <spec>` ou
