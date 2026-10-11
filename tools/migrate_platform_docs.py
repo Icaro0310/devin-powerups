@@ -361,6 +361,24 @@ _OFFICE_LINUX_EXTRA = [
     "",
 ]
 
+# The doctor VS Code extension is itself local-only (it shells out to
+# `devin-doctor check --json` and renders the result), but it is the first
+# surface that runs inside a container that makes network calls by design.
+# The extension cannot promise local-only for its host, so the guide says
+# what to disable/check instead (audit 2026-10-11, post-publish review).
+_DOCTOR_VSCODE_CORP = [
+    "## VS Code extension: o container não é local-only",
+    "",
+    "A extensão `icaro0310.devin-doctor` (Open VSX) é thin shell: corre `devin-doctor check --json` no PATH e só renderiza o resultado — a extensão em si não faz chamadas de rede. O container, porém, faz rede por desenho e fica fora do contrato local-only:",
+    "",
+    "- **Auto-update do marketplace:** `extensions.autoUpdate: false` (e `extensions.autoCheckUpdates: false`) para o editor não falar com o registry sem pedir. Se a política do TI exigir artefato auditado, instale por VSIX sideloaded em vez do marketplace.",
+    "- **Telemetria:** `telemetry.telemetryLevel: \"off\"` no profile corporate, ou a policy equivalente definida pelo TI.",
+    "- **Política de extensões:** confirme com o TI se extensões de marketplace são permitidas ou se só VSIX aprovado internamente — o `.vsix` publicado e o source em `packages/doctor/adapters/vscode/` são o artefato auditável.",
+    "- **Workspace trust:** a extensão só precisa de executar o CLI no PATH; o modo Restricted do workspace segue a política padrão do TI.",
+    "- **Extension host:** cada extensão instalada corre num processo com o perfil de rede do editor — a auditoria de \"quem faz chamadas externas\" cobre o VS Code e o marketplace configurado (Open VSX, Marketplace ou nenhum), não só este `.vsix`.",
+    "",
+]
+
 # (entry name, doc key) -> extra section lines.
 _PLATFORM_EXTRAS: dict[tuple[str, str], list[str]] = {
     ("devin-backup", "windows"): _adapters_extra("backup", short=False),
@@ -370,6 +388,8 @@ _PLATFORM_EXTRAS: dict[tuple[str, str], list[str]] = {
     ("devin-janitor", "corporate_windows"): _adapters_extra("janitor", short=True),
     ("devin-janitor", "linux"): _adapters_extra("janitor", short=False),
     ("devin-office", "linux"): _OFFICE_LINUX_EXTRA,
+    # devin-explore's registry entry renders the devin-doctor package guide.
+    ("devin-explore", "corporate_windows"): _DOCTOR_VSCODE_CORP,
 }
 
 # Corporate Windows: Zscaler guidance (audit 2026-10-11 — zero mentions
@@ -381,7 +401,7 @@ _ZSCALER = [
     "",
     "Zscaler é comum em ambientes corporativos e se comporta diferente de um proxy genérico. Dois produtos importam aqui: **Zscaler Internet Access (ZIA)**, proxy com inspeção de TLS, e **Zscaler Private Access (ZPA)**, túnel/VPN para aplicações internas.",
     "",
-    "- **Certificado raiz:** a inspeção de TLS da ZIA substitui o certificado dos sites pelo da Zscaler. Sem a raiz no bundle correto, `pip`/`uv`/`npm`/`git` falham com `SSL: CERTIFICATE_VERIFY_FAILED`. A raiz normalmente está em `C:\\ProgramData\\Zscaler\\` (ou pode ser exportada pelo Zscaler Client Connector). Cada ferramenta lê a raiz de um lugar diferente:",
+    "- **Certificado raiz:** a inspeção de TLS da ZIA substitui o certificado dos sites pelo da Zscaler. Sem a raiz no bundle correto, `pip`/`uv`/`npm`/`git` falham com `SSL: CERTIFICATE_VERIFY_FAILED`. A raiz vive no repositório de certificados do Windows (instalada por política ou pelo Client Connector): exporte-a com `certmgr.msc` → Trusted Root Certification Authorities → Zscaler → Export, ou `Get-ChildItem Cert:\\LocalMachine\\Root | ? Subject -like \"*Zscaler*\"` + `Export-Certificate`; em alternativa peça o PEM ao TI. Cada ferramenta lê a raiz de um lugar diferente:",
     "  ```powershell",
     "  $env:REQUESTS_CA_BUNDLE=\"C:\\path\\zscaler-root.pem\"   # pip e ferramentas baseadas em requests",
     "  $env:SSL_CERT_FILE=\"C:\\path\\zscaler-root.pem\"        # uv, urllib do Python (inclui o check de manifest do DevKit)",
