@@ -168,10 +168,11 @@ _WINDOWS_CORPORATE_SPECIFICS = [
     "`setx HTTPS_PROXY \"http://proxy:port\"`. `uv`, `pip` and `npm` "
     "honor them.",
     "- **TLS inspection:** if the corporate proxy intercepts TLS, point "
-    "the tools at the company CA bundle: `$env:REQUESTS_CA_BUNDLE=` "
-    "`\"C:\\path\\corp-root.pem\"` for pip/requests and "
-    "`$env:SSL_CERT_FILE=\"C:\\path\\corp-root.pem\"` for uv and urllib "
-    "(see the Zscaler section for the full per-tool map). Certificate "
+    "the tools at the company CA bundle: "
+    "`$env:REQUESTS_CA_BUNDLE=\"C:\\path\\corp-root.pem\"` for "
+    "pip/requests and `$env:SSL_CERT_FILE=\"C:\\path\\corp-root.pem\"` "
+    "for uv and urllib (see the Zscaler section for the full per-tool "
+    "map). Certificate "
     "errors at install time mean the proxy, not the package.",
     "- **Execution policy:** installed CLIs are real executables, "
     "`Set-ExecutionPolicy` only matters for `.ps1` scripts from a "
@@ -389,7 +390,7 @@ _ZSCALER = [
     "  ```",
     "  Se a raiz da Zscaler já estiver no repositório de certificados do Windows (caso comum: instalada por política), `uv` também resolve com `uv --native-tls` ou `$env:UV_NATIVE_TLS=\"1\"`, que lê o store do SO em vez do bundle embutido.",
     "- **PAC file / auto-config:** se o proxy vem de um PAC em vez de variável fixa, `HTTPS_PROXY` manual pode não bastar. Descubra o proxy ativo antes de setar a variável: `netsh winhttp show proxy`, ou o painel do Zscaler Client Connector. Para downloads pontuais, copie o endereço que o PAC resolve para `HTTPS_PROXY`/`HTTP_PROXY`.",
-    "- **Portas e protocolos:** os MCP servers que este ecossistema instala usam transporte `stdio`, sem porta não-padrão, e ZPA não interfere. Exceções opt-in existem e estão no bullet \"Fully local runtime\" deste guia (ex.: o perfil corporate do devin-switch registra MCPs remotos HTTPS; o `--source mcp` do devin-qa-pack sai por HTTPS). Ferramentas remotas assim dependem de a ZPA/liberação alcançar o host delas.",
+    "- **Portas e protocolos:** os MCP servers que este ecossistema instala usam transporte `stdio`, sem porta não-padrão, e ZPA não interfere. Exceções opt-in existem em alguns pacotes e estão descritas no bullet \"Fully local runtime\" do guia corporate de cada um (ex.: o perfil corporate do devin-switch registra MCPs remotos HTTPS; o `--source mcp` do devin-qa-pack sai por HTTPS). Ferramentas remotas assim dependem de a ZPA/liberação alcançar o host delas.",
     "- **\"É a Zscaler ou outra coisa?\":** `SSL: CERTIFICATE_VERIFY_FAILED` cujo emissor do certificado é `Zscaler` significa inspeção de TLS; resolva pela raiz acima. Timeout ou `connection refused` aponta mais para firewall/regra de rede, não TLS. Valide o proxy ativo e reporte ao TI com o host e a porta.",
     "",
 ]
@@ -403,7 +404,8 @@ _RECURRING_JOBS: dict[str, dict[str, str]] = {
     "devin-backup": {
         "cmd": "devin-backup create --out ~/backups",
         "cron": "15 3 * * *",
-        "win": "devin-backup create --out %USERPROFILE%\\backups",
+        "trigger": "-Daily -At 3:15AM",
+        "cmdfile": "devin-backup create --out \"%USERPROFILE%\\backups\"",
         "sched": "/sc daily /st 03:15",
         "note": "Nightly snapshot; pair with a weekly `devin-backup rotate --keep 10 --yes`. Or let the tool self-schedule with `devin-backup install` (cron / Task Scheduler / elapsed backends).",
     },
@@ -424,21 +426,24 @@ _RECURRING_JOBS: dict[str, dict[str, str]] = {
     "devin-history": {
         "cmd": "devin-history export --out ~/devin-history-export",
         "cron": "0 5 * * 0",
-        "win": "devin-history export --out \\\"%USERPROFILE%\\devin-history-export\\\"",
+        "trigger": "-Weekly -DaysOfWeek Sunday -At 5AM",
+        "cmdfile": "devin-history export --out \"%USERPROFILE%\\devin-history-export\"",
         "sched": "/sc weekly /d SUN /st 05:00",
         "note": "Weekly archive of sessions to notes (`--out` is required); run before janitor cleanup.",
     },
     "devin-brain": {
         "cmd": "devin-memory --db ~/devin-memory/memory.db extract --latest --sessions-db ~/.local/share/devin/cli/sessions.db",
         "cron": "0 7 * * 0",
-        "win": "devin-memory --db \\\"%USERPROFILE%\\devin-memory\\memory.db\\\" extract --latest --sessions-db \\\"%APPDATA%\\devin\\cli\\sessions.db\\\"",
+        "trigger": "-Weekly -DaysOfWeek Sunday -At 7AM",
+        "cmdfile": "devin-memory --db \"%USERPROFILE%\\devin-memory\\memory.db\" extract --latest --sessions-db \"%APPDATA%\\devin\\cli\\sessions.db\"",
         "sched": "/sc weekly /d SUN /st 07:00",
         "note": "Weekly knowledge extraction from recent sessions (proposed entries, human-approved). `--db` pins the memory store, otherwise `extract` writes ./memory.db under whatever directory the scheduler runs from.",
     },
     "devin-evals": {
         "cmd": "devin-evals run --evals ~/devin-evals/cases --sessions-db ~/.local/share/devin/cli/sessions.db",
         "cron": "0 6 * * 0",
-        "win": "devin-evals run --evals \\\"%USERPROFILE%\\devin-evals\\cases\\\" --sessions-db \\\"%APPDATA%\\devin\\cli\\sessions.db\\\"",
+        "trigger": "-Weekly -DaysOfWeek Sunday -At 6AM",
+        "cmdfile": "devin-evals run --evals \"%USERPROFILE%\\devin-evals\\cases\" --sessions-db \"%APPDATA%\\devin\\cli\\sessions.db\"",
         "sched": "/sc weekly /d SUN /st 06:00",
         "note": "Weekly regression replay; `--evals` (dir of *.json cases) and `--sessions-db` are both required, so create the case dir first. A checkout ships examples under `evals/` and `corpus/evals/`; installed from PyPI you author or copy your own. Corpus stays deterministic and offline.",
     },
@@ -459,7 +464,8 @@ _RECURRING_JOBS: dict[str, dict[str, str]] = {
     "devin-office": {
         "cmd": "python <CAMINHO_DO_CHECKOUT>/daemon.py --port 8788",
         "cron": "@reboot",
-        "win": "py \\\"<CAMINHO_DO_CHECKOUT>\\daemon.py\\\" --port 8788",
+        "trigger": "-AtLogOn",
+        "cmdfile": "py \"<CAMINHO_DO_CHECKOUT>\\daemon.py\" --port 8788",
         "sched": "/sc onlogon",
         "note": "Long-running daemon; schedule by boot/logon trigger, not an interval.",
         "note_linux": "Long-running daemon. Prefer a `systemd --user` service (`WorkingDirectory=<CAMINHO_DO_CHECKOUT>`, `Restart=on-failure`) over `@reboot`.",
@@ -484,22 +490,54 @@ def _render_recurring(name: str, platform: str, environment: str) -> list[str]:
             "",
             "Equivalent `systemd --user` timer works too; enable lingering if it must run without a login session.",
         ])
-    elif environment == "corporate_windows":
-        lines.extend([
-            "```powershell",
-            f'schtasks /create /tn "{name}" /tr "{job["win"]}" {job["sched"]} /f',
-            "```",
-            "",
-            "User-scope `schtasks` needs no admin. If Group Policy disables Task Scheduler (`0x80070005` \"Access is denied\"), run the command manually or use the tool's own `install` subcommand where available. Options needing elevation, \"Run whether user is logged on or not\", highest privileges, are usually policy-blocked; when they are, a user-scope logon trigger (`/sc onlogon`) is the realistic fallback.",
-        ])
     else:
-        lines.extend([
-            "```powershell",
-            f'schtasks /create /tn "{name}" /tr "{job["win"]}" {job["sched"]} /f',
-            "```",
-            "",
-            "Runs under your account, no admin needed. Adjust `/sc`/`/st` (or `/sc onlogon` for daemons) to taste.",
-        ])
+        # Commands with path arguments that may contain spaces go through a
+        # wrapper .cmd file: embedding quotes inside /tr is a losing game
+        # across cmd.exe and PowerShell 5.1 native-arg parsing.
+        cmdfile = job.get("cmdfile")
+        if cmdfile:
+            # Wrappers live in the user's own profile dir (never shared,
+            # so no cross-user tampering). Registration uses the structured
+            # ScheduledTask cmdlets, which take the action path literally —
+            # no /tr quoting maze in any shell.
+            task_path = f"%USERPROFILE%\\devin-tasks\\{name}.cmd"
+            lines.extend([
+                "Quoted path arguments inside `/tr` fail differently in cmd.exe and PowerShell 5.1, so this job goes through a wrapper `.cmd` file in your own profile directory (quoting inside the file works normally, and no other user can replace it). The task inherits your user `PATH`; if the tool is not on it, write the tool's full path inside the `.cmd`. Register with the `ScheduledTask` cmdlets, which take the path literally and replace cleanly on rerun (`-Force`):",
+                "",
+                "```powershell",
+                "New-Item -ItemType Directory -Force \"$env:USERPROFILE\\devin-tasks\"   # cmd.exe: mkdir \"%USERPROFILE%\\devin-tasks\"",
+                "```",
+                "",
+                f"Save this as `{task_path}`:",
+                "",
+                "```batch",
+                cmdfile,
+                "```",
+                "",
+                "```powershell",
+                f"$action  = New-ScheduledTaskAction -Execute \"$env:USERPROFILE\\devin-tasks\\{name}.cmd\"",
+                f"$trigger = New-ScheduledTaskTrigger {job['trigger']}",
+                f"Register-ScheduledTask -TaskName \"{name}\" -Action $action -Trigger $trigger -Force",
+                "```",
+                "",
+                "_cmd.exe users: the same registration works from Task Scheduler's GUI (Action = the .cmd path)._",
+                "",
+            ])
+        else:
+            lines.extend([
+                "```powershell",
+                f"schtasks /create /tn \"{name}\" /tr \"{job['win']}\" {job['sched']} /f",
+                "```",
+                "",
+            ])
+        if environment == "corporate_windows":
+            lines.append(
+                "User-scope `schtasks` needs no admin. If Group Policy disables Task Scheduler (`0x80070005` \"Access is denied\"), run the command manually or use the tool's own `install` subcommand where available. Options needing elevation, \"Run whether user is logged on or not\", highest privileges, are usually policy-blocked; when they are, a user-scope logon trigger (`/sc onlogon`, or `New-ScheduledTaskTrigger -AtLogOn`) is the realistic fallback."
+            )
+        else:
+            lines.append(
+                "Runs under your account, no admin needed. Adjust `/sc`/`/st` (or `/sc onlogon` for daemons) to taste."
+            )
     lines.append("")
     return lines
 
