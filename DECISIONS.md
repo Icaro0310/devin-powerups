@@ -51,7 +51,26 @@ Result. Records are not eternal — revisit when new evidence arrives.
   Devin's own re-review resolved them. The anti-bypass rule is
   enforced in code, not just documented — a human resolving a finding
   does not clear it, which is exactly the property the rule exists
-  for.
+  for. Third
+  datapoint (2026-10-10, devin-assure#45 / devin-control#38): merging
+  `main` into a PR branch to bring the refuting fix into the diff base
+  does not trigger a Devin re-review on the merge head — no analysis
+  posted at all. So "make the fix part of the PR's diff" (sanctioned
+  alternative 1) only helps when the fix is authored in the PR, not
+  when it arrives via merge; in the latter case the per-finding proof
+  comment + admin merge remains the path, which is what both PRs used. Fourth
+  datapoint and a class distinction (2026-10-11): the count keeps two
+  different failure modes under one number. (a) out-of-diff — flagged
+  code lives outside the PR diff (caller-pinned reusables); (b)
+  in-diff-stale — flagged code WAS in the diff and got fixed, but no
+  re-review posted on the new head, so the thread never got
+  bot-resolved (devin-assure#45, devin-control#38 via merge commits;
+  devin-assure#47 via a real commit Devin never analyzed). Both funnel
+  to the same escape hatch with per-finding proof, but they are not
+  the same bug: (a) is a review-scope limit, (b) is a re-trigger gap.
+  If (b) keeps growing while (a) stays rare, the right fix is a
+  re-review trigger mechanism, not just the dismiss API — the backlog
+  item should name both.
 - **Expected outcome:** admin merges on this class are audited by the
   per-finding proof comment; the root cause is backlog (see
   `BACKLOG.md` — "out-of-diff findings clearance mechanism", which
@@ -590,3 +609,44 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   enforceable regardless of where it lives — and it imports only the
   caller modules (`installer`, `updater`), never the evaluators
   directly, so the extraction cannot break its imports.
+
+## D-2026-10-11 — Publish workflow hardening: one verifier, verified=shipped, no-branch-publish
+
+- **Decision:** all seven `pypi-publish.yml` workflows converge on one
+  structure: a `resolve` job maps the released package to its
+  directory/module; a `verify` job calls the single shared reusable
+  `Icaro0310/devin-powerups/.github/workflows/verify-wheel-version.yml`
+  **pinned by SHA** (`61bf0b6`, tagged `v1.3`) — never floating `@v1`
+  on a publish gate; `publish` downloads the `dist` artifact the
+  verifier uploaded and pushes those exact bytes to PyPI — it does
+  not rebuild; a merged-into-main guard (`compare main...$GITHUB_SHA`
+  must report `behind|identical`) aborts before upload. Packages with
+  no `__version__` (install-scheduler) skip the gate explicitly by
+  resolving `mod=""`, and a failed `resolve` skips the publish leg
+  rather than starting it.
+- **Guarantee that must be stated, not implied:** **verified=shipped** —
+  the wheel that passed the `__version__` check and the wheel uploaded
+  to PyPI are the same bytes, carried through the `dist` artifact. An
+  attacker or a nondeterministic build cannot substitute different
+  bytes between verify and ship, because there is no second build.
+  This is the supply-chain property of record for this change, not an
+  implementation detail.
+- **Reason:** three real events drove it — `devin-redact 0.2.1` and
+  `devin-evals 0.3.x` reached PyPI via dispatch from unmerged branches
+  (index ahead of main, unreproducible from the canonical tree);
+  `devin_metrics`/`devin_orchestrator`/`devin_memory` shipped wheels
+  self-reporting stale `__version__` (drift detected by hand, after
+  release); and a caller-side `@v1` floating reference would let a
+  later tag move silently alter what a publish gate enforces.
+- **Exception policy (named):** the merged-into-main guard has **no
+  bypass flag**. A hotfix goes through a normal main PR first; a
+  documented escape would become a permanent convenience hole. If a
+  real scenario ever forces a branch publish, this record is revisited
+  then — the flag is not added preemptively.
+- **Expected outcome:** `__version__` drift is caught before upload
+  everywhere the gate runs; packages born without `__version__` fail
+  loudly rather than silently skip; branch-publish cannot desync the
+  index again; and the next stale-template copy fails at the meta-check
+  (BACKLOG) rather than at a human remembering. Review convergence
+  expectation: N rounds of findings on any new workflow surface before
+  it stabilizes — budgeted, not a defect signal.
