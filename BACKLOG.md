@@ -32,6 +32,8 @@ repo (all prefixed `[V4]`); this file is the index.
 | ~~GHCR image publishing~~ — **done 2026-10-10**: all four images live and public (`ghcr.io/icaro0310/devin-redact`, `devin-qa-pack`, `devin-evals`, `devin-judge`), repo-linked; `poordjaevin 0.1.2` published (gate included) after #27+#29 merged. Devin Review earned its keep on this PR set: wrong-checkout-sha, unpublished-sibling, tag-branch false-skip, tag-name shell injection — all fixed pre-merge. `devin-office` image (spec: optional) remains deferred | medium | closed |
 | Reusable workflow tag propagation — `python-test.yml` env-pass fix shipped as `v1.2` and floating `v1` moved to it (2026-10-10), so `@v1` callers pick it up automatically; callers pinned to older minors (`@v1.1`) still need repinning. Same pattern applies to every `devin-powerups` reusable fix going forward | medium | v1 callers covered; explicit minor pins open |
 
+| `pypi-publish` dispatch accepts non-default branches — devin-redact 0.2.1 and devin-evals 0.3.0/0.3.1 were published from unmerged `feat/adapters-*` branches, leaving main's pyproject behind the index (fixed by sync PRs devin-state#42, devin-assure#47). Candidate hardening: restrict `workflow_dispatch` publishes to `refs/heads/main`, or gate on "head is merged" | medium | not filed; flagged 2026-10-11 |
+
 ## Gated until the window ends (2026-12-03)
 
 Anything that would invalidate the measured series: physical merges,
