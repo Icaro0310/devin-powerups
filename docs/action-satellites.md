@@ -185,6 +185,14 @@ actions:
   pin discipline as the actions (`devin-redact>=0.2,<0.3`) pin the
   version tag, e.g. `ghcr.io/icaro0310/devin-redact:0.2.1`.
   `:latest` is convenience, not a contract.
+- **"Version tag" means the full semver — `0.2.1`, `0.3.1` — and it is
+  immutable.** Do not confuse it with the *actions'* tag scheme: the
+  satellites' `@v1` is a **floating major** that receives minor/patch
+  updates silently (it was moved to `v1.2` on 2026-10-10), so
+  `@v1` is a compatibility window, not a pin. An exact action pin
+  requires the semver tag (`@v1.2`) or a commit SHA. The same
+  sentence has opposite truth values on the two surfaces — image
+  version tags pin, action major tags float.
 - **The image installs the published wheel, never the checkout.** The
   version arg resolves from `pyproject.toml` at the release commit
   (`workflow_run.head_sha`) on publish paths and from the PyPI index
