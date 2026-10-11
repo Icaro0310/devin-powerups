@@ -1,7 +1,7 @@
 {
   "$schema": "https://github.com/Icaro0310/devin-powerups/registry.schema.json",
-  "version": 27,
-  "generated": "2026-10-10",
+  "version": 28,
+  "generated": "2026-10-11",
   "owner": "Icaro0310",
   "note": "Public maintainer toolkit: registry, template, scaffolder, and public-project report. Public Devin tools are listed below; the maintainer's private runtime remains kind=system and is excluded from public-project reports. Unrelated personal repositories are not part of this catalog. CI is inline per public project; see README.md.",
   "ci": {
@@ -54,9 +54,7 @@
     "planned_platforms": [
       "macos"
     ],
-    "git_required_tools": [
-      "devin-skill-catalog"
-    ],
+    "git_required_tools": [],
     "tools": {
       "devin-internals-spec": {
         "manager": "uv",
@@ -175,7 +173,7 @@
         "manager": "uv",
         "source": "pypi",
         "package": "devin-evals",
-        "version": "0.2.0",
+        "version": "0.3.1",
         "commands": [
           "devin-evals"
         ],
@@ -309,7 +307,7 @@
         "manager": "uv",
         "source": "pypi",
         "package": "poordjaevin",
-        "version": "0.1.1",
+        "version": "0.1.2",
         "commands": [
           "poordjaevin"
         ],
@@ -1425,7 +1423,7 @@
       "maturity": "usable",
       "official_overlap": "partial",
       "overlap_note": "Complements official Devin Dreaming with deterministic, seed-controlled synthetic sessions carrying known defects (D01-D10) for reproducibility and agent assurance evaluation.",
-      "version": "0.2.0",
+      "version": "0.3.1",
       "session": "chemical-jury",
       "stack": "python",
       "ci": "inline",
@@ -1996,7 +1994,7 @@
       "stack": "python",
       "local_dir": "../devin-judge",
       "description": "Djævin: calibrated local-first decision layer with typed questions and honest confidence. The Devin ACP backend reuses the model your Devin CLI already runs (no extra download, no API key); the local NLI backend stays as a fully-offline fallback.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "tag": "v0.1.0",
       "distribution_status": "published",
       "ownership": "first_party",
@@ -2172,7 +2170,7 @@
       "tests": 68,
       "note": "Absorbed into the devin-devkit monorepo (F4.5); the devin-skill-catalog PyPI package and CLI are unchanged, released from packages/skill-catalog. Original repo archived with MOVED banner.",
       "description": "Lifecycle + quality gates for .devin skills/rules: scan, lint, diff, G1/G2 gates, quarantined→approved→active lifecycle, sha256-verified export/import bundles (imports land quarantined).",
-      "distribution_status": "source_only",
+      "distribution_status": "published",
       "ownership": "first_party",
       "job": "build",
       "product_id": "devin-devkit",
