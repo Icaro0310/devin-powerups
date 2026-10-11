@@ -2,7 +2,8 @@ name: verify-wheel-version (reusable)
 
 # Single home for the "the wheel self-reports pyproject version" gate.
 # Publish workflows call this instead of carrying a copied inline step —
-# a package cannot reach PyPI without passing it, and a copy that drifts
+# the verified dist/ is uploaded as the `dist` artifact so the publish
+# job ships the exact bits that passed the gate, and a copy that drifts
 # or is skipped entirely becomes impossible rather than unnoticed.
 
 on:
@@ -13,9 +14,14 @@ on:
         type: string
         required: true
       module:
-        description: Importable module name that must expose __version__
+        description: >-
+          Importable module name that must expose __version__. Optional:
+          when empty it is read from the built wheel's top_level.txt
+          (falling back to pyproject project.name with '-' normalized to
+          '_'). Pass explicitly only when neither matches the module.
         type: string
-        required: true
+        required: false
+        default: ""
       python-version:
         description: Interpreter used to build and install the wheel —
           must satisfy the package's Requires-Python
@@ -38,8 +44,9 @@ jobs:
       - name: Build sdist and wheel
         working-directory: ${{ inputs.package-dir }}
         run: |
-          python -m pip install --upgrade build
+          python -m pip install --upgrade build twine
           python -m build
+          python -m twine check dist/*
 
       - name: Assert wheel __version__ matches pyproject
         working-directory: ${{ inputs.package-dir }}
@@ -54,9 +61,21 @@ jobs:
           # __version__ metadata, and staying off the index keeps the check
           # valid even when a sibling dependency release is not published yet.
           pip install --no-cache-dir --no-deps --target /tmp/verchk dist/*.whl
+          # `module` optional: prefer the wheel's own top_level.txt (what
+          # was actually built), else the ecosystem convention project.name
+          # with '-' normalized to '_'. A wrong pick fails the import
+          # loudly — a non-matching package is blocked, not passed.
+          if [ -z "$PKG" ]; then
+            tl=$(ls /tmp/verchk/*.dist-info/top_level.txt 2>/dev/null | head -1)
+            if [ -n "$tl" ]; then
+              PKG=$(head -1 "$tl" | tr -d '[:space:]')
+            else
+              PKG=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['name'].replace('-','_'))")
+            fi
+          fi
           # PKG stays an env value read by Python — interpolating it into
           # the script would reopen the shell-injection class.
-          VER="$ver" python - <<'PY'
+          VER="$ver" PKG="$PKG" python - <<'PY'
           import importlib, os, sys
           sys.path.insert(0, '/tmp/verchk')
           m = importlib.import_module(os.environ['PKG'])
@@ -64,3 +83,12 @@ jobs:
               f"wheel __version__ {getattr(m, '__version__', None)}"
               f" != pyproject {os.environ['VER']}")
           PY
+
+      # Upload only after the assert: the artifact is the exact dist/ that
+      # passed the gate, so a publish job downloading `dist` can never ship
+      # an unverified build.
+      - name: Upload verified dist artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: dist
+          path: ${{ inputs.package-dir }}/dist/
