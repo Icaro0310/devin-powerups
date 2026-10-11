@@ -689,15 +689,23 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   "empty password → OIDC fallback" policy is superseded: a populated
   secret made the fallback unconditional, which is exactly what
   generated the repeated warnings.
+  **(Revocation framing retracted — see Addendum 3. The token is a
+  deliberate account-level fallback, not a surface to eliminate.)**
 - **Expected outcome:** every publish authenticates via OIDC with zero
   "API token was used" warnings; once the devkit pair is green, the
   `PYPI_API_TOKEN` repo secrets and the account token are deleted —
   the token path is gone, not just unused.
+  **(Revised by Addendum 3: the repo secrets stay deleted because the
+  workflows carry no `password:` code path; the account token is not
+  deleted — it remains an owner-held fallback.)**
 - **Result:** partial — OIDC green for 12/14 tuples at record time;
   `devin-devkit` and `devin-skill-catalog` remain blocked on stale
   pending publishers (PyPI-side owner action tracked in BACKLOG).
   Token secrets stay dormant until then, so the record closes only
   when the revocation step completes.
+  **(Closure criterion revised by Addendum 3: the record closes when
+  the TP cleanup lands and the re-dispatches prove OIDC green — no
+  revocation step exists.)**
 - **Addendum (2026-10-11, owner review):** the "dormant rollback"
   disposition was overruled — a rollback that requires editing the
   workflow anyway is dead weight, not a safety net. Corrected order:
@@ -718,6 +726,8 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   steps, unchanged: revoke the account token; remove the stale
   pending publishers and add active TPs for devkit + skill-catalog
   (and now internals-spec); then the re-dispatches verify OIDC.
+  **(Addendum 3: "revoke the account token" is retracted — not
+  policy. The remaining owner steps are the TP cleanup only.)**
 - **Addendum 2 (2026-10-11):** the publish-auth meta-check now rides
   the required `secrets-scan` job (step "Assert publish workflows are
   OIDC-only") in every caller, plus a self-scan `ci.yml` on the hub —
@@ -725,6 +735,61 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   author still has context, instead of surfacing in a nightly audit.
   Callers pin `secrets-scan.yml@v1`, so the guard only propagates when
   the floating `v1` tag is re-pointed after this branch merges.
+
+- **Addendum 3 (2026-10-11, owner — policy correction, supersedes the
+  revocation framing above):** the framing that accumulated on this
+  record — "close the account-token surface", "revoke the token",
+  "eliminate `PYPI_API_TOKEN` as attack surface", "revocation order is
+  critical" — is **retracted**. It was generic credential-hygiene
+  reasoning applied without knowing this ecosystem's actual policy.
+
+  **Authoritative credential policy:** OIDC is the primary path
+  (scope-per-workflow, granular); the token is a deliberate,
+  account-wide fallback for when the OIDC path is unavailable or not
+  viable. Devin holds credentials by decision, not by accident —
+  autonomy via tokens and access is part of the owner's operational
+  strategy, not a risk to mitigate. A token that exists and is not on
+  the normal code path is fallback, not surface.
+
+  **The missing distinction:** "token exists" ≠ "workflow uses token".
+  What generated the PyPI emails was the second — workflows passed
+  `password:` and disabled an already-configured TP, so the weaker
+  path was the default while the stronger existed. The cure removes
+  the wrong *code path*; it does not remove the *capability*.
+
+  **What stands:** `password:` removed from the active
+  `pypi-publish.yml`s (OIDC is the only path in workflow code);
+  the `devin-internals-spec` `uses:` finding (TP could never match a
+  caller `job_workflow_ref` — inline workflow was the correct fix,
+  single-update-point loss noted as low backlog); the corrected count
+  of 7 token-holding repos (grep, not enumeration); the PyPI-side TP
+  cleanup (delete stale pending publishers for devkit/skill-catalog;
+  activate TPs for devkit env `pypi-devkit`, skill-catalog env
+  `pypi-skill-catalog`, internals-spec env `pypi`) — goal: make OIDC
+  viable, not disable the token; the re-dispatch of the 3, which
+  tests "the primary path works alone", not "the fallback is gone";
+  the HEARTBEAT rule "PyPI/GitHub security email → ticket same-day",
+  with objective adjusted to *detecting bypass of the primary path*,
+  not detecting that a credential exists.
+
+  **Retracted:** revoking the account token on PyPI; deleting
+  `PYPI_API_TOKEN` as attack surface; any "revocation order"
+  language — there is no revocation; any reading that treats owner
+  credentials as a security problem rather than operational policy.
+  No revocation, no rotation, no access restriction in this round or
+  any future one without an explicit owner decision.
+
+  **Optional observability (non-blocking, owner-approved only):** an
+  `echo "auth=token"` line in the `pypi-publish.yml` step summary when
+  a publish ever runs via token instead of OIDC — auditable, same
+  pattern as the sanctioned git-main-push-bypass. Do not implement
+  without explicit approval.
+
+  **Note to future readers:** do not reopen this as "security
+  hygiene". OIDC-primary + token-fallback is a deliberate decision
+  aligned with Devin autonomy. A future record proposing to revoke or
+  rotate credentials in this ecosystem contradicts this addendum and
+  requires an explicit owner decision first.
 
 ## D-2026-10-11c — VS Code extension: container-is-not-local-only + CLI↔extension contract
 
