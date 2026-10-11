@@ -686,3 +686,12 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   "empty password → OIDC fallback" policy is superseded: a populated
   secret made the fallback unconditional, which is exactly what
   generated the repeated warnings.
+- **Expected outcome:** every publish authenticates via OIDC with zero
+  "API token was used" warnings; once the devkit pair is green, the
+  `PYPI_API_TOKEN` repo secrets and the account token are deleted —
+  the token path is gone, not just unused.
+- **Result:** partial — OIDC green for 12/14 tuples at record time;
+  `devin-devkit` and `devin-skill-catalog` remain blocked on stale
+  pending publishers (PyPI-side owner action tracked in BACKLOG).
+  Token secrets stay dormant until then, so the record closes only
+  when the revocation step completes.
