@@ -34,6 +34,8 @@ repo (all prefixed `[V4]`); this file is the index.
 
 | `pypi-publish` dispatch accepts non-default branches — devin-redact 0.2.1 and devin-evals 0.3.0/0.3.1 were published from unmerged `feat/adapters-*` branches, leaving main's pyproject behind the index (fixed by sync PRs devin-state#42, devin-assure#47). Candidate hardening: restrict `workflow_dispatch` publishes to `refs/heads/main`, or gate on "head is merged" | medium | not filed; flagged 2026-10-11 |
 
+| Spec-order divergence pin (devin-devkit#36) — review comment on the update-environment-gate PR flags a case the parity matrix must carry; the window is while the PR lives. If it merges without the case in `test_gate_parity.py`, this becomes a named gap, not a closed item | medium | watch: verify at merge |
+
 ## Gated until the window ends (2026-12-03)
 
 Anything that would invalidate the measured series: physical merges,
