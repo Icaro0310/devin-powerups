@@ -16,6 +16,11 @@ on:
         description: Importable module name that must expose __version__
         type: string
         required: true
+      python-version:
+        description: Interpreter used to build and install the wheel —
+          must satisfy the package's Requires-Python
+        type: string
+        default: "3.11"
 
 permissions:
   contents: read
@@ -28,7 +33,7 @@ jobs:
 
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
-          python-version: "3.11"
+          python-version: ${{ inputs.python-version }}
 
       - name: Build sdist and wheel
         working-directory: ${{ inputs.package-dir }}
@@ -41,10 +46,21 @@ jobs:
         env:
           PKG: ${{ inputs.module }}
         run: |
-          ver=$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml)
+          # tomllib parses real TOML (single quotes, indentation, repeated
+          # tables) instead of a line-oriented sed match.
+          ver=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
           test -n "$ver"
           # --no-deps is deliberate: the gate only verifies the wheel's
           # __version__ metadata, and staying off the index keeps the check
           # valid even when a sibling dependency release is not published yet.
           pip install --no-cache-dir --no-deps --target /tmp/verchk dist/*.whl
-          VER="$ver" python -c "import importlib, os, sys; sys.path.insert(0, '/tmp/verchk'); m = importlib.import_module('$PKG'); assert getattr(m, '__version__', None) == os.environ['VER'], f'wheel __version__ {getattr(m, \"__version__\", None)} != pyproject {os.environ[\"VER\"]}'"
+          # PKG stays an env value read by Python — interpolating it into
+          # the script would reopen the shell-injection class.
+          VER="$ver" python - <<'PY'
+          import importlib, os, sys
+          sys.path.insert(0, '/tmp/verchk')
+          m = importlib.import_module(os.environ['PKG'])
+          assert getattr(m, '__version__', None) == os.environ['VER'], (
+              f"wheel __version__ {getattr(m, '__version__', None)}"
+              f" != pyproject {os.environ['VER']}")
+          PY
