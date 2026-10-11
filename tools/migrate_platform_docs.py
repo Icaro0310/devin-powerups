@@ -168,8 +168,10 @@ _WINDOWS_CORPORATE_SPECIFICS = [
     "`setx HTTPS_PROXY \"http://proxy:port\"`. `uv`, `pip` and `npm` "
     "honor them.",
     "- **TLS inspection:** if the corporate proxy intercepts TLS, point "
-    "the installer at the company CA bundle: "
-    "`$env:REQUESTS_CA_BUNDLE=\"C:\\path\\corp-root.pem\"`. Certificate "
+    "the tools at the company CA bundle: `$env:REQUESTS_CA_BUNDLE=` "
+    "`\"C:\\path\\corp-root.pem\"` for pip/requests and "
+    "`$env:SSL_CERT_FILE=\"C:\\path\\corp-root.pem\"` for uv and urllib "
+    "(see the Zscaler section for the full per-tool map). Certificate "
     "errors at install time mean the proxy, not the package.",
     "- **Execution policy:** installed CLIs are real executables, "
     "`Set-ExecutionPolicy` only matters for `.ps1` scripts from a "
@@ -213,8 +215,9 @@ _NETWORK_RUNTIME: dict[str, str] = {
     "devin-assure": (
         "the core audit is fully offline. Two opt-in exceptions that do "
         "not apply under local-only: `audit --source mcp` POSTs to "
-        "`https://mcp.devin.ai/mcp` with `DEVIN_API_KEY`/`DEVIN_ORG_ID` "
-        "(fail-closed without the key; `DEVIN_MCP_URL` overrides the "
+        "`https://mcp.devin.ai/mcp` with `DEVIN_API_KEY` (fail-closed "
+        "without it; `DEVIN_ORG_ID` is sent only when set, for tokens "
+        "that need explicit org context; `DEVIN_MCP_URL` overrides the "
         "endpoint), and `--online`/`--allow-domain` makes HEAD requests "
         "to allowlisted claim URLs."
     ),
@@ -386,7 +389,7 @@ _ZSCALER = [
     "  ```",
     "  Se a raiz da Zscaler já estiver no repositório de certificados do Windows (caso comum: instalada por política), `uv` também resolve com `uv --native-tls` ou `$env:UV_NATIVE_TLS=\"1\"`, que lê o store do SO em vez do bundle embutido.",
     "- **PAC file / auto-config:** se o proxy vem de um PAC em vez de variável fixa, `HTTPS_PROXY` manual pode não bastar. Descubra o proxy ativo antes de setar a variável: `netsh winhttp show proxy`, ou o painel do Zscaler Client Connector. Para downloads pontuais, copie o endereço que o PAC resolve para `HTTPS_PROXY`/`HTTP_PROXY`.",
-    "- **Portas e protocolos:** os MCP servers que este ecossistema instala usam transporte `stdio`, sem porta não-padrão, e ZPA não interfere. Exceções opt-in existem e estão no bullet \"Fully local runtime\" de cada guia (ex.: o perfil corporate do devin-switch registra MCPs remotos HTTPS; o `--source mcp` do devin-qa-pack sai por HTTPS). Ferramentas remotas assim dependem de a ZPA/liberação alcançar o host delas.",
+    "- **Portas e protocolos:** os MCP servers que este ecossistema instala usam transporte `stdio`, sem porta não-padrão, e ZPA não interfere. Exceções opt-in existem e estão no bullet \"Fully local runtime\" deste guia (ex.: o perfil corporate do devin-switch registra MCPs remotos HTTPS; o `--source mcp` do devin-qa-pack sai por HTTPS). Ferramentas remotas assim dependem de a ZPA/liberação alcançar o host delas.",
     "- **\"É a Zscaler ou outra coisa?\":** `SSL: CERTIFICATE_VERIFY_FAILED` cujo emissor do certificado é `Zscaler` significa inspeção de TLS; resolva pela raiz acima. Timeout ou `connection refused` aponta mais para firewall/regra de rede, não TLS. Valide o proxy ativo e reporte ao TI com o host e a porta.",
     "",
 ]
@@ -421,23 +424,23 @@ _RECURRING_JOBS: dict[str, dict[str, str]] = {
     "devin-history": {
         "cmd": "devin-history export --out ~/devin-history-export",
         "cron": "0 5 * * 0",
-        "win": "devin-history export --out %USERPROFILE%\\devin-history-export",
+        "win": "devin-history export --out \\\"%USERPROFILE%\\devin-history-export\\\"",
         "sched": "/sc weekly /d SUN /st 05:00",
         "note": "Weekly archive of sessions to notes (`--out` is required); run before janitor cleanup.",
     },
     "devin-brain": {
         "cmd": "devin-memory --db ~/devin-memory/memory.db extract --latest --sessions-db ~/.local/share/devin/cli/sessions.db",
         "cron": "0 7 * * 0",
-        "win": "devin-memory --db \"%USERPROFILE%\\devin-memory\\memory.db\" extract --latest --sessions-db \"%APPDATA%\\devin\\cli\\sessions.db\"",
+        "win": "devin-memory --db \\\"%USERPROFILE%\\devin-memory\\memory.db\\\" extract --latest --sessions-db \\\"%APPDATA%\\devin\\cli\\sessions.db\\\"",
         "sched": "/sc weekly /d SUN /st 07:00",
         "note": "Weekly knowledge extraction from recent sessions (proposed entries, human-approved). `--db` pins the memory store, otherwise `extract` writes ./memory.db under whatever directory the scheduler runs from.",
     },
     "devin-evals": {
         "cmd": "devin-evals run --evals ~/devin-evals/cases --sessions-db ~/.local/share/devin/cli/sessions.db",
         "cron": "0 6 * * 0",
-        "win": "devin-evals run --evals %USERPROFILE%\\devin-evals\\cases --sessions-db %APPDATA%\\devin\\cli\\sessions.db",
+        "win": "devin-evals run --evals \\\"%USERPROFILE%\\devin-evals\\cases\\\" --sessions-db \\\"%APPDATA%\\devin\\cli\\sessions.db\\\"",
         "sched": "/sc weekly /d SUN /st 06:00",
-        "note": "Weekly regression replay; `--evals` (dir of *.json cases) and `--sessions-db` are both required. Corpus stays deterministic and offline.",
+        "note": "Weekly regression replay; `--evals` (dir of *.json cases) and `--sessions-db` are both required, so create the case dir first. A checkout ships examples under `evals/` and `corpus/evals/`; installed from PyPI you author or copy your own. Corpus stays deterministic and offline.",
     },
     "devin-metrics": {
         "cmd": "devin-metrics summary",
@@ -456,7 +459,7 @@ _RECURRING_JOBS: dict[str, dict[str, str]] = {
     "devin-office": {
         "cmd": "python <CAMINHO_DO_CHECKOUT>/daemon.py --port 8788",
         "cron": "@reboot",
-        "win": "py \"<CAMINHO_DO_CHECKOUT>\\daemon.py\" --port 8788",
+        "win": "py \\\"<CAMINHO_DO_CHECKOUT>\\daemon.py\\\" --port 8788",
         "sched": "/sc onlogon",
         "note": "Long-running daemon; schedule by boot/logon trigger, not an interval.",
         "note_linux": "Long-running daemon. Prefer a `systemd --user` service (`WorkingDirectory=<CAMINHO_DO_CHECKOUT>`, `Restart=on-failure`) over `@reboot`.",
