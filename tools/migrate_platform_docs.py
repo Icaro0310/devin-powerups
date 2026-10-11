@@ -125,18 +125,18 @@ _LINUX_SPECIFICS = [
     "- **Installer choice:** `uv tool install` is the recommended path "
     "(isolated environment, managed Python). `pipx install` works "
     "identically for PyPI packages; `pip install --user` is the "
-    "last-resort fallback — no isolation, watch dependency conflicts.",
+    "last-resort fallback, no isolation, watch dependency conflicts.",
     "- **PATH:** executables land in `~/.local/bin`. If a command is not "
     "found, add `export PATH=\"$HOME/.local/bin:$PATH\"` to "
     "`~/.bashrc`/`~/.zshrc` and open a new shell.",
     "- **Distros:** tested on Ubuntu; Debian, Fedora and Arch follow the "
-    "same steps — only `uv`/Python acquisition differs (distro package "
+    "same steps, only `uv`/Python acquisition differs (distro package "
     "or the uv installer script).",
-    "- **Headless and minimal environments:** no display is needed — "
+    "- **Headless and minimal environments:** no display is needed, "
     "every CLI is text-only. In containers or WSL, install `uv` and Git "
     "and follow the same steps; `XDG_*` paths resolve normally.",
     "- **Permissions:** tools read Devin data under `$XDG_DATA_HOME/devin` "
-    "and write only their own config/state — no root or sudo is required.",
+    "and write only their own config/state, no root or sudo is required.",
     "- **Scheduling:** optional recurring work belongs to `systemd "
     "--user` timers or cron; installation never creates jobs.",
 ]
@@ -148,11 +148,11 @@ _WINDOWS_PERSONAL_SPECIFICS = [
     "\"Add python.exe to PATH\".",
     "- **Shell:** PowerShell 7 + Windows Terminal is the recommended "
     "setup; every command also works in `cmd.exe` and Windows "
-    "PowerShell 5.1 — none require admin.",
+    "PowerShell 5.1, none require admin.",
     "- **Install location:** executables live under "
     "`%USERPROFILE%\\.local\\bin`; data under `%APPDATA%\\devin`. "
     "Nothing touches `Program Files` or the registry.",
-    "- **WSL:** treat it as a Linux machine — follow "
+    "- **WSL:** treat it as a Linux machine, follow "
     "[README.linux.md](README.linux.md) inside it.",
     "- **Uninstall:** `uv tool uninstall <package>` (or `npm uninstall -g` "
     "for a Node.js tool) removes the CLI; delete `%APPDATA%\\devin` to "
@@ -161,23 +161,25 @@ _WINDOWS_PERSONAL_SPECIFICS = [
 
 _WINDOWS_CORPORATE_SPECIFICS = [
     "- **No admin rights needed:** `uv` and every tool install under "
-    "`%LOCALAPPDATA%`/`%APPDATA%` — nothing writes to `Program Files`, "
+    "`%LOCALAPPDATA%`/`%APPDATA%`, nothing writes to `Program Files`, "
     "the registry, or requires elevation.",
     "- **Proxy:** set `HTTPS_PROXY`/`HTTP_PROXY` before installing. Per "
     "session: `$env:HTTPS_PROXY=\"http://proxy:port\"`; persistently: "
     "`setx HTTPS_PROXY \"http://proxy:port\"`. `uv`, `pip` and `npm` "
     "honor them.",
     "- **TLS inspection:** if the corporate proxy intercepts TLS, point "
-    "the installer at the company CA bundle: "
-    "`$env:REQUESTS_CA_BUNDLE=\"C:\\path\\corp-root.pem\"`. Certificate "
+    "the tools at the company CA bundle: `$env:REQUESTS_CA_BUNDLE=` "
+    "`\"C:\\path\\corp-root.pem\"` for pip/requests and "
+    "`$env:SSL_CERT_FILE=\"C:\\path\\corp-root.pem\"` for uv and urllib "
+    "(see the Zscaler section for the full per-tool map). Certificate "
     "errors at install time mean the proxy, not the package.",
-    "- **Execution policy:** installed CLIs are real executables — "
+    "- **Execution policy:** installed CLIs are real executables, "
     "`Set-ExecutionPolicy` only matters for `.ps1` scripts from a "
     "checkout; `-Scope CurrentUser RemoteSigned` suffices, no admin.",
     "- **Blocked installers:** if winget/Store are disabled by policy, "
-    "`uv` installs as a standalone binary — download the GitHub release "
+    "`uv` installs as a standalone binary, download the GitHub release "
     "zip, extract to `%LOCALAPPDATA%\\bin`, add it to PATH.",
-    "- **Long paths:** keep checkout/install roots short (`C:\\dev`) — "
+    "- **Long paths:** keep checkout/install roots short (`C:\\dev`), "
     "MAX_PATH (260 chars) can still bite inside virtualenvs; "
     "`LongPathsEnabled` needs admin, short roots do not.",
     "- **EDR/antivirus:** if a scan kills the install, retry with an "
@@ -198,12 +200,12 @@ _WINDOWS_CORPORATE_SPECIFICS = [
 # outbound surface. A verbatim doctor sentence previously named
 # devin-doctor's exception in every generated guide (audit 2026-10-11).
 _DEFAULT_NETWORK_RUNTIME = (
-    "installed tools make no required network calls — this tool has none; "
+    "installed tools make no required network calls, this tool has none; "
     "it reads `sessions.db` and local stores only."
 )
 _NETWORK_RUNTIME: dict[str, str] = {
     "devin-explore": (
-        "installed tools make no required network calls — they read "
+        "installed tools make no required network calls, they read "
         "`sessions.db` and local stores only. Two exceptions, both "
         "disableable: devin-doctor's update check (fetches the DevKit "
         "manifest) self-skips when unreachable or with "
@@ -213,26 +215,35 @@ _NETWORK_RUNTIME: dict[str, str] = {
     "devin-assure": (
         "the core audit is fully offline. Two opt-in exceptions that do "
         "not apply under local-only: `audit --source mcp` POSTs to "
-        "`https://mcp.devin.ai/mcp` with `DEVIN_API_KEY`/`DEVIN_ORG_ID` "
-        "(fail-closed without the key; `DEVIN_MCP_URL` overrides the "
+        "`https://mcp.devin.ai/mcp` with `DEVIN_API_KEY` (fail-closed "
+        "without it; `DEVIN_ORG_ID` is sent only when set, for tokens "
+        "that need explicit org context; `DEVIN_MCP_URL` overrides the "
         "endpoint), and `--online`/`--allow-domain` makes HEAD requests "
         "to allowlisted claim URLs."
     ),
     "devin-evals": (
         "the replay corpus is fully offline. The opt-in `judge`/`ab-run` "
         "commands delegate through `DEVIN_BRIDGE_CMD` to real Devin "
-        "sessions — external compute, off by default and not part of "
+        "sessions, external compute, off by default and not part of "
         "the local-only guarantee."
     ),
     "devin-janitor": (
         "no network calls. The opt-in `--judge command:<cmd>` hook "
-        "spawns a user-supplied command — absent under local-only."
+        "spawns a user-supplied command, absent under local-only."
     ),
     "devin-control": (
-        "this package launches `devin.exe acp` — it requires an "
+        "this package launches `devin.exe acp`, it requires an "
         "authenticated Devin runtime and Cognition reachability, i.e. "
         "delegated external compute, and is therefore not part of the "
         "local-only guarantee."
+    ),
+    "devin-switch": (
+        "the tool itself makes no network calls (it rewrites local config "
+        "files only). One caveat: the bundled `corporate` profile registers "
+        "remote HTTPS MCP endpoints (`mcp.corp.example.com/...`) through the "
+        "company gateway, so sessions running under that profile do reach "
+        "the network. The endpoints are placeholders to edit, inert until "
+        "configured."
     ),
     "devin-office": (
         "the standalone dashboard binds 127.0.0.1 only and reads "
@@ -243,18 +254,18 @@ _NETWORK_RUNTIME: dict[str, str] = {
     ),
     "devin-orchestrator": (
         "the planner makes no network calls. Worker fan-out executes "
-        "as Devin-local subagents — in corporate, treat the output as "
+        "as Devin-local subagents; in corporate, treat the output as "
         "a plan to execute manually, not delegation."
     ),
     "devin-brain": (
-        "devin-memory makes no network calls — the MCP server speaks "
+        "devin-memory makes no network calls: the MCP server speaks "
         "stdio and all reads are local sqlite."
     ),
     "devin-judge": (
         "set `POORDJAEVIN_BACKEND=nli` for local-only use: the default "
         "`serve`/`gate` backend (`acp`) drives a Devin cloud session. "
         "The `nli` backend downloads a ~400 MB model from Hugging Face "
-        "on first use — pre-seed with `HF_HOME` + `HF_HUB_OFFLINE=1`, "
+        "on first use. Pre-seed with `HF_HOME` + `HF_HUB_OFFLINE=1`, "
         "or use the pre-baked container image."
     ),
     "devin-powerups": (
@@ -275,24 +286,36 @@ _PATH_FLAGS: dict[str, str] = {
     "devin-history": "`--sessions-db`/`--vscdb`",
     "devin-pm": "`--sessions-db`/`--vscdb` (or `DEVIN_PM_SESSIONS_DB`/`DEVIN_PM_STATE_VSCDB`)",
     "devin-search": "`--sessions-db`/`--acp-dir`",
-    "devin-brain": "`--sessions-db`/`--db`",
+    "devin-brain": "`--db` (memory.db store) and `--sessions-db`",
     "devin-backup": "`--data-dir`/`--config-dir`",
-    "devin-janitor": "`--data-dir`/`--sessions-db`/`--acp-dir`",
-    "devin-state": "`--sessions-db`/`--verdicts-dir`",
+    "devin-janitor": "`--data-dir`/`--config-dir` (plus `--sessions-db`/`--acp-dir`/`--locks-dir` for finer control)",
+    "devin-state": "`session-end` takes `--sessions-db`/`--data-dir`/`--out`; `verify-publish` takes `--verdicts-dir`",
     "devin-assure": "`--data-dir`/`--sessions-db`",
-    "devin-evals": "`--sessions-db`/`--work-dir`",
+    "devin-evals": "`run --sessions-db`/`--evals`; `ab-run --work-dir` picks the A/B workspace-copy location",
     "devin-metrics": "`--sessions-db`/`--acp-dir`",
-    "devin-switch": "`--config-dir`/`--profiles-dir`",
-    "devin-skill-catalog": "`--data-dir`",
+    "devin-switch": "`--data-dir`/`--config-dir`/`--profiles-dir`",
+    "devin-skill-catalog": "`--config-dir`",
 }
 _DEFAULT_PATH_FLAGS = "`--data-dir`/`--config-dir` where the tool documents them"
+
+# Extra scope line under the corporate local-only promise, for packages
+# whose own contract is broader than local-only (audit 2026-10-11: bridge
+# launches devin.exe acp, external compute by design).
+_CORP_SCOPE_NOTE: dict[str, str] = {
+    "devin-control": (
+        "**Scope note:** this package is a bridge to the Devin agent runtime. "
+        "It is documented here for completeness but sits outside the "
+        "local-only guarantee above, since its function is delegated "
+        "external compute."
+    ),
+}
 
 # Extra sections injected before Troubleshooting — hand-curated content
 # migrated into the generator so regeneration does not drop it (audit
 # 2026-10-11 found adapters/caveat sections living only on disk).
 def _adapters_extra(pkg: str, short: bool) -> list[str]:
     variant = (
-        "resolves once the next PyPI release ships — until then install from\n"
+        "resolves once the next PyPI release ships, until then install from\n"
         f"  source (`pip install -e 'packages/{pkg}[mcp]'` from a checkout)."
         if short else
         "resolves once the next PyPI release ships. Until then, an\n"
@@ -317,7 +340,7 @@ _OFFICE_LINUX_EXTRA = [
     "## Monitoring caveat: `Restart=` crash-loops are invisible to `--failed`",
     "",
     "A unit with `Restart=always|on-failure` that fails on every start never",
-    "reaches the `failed` state — it sits in `activating (auto-restart)`",
+    "reaches the `failed` state: it sits in `activating (auto-restart)`",
     "forever. `systemctl --failed` prints clean while a service is in a",
     "thousands-deep crash loop (real incident: probe dead ~21h, restart",
     "counter >7000, after its `WorkingDirectory` was moved away in a reorg).",
@@ -328,6 +351,12 @@ _OFFICE_LINUX_EXTRA = [
     "systemctl --user list-units --state=activating",
     "systemctl --user show devin-office-probe -p NRestarts -p ActiveState",
     "```",
+    "",
+    "The durable guard is not a state listing but an **external freshness",
+    "check**: the hub exposes `probe.lastIngestAgoS` in `GET /api/state`, and",
+    "an independent cron job alerts when the producer stops landing data.",
+    "Producer liveness must never be reported by the producer. A dead probe",
+    "cannot tell you it is dead.",
     "",
 ]
 
@@ -344,20 +373,24 @@ _PLATFORM_EXTRAS: dict[tuple[str, str], list[str]] = {
 
 # Corporate Windows: Zscaler guidance (audit 2026-10-11 — zero mentions
 # ecosystem-wide before this). Written in pt-BR per the audit's mandate.
+# No em dashes: devin-judge's README convention bans them, and the block
+# is shared by every corporate guide.
 _ZSCALER = [
     "## Zscaler",
     "",
     "Zscaler é comum em ambientes corporativos e se comporta diferente de um proxy genérico. Dois produtos importam aqui: **Zscaler Internet Access (ZIA)**, proxy com inspeção de TLS, e **Zscaler Private Access (ZPA)**, túnel/VPN para aplicações internas.",
     "",
-    "- **Certificado raiz:** a inspeção de TLS da ZIA substitui o certificado dos sites pelo da Zscaler. Sem a raiz no bundle correto, `pip`/`uv`/`npm`/`git` falham com `SSL: CERTIFICATE_VERIFY_FAILED`. A raiz normalmente está em `C:\\ProgramData\\Zscaler\\` (ou pode ser exportada pelo Zscaler Client Connector). Aponte as variáveis para esse arquivo:",
+    "- **Certificado raiz:** a inspeção de TLS da ZIA substitui o certificado dos sites pelo da Zscaler. Sem a raiz no bundle correto, `pip`/`uv`/`npm`/`git` falham com `SSL: CERTIFICATE_VERIFY_FAILED`. A raiz normalmente está em `C:\\ProgramData\\Zscaler\\` (ou pode ser exportada pelo Zscaler Client Connector). Cada ferramenta lê a raiz de um lugar diferente:",
     "  ```powershell",
-    "  $env:REQUESTS_CA_BUNDLE=\"C:\\path\\zscaler-root.pem\"   # pip, uv, requests",
+    "  $env:REQUESTS_CA_BUNDLE=\"C:\\path\\zscaler-root.pem\"   # pip e ferramentas baseadas em requests",
+    "  $env:SSL_CERT_FILE=\"C:\\path\\zscaler-root.pem\"        # uv, urllib do Python (inclui o check de manifest do DevKit)",
     "  $env:NODE_EXTRA_CA_CERTS=\"C:\\path\\zscaler-root.pem\"  # node/npm",
     "  git config --global http.sslCAInfo \"C:\\path\\zscaler-root.pem\"",
     "  ```",
+    "  Se a raiz da Zscaler já estiver no repositório de certificados do Windows (caso comum: instalada por política), `uv` também resolve com `uv --native-tls` ou `$env:UV_NATIVE_TLS=\"1\"`, que lê o store do SO em vez do bundle embutido.",
     "- **PAC file / auto-config:** se o proxy vem de um PAC em vez de variável fixa, `HTTPS_PROXY` manual pode não bastar. Descubra o proxy ativo antes de setar a variável: `netsh winhttp show proxy`, ou o painel do Zscaler Client Connector. Para downloads pontuais, copie o endereço que o PAC resolve para `HTTPS_PROXY`/`HTTP_PROXY`.",
-    "- **Portas e protocolos:** todos os MCP servers deste ecossistema usam transporte `stdio` — nenhuma porta não-padrão é necessária, e ZPA não interfere. Se uma ferramenta futura expuser SSE/WebSocket, portas não-padrão podem ser bloqueadas pela ZPA; hoje isso não se aplica.",
-    "- **\"É a Zscaler ou outra coisa?\":** `SSL: CERTIFICATE_VERIFY_FAILED` cujo emissor do certificado é `Zscaler` → inspeção de TLS, resolva pela raiz acima. Timeout ou `connection refused` → mais provável firewall/regra de rede, não TLS — valide o proxy ativo e reporte ao TI com o host e a porta.",
+    "- **Portas e protocolos:** os MCP servers que este ecossistema instala usam transporte `stdio`, sem porta não-padrão, e ZPA não interfere. Exceções opt-in existem e estão no bullet \"Fully local runtime\" deste guia (ex.: o perfil corporate do devin-switch registra MCPs remotos HTTPS; o `--source mcp` do devin-qa-pack sai por HTTPS). Ferramentas remotas assim dependem de a ZPA/liberação alcançar o host delas.",
+    "- **\"É a Zscaler ou outra coisa?\":** `SSL: CERTIFICATE_VERIFY_FAILED` cujo emissor do certificado é `Zscaler` significa inspeção de TLS; resolva pela raiz acima. Timeout ou `connection refused` aponta mais para firewall/regra de rede, não TLS. Valide o proxy ativo e reporte ao TI com o host e a porta.",
     "",
 ]
 
@@ -379,35 +412,35 @@ _RECURRING_JOBS: dict[str, dict[str, str]] = {
         "cron": "30 4 * * *",
         "win": "devin-janitor run --apply",
         "sched": "/sc daily /st 04:30",
-        "note": "Daily cleanup. `devin-janitor install` registers the built-in daily report job (cron / Task Scheduler / elapsed hook) — prefer it over hand-rolled entries.",
+        "note": "Daily cleanup. `devin-janitor install` registers the built-in daily report job (cron / Task Scheduler / elapsed hook); prefer it over hand-rolled entries.",
     },
     "devin-explore": {
         "cmd": "devin-doctor check",
         "cron": "0 9 * * 1",
         "win": "devin-doctor check",
         "sched": "/sc weekly /d MON /st 09:00",
-        "note": "Weekly health sweep — read-only, safe to leave on.",
+        "note": "Weekly health sweep, read-only, safe to leave on.",
     },
     "devin-history": {
-        "cmd": "devin-history export",
+        "cmd": "devin-history export --out ~/devin-history-export",
         "cron": "0 5 * * 0",
-        "win": "devin-history export",
+        "win": "devin-history export --out \\\"%USERPROFILE%\\devin-history-export\\\"",
         "sched": "/sc weekly /d SUN /st 05:00",
-        "note": "Weekly archive of sessions to notes; run before janitor cleanup.",
+        "note": "Weekly archive of sessions to notes (`--out` is required); run before janitor cleanup.",
     },
     "devin-brain": {
-        "cmd": "devin-memory extract --latest --sessions-db ~/.local/share/devin/cli/sessions.db",
+        "cmd": "devin-memory --db ~/devin-memory/memory.db extract --latest --sessions-db ~/.local/share/devin/cli/sessions.db",
         "cron": "0 7 * * 0",
-        "win": "devin-memory extract --latest --sessions-db %APPDATA%\\devin\\cli\\sessions.db",
+        "win": "devin-memory --db \\\"%USERPROFILE%\\devin-memory\\memory.db\\\" extract --latest --sessions-db \\\"%APPDATA%\\devin\\cli\\sessions.db\\\"",
         "sched": "/sc weekly /d SUN /st 07:00",
-        "note": "Weekly knowledge extraction from recent sessions (proposed entries, human-approved).",
+        "note": "Weekly knowledge extraction from recent sessions (proposed entries, human-approved). `--db` pins the memory store, otherwise `extract` writes ./memory.db under whatever directory the scheduler runs from.",
     },
     "devin-evals": {
-        "cmd": "devin-evals run --sessions-db ~/.local/share/devin/cli/sessions.db",
+        "cmd": "devin-evals run --evals ~/devin-evals/cases --sessions-db ~/.local/share/devin/cli/sessions.db",
         "cron": "0 6 * * 0",
-        "win": "devin-evals run --sessions-db %APPDATA%\\devin\\cli\\sessions.db",
+        "win": "devin-evals run --evals \\\"%USERPROFILE%\\devin-evals\\cases\\\" --sessions-db \\\"%APPDATA%\\devin\\cli\\sessions.db\\\"",
         "sched": "/sc weekly /d SUN /st 06:00",
-        "note": "Weekly regression replay; corpus stays deterministic and offline.",
+        "note": "Weekly regression replay; `--evals` (dir of *.json cases) and `--sessions-db` are both required, so create the case dir first. A checkout ships examples under `evals/` and `corpus/evals/`; installed from PyPI you author or copy your own. Corpus stays deterministic and offline.",
     },
     "devin-metrics": {
         "cmd": "devin-metrics summary",
@@ -424,11 +457,13 @@ _RECURRING_JOBS: dict[str, dict[str, str]] = {
         "note": "Weekly rebuild of graph.db so downstream tools see fresh linkage.",
     },
     "devin-office": {
-        "cmd": "python daemon.py --port 8788",
+        "cmd": "python <CAMINHO_DO_CHECKOUT>/daemon.py --port 8788",
         "cron": "@reboot",
-        "win": "py daemon.py --port 8788",
+        "win": "py \\\"<CAMINHO_DO_CHECKOUT>\\daemon.py\\\" --port 8788",
         "sched": "/sc onlogon",
-        "note": "Long-running daemon — prefer `systemd --user` service on Linux or a logon trigger (`/sc onlogon`) on Windows, not an interval. Point Task Scheduler's \"Start in\" at the checkout directory.",
+        "note": "Long-running daemon; schedule by boot/logon trigger, not an interval.",
+        "note_linux": "Long-running daemon. Prefer a `systemd --user` service (`WorkingDirectory=<CAMINHO_DO_CHECKOUT>`, `Restart=on-failure`) over `@reboot`.",
+        "note_win": "Long-running daemon. `schtasks` cannot set \"Start in\", so either call `daemon.py` by absolute path as below or open the task in Task Scheduler afterwards and set Actions → Edit → \"Start in\" to the checkout directory.",
     },
 }
 
@@ -438,7 +473,8 @@ def _render_recurring(name: str, platform: str, environment: str) -> list[str]:
     if job is None:
         return []
     lines = ["## Recurring runs (optional)", ""]
-    lines.append(f"_{job['note']}_")
+    note = job.get("note_linux" if platform == "linux" else "note_win", job["note"])
+    lines.append(f"_{note}_")
     lines.append("")
     if platform == "linux":
         lines.extend([
@@ -454,7 +490,7 @@ def _render_recurring(name: str, platform: str, environment: str) -> list[str]:
             f'schtasks /create /tn "{name}" /tr "{job["win"]}" {job["sched"]} /f',
             "```",
             "",
-            "User-scope `schtasks` needs no admin. If Group Policy disables Task Scheduler (`0x80070005` \"Access is denied\"), run the command manually or use the tool's own `install` subcommand where available. Options needing elevation — \"Run whether user is logged on or not\", highest privileges — are usually policy-blocked; when they are, a user-scope logon trigger (`/sc onlogon`) is the realistic fallback.",
+            "User-scope `schtasks` needs no admin. If Group Policy disables Task Scheduler (`0x80070005` \"Access is denied\"), run the command manually or use the tool's own `install` subcommand where available. Options needing elevation, \"Run whether user is logged on or not\", highest privileges, are usually policy-blocked; when they are, a user-scope logon trigger (`/sc onlogon`) is the realistic fallback.",
         ])
     else:
         lines.extend([
@@ -462,7 +498,7 @@ def _render_recurring(name: str, platform: str, environment: str) -> list[str]:
             f'schtasks /create /tn "{name}" /tr "{job["win"]}" {job["sched"]} /f',
             "```",
             "",
-            "Runs under your account — no admin needed. Adjust `/sc`/`/st` (or `/sc onlogon` for daemons) to taste.",
+            "Runs under your account, no admin needed. Adjust `/sc`/`/st` (or `/sc onlogon` for daemons) to taste.",
         ])
     lines.append("")
     return lines
@@ -477,7 +513,7 @@ def render_guide(entry: dict[str, Any], tool: dict[str, Any] | None, platform: s
         "personal_windows": "Personal Windows",
         "corporate_windows": "Corporate Windows",
     }[environment]
-    lines = [f"# {name} — {label} guide", ""]
+    lines = [f"# {name}, {label} guide", ""]
 
     if environment == "corporate_windows":
         lines.extend([
@@ -486,6 +522,9 @@ def render_guide(entry: dict[str, Any], tool: dict[str, Any] | None, platform: s
             "Corporate Windows is a local-only environment: no Devin VM, QwenPaw, Slack dependency, external compute, workload delegation or required external integration.",
             "",
         ])
+        scope = _CORP_SCOPE_NOTE.get(name)
+        if scope:
+            lines.extend([scope, ""])
         if environment_meta is None:
             lines.extend([
                 "This artifact has no `corporate_windows` entry in `registry.json`, so compatibility is not claimed.",
