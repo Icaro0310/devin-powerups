@@ -81,7 +81,7 @@ ausente → `BLOCKED`, nada é instalado. Comandos já no PATH são reportados
 
 O DevKit **não cria** jobs agendados. A camada de automação pessoal (hooks
 Devin, cron/systemd ou Task Scheduler) é opcional e documentada em
-`AUTOMATION-CATALOG.md` desta auditoria — é tooling do ambiente pessoal,
+`audits/2026-10-10/AUTOMATION-CATALOG.md` desta auditoria — é tooling do ambiente pessoal,
 nunca instalar em corporate.
 
 ## Passo 6 — Verificar
@@ -104,7 +104,7 @@ dry-run é a fonte para repetir.
 ## Passo 7 — Limites honestos
 
 - Corporate Windows atrás de Zscaler: **não testado** — rode o plano de
-  teste em `REPORT.md` §Zscaler na máquina real antes de declarar pronto.
+  teste em `audits/2026-10-10/REPORT.md` §Zscaler na máquina real antes de declarar pronto.
 - macOS: planejado, não suportado.
 - `devin-office` é manual/source-only; `qwenpaw-suite` não entra em perfis
   corporate.
