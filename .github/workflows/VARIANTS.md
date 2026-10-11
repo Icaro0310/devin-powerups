@@ -25,7 +25,8 @@ their own pace. Concrete release tags (`v1.0.0`) mark the underlying commit.
 | `codeql.yml` | CodeQL analysis | `push`/`pull_request` main + `schedule` | `language` (default `python`) |
 | `secrets-scan.yml` | Secret-shaped string scan | called from repo `ci.yml` | none |
 | `python-test.yml` | pytest on windows+ubuntu | called from repo `ci.yml` | `python-version`, `package-dir` |
-| `pypi-publish.yml` | Build + publish to PyPI | `release`/`workflow_dispatch` | `package-dir`, `python-version` |
+| `pypi-publish.yml` | Verify wheel `__version__`, then publish the verified `dist` to PyPI | `workflow_call` only — the caller wires `release`/`workflow_dispatch` | `package-dir`, `python-version`, `module` |
+| `verify-wheel-version.yml` | Build + `__version__` gate; uploads the verified `dist` artifact | called from publish workflows | `package-dir`, `module`, `python-version` |
 
 ### Caller templates
 
