@@ -414,7 +414,7 @@ _RECURRING_JOBS: dict[str, dict[str, str]] = {
         "cron": "30 4 * * *",
         "win": "devin-janitor run --apply",
         "sched": "/sc daily /st 04:30",
-        "note": "Daily cleanup. `devin-janitor install` registers the built-in daily report job (cron / Task Scheduler / elapsed hook); prefer it over hand-rolled entries.",
+        "note": "Daily cleanup with `--apply` as shown. The package also ships `devin-janitor install`, which registers its own daily `report` job (cron / Task Scheduler / elapsed hook); the two jobs are different — `report` only reports, `--apply` actually cleans.",
     },
     "devin-explore": {
         "cmd": "devin-doctor check",
