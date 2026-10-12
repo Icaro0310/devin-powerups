@@ -71,6 +71,17 @@ on:
         type: string
         required: false
         default: ""
+    secrets:
+      OVSX_PAT:
+        description: >-
+          Open VSX access token — when the caller forwards it
+          (`secrets: OVSX_PAT` or `secrets: inherit`), the packaged
+          vsix publishes to open-vsx.org after the Marketplace leg;
+          absent, the step skips with a warning. The `icaro0310`
+          namespace has contributor rights, so publishing works before
+          the owner grant in EclipseFdn/open-vsx.org#14088 — that grant
+          only removes the "not a verified publisher" banner.
+        required: false
     outputs:
       version:
         description: Version resolved from the package's pyproject.toml
@@ -269,6 +280,11 @@ jobs:
     permissions:
       contents: read
       id-token: write   # azure/login OIDC → Entra federated credential
+    env:
+      # secrets context is not usable in step `if:` — mirror it here so
+      # the Open VSX leg can gate on presence (empty when the caller
+      # does not forward the secret).
+      OVSX_PAT: ${{ secrets.OVSX_PAT }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
@@ -370,17 +386,20 @@ jobs:
         if: vars.AZURE_CLIENT_ID == '' || vars.AZURE_TENANT_ID == ''
         run: echo "::warning::AZURE_CLIENT_ID/AZURE_TENANT_ID not set — vsix stays as the 'vsix' artifact for manual portal upload (https://marketplace.visualstudio.com/manage)."
 
-      # ==== Open VSX — DISABLED until the namespace claim lands ====
-      # Activates when EclipseFdn/open-vsx.org#14088 approves the
-      # `icaro0310` namespace. Then uncomment, add the OVSX_PAT secret
-      # to each calling repo and forward it via `secrets:` — reusable
-      # workflows only see secrets the caller passes (or `inherit`).
-      # - name: Publish to Open VSX
-      #   working-directory: ${{ inputs.vscode-ext-dir }}
-      #   env:
-      #     OVSX_PAT: ${{ secrets.OVSX_PAT }}
-      #   run: npx ovsx publish --pat "$OVSX_PAT"
-      # ==== end Open VSX ====
+      # Open VSX — live since 2026-10-12: the `icaro0310` namespace's
+      # contributor rights suffice to publish; the owner grant
+      # (EclipseFdn/open-vsx.org#14088) only removes the unverified
+      # banner and needs no republish. Secret arrives via caller
+      # `secrets:` forwarding — reusable workflows only see secrets the
+      # caller passes (or `inherit`).
+      - name: Publish to Open VSX
+        if: env.OVSX_PAT != ''
+        working-directory: ${{ inputs.vscode-ext-dir }}
+        run: npx ovsx publish --pat "$OVSX_PAT" ./*.vsix
+
+      - name: Open VSX publish skipped — OVSX_PAT not forwarded
+        if: env.OVSX_PAT == ''
+        run: echo "::warning::OVSX_PAT not forwarded by the caller — Open VSX publish skipped (vsix stays as the 'vsix' artifact for manual `ovsx publish`)."
 
   gh-marketplace:
     needs: verify
