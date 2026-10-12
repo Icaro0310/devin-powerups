@@ -434,6 +434,7 @@ _DOCTOR_VSCODE_CORP = [
     "- **Política de extensões:** confirme com o TI se extensões de marketplace são permitidas ou se só VSIX aprovado internamente — o `.vsix` publicado e o source em `packages/doctor/adapters/vscode/` são o artefato auditável.",
     "- **Workspace trust:** a extensão só precisa de executar o CLI no PATH; o modo Restricted do workspace segue a política padrão do TI.",
     "- **Extension host:** cada extensão instalada corre num processo com o perfil de rede do editor — a auditoria de \"quem faz chamadas externas\" cobre o VS Code e o marketplace configurado (Open VSX, Marketplace ou nenhum), não só este `.vsix`.",
+    "- **Update check do `devin-doctor`:** cada invocação do CLI — incluindo as que a extensão faz por si (`check --json`, `report --md`, `plan`) — pode correr o update check que busca o manifest do DevKit. Self-skip quando inalcançável; para desligar de vez, `DEVIN_DOCTOR_OFFLINE=1`.",
     "",
 ]
 

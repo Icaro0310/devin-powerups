@@ -305,7 +305,9 @@ and how their Devin-specific capability improves the base tool.
 
 - You maintain the Icaro0310 Devin ecosystem (or fork the pattern) and need
   the registry, catalog/DevKit exporters, platform-doc migration, scaffolder,
-  weekly report or shared `pypi-publish.yml` workflow.
+  weekly report or the reusable `pypi-publish.yml` workflow (each repo
+  still ships its own inline job — a `uses:` call cannot satisfy
+  per-repo trusted publishing).
 - You are starting a new `devin-*` project and want a common README plus
   Windows/Linux guides, CI and conventions (`tools/new-repo.py`).
 - You want a public activity report that reads only public GitHub commit
