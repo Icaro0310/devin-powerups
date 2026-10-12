@@ -48,30 +48,53 @@ PAS — porting is productization, not speculation) plus proposals of any
 class whose pain is already felt and nameable. Normal backlog priority;
 `[novo]` and unproven `[estender]` proposals live in `DIRECTIONS.md`.
 
-| Item | Repo | Effort | Proposed | Note |
-|---|---|---|---|---|
-| E2E runner installs `devin-internals-spec` editable in target venvs (fixes the `deps_missing` class — 12 suites abort weekly) | powerups + PAS | M | 2026-10-07 | same fix named in both the powerups and PAS sections |
-| `deps-internals` repo-venv check | doctor/explore | S | 2026-10-07 | detects the same `deps_missing` class before a suite runs |
-| XDG_DATA_HOME → XDG_CONFIG_HOME harmonization | pm/explore | S | 2026-10-07 | documented debt in the linux-parity convention |
-| Documented exit codes for `verify --all` (0 ok / 2 degraded / 3 corrupted) | backup/state | S | 2026-10-07 | daemon units landed; schedulers need the contract |
-| Align devin-office with the E2E runner contract (`missing_dir`) | office | S | 2026-10-07 | reported as broken weekly |
-| Dedupe the 14 `learned-*` skills (overlapping themes, e.g. teste-hook vs testes) | learning | S | 2026-10-07 | merge/consolidation job with version bump |
-| Recreate `scheduled_tasks` on Linux (systemd --user/cron for janitor, scout, testgen, ci-watch) | PAS | M | 2026-10-07 | the scheduled_tasks table is empty on this machine — real gap |
-| Memory→catalog bridge: `learned-*` skills written by the learning loop enter the catalog's `proposed` lane automatically | memory/brain | M | 2026-10-07 | ongoing handoff, distinct from the one-time inventory seed and the manual bundle export — closes the write→gate→promote cycle |
-| `redact hook --install` — export-gate recipe (`session_end` + `sessionend-scan` commands exist; the install/hook-registration piece does not) | state | M | 2026-10-02 | PAS `redact_gate` in `session_learning.py` is the mold |
-| Incremental export cursor (`--since-session` watermark; `--session-id`/`export-gui` already shipped) | history/explore | M | 2026-10-02, re-asked 10-07 | avoids rescanning the whole DB weekly |
-| Scheduled `audit` handler recipe documented for public repos | doctor/explore | S | 2026-10-02 | PAS runs it via trigger manifest |
-| `metrics digest --weekly` | metrics/assure | S | 2026-10-02 | PAS `metrics-rollup` handler is the mold |
-| `--to ssh://host/path` remote snapshot offload with re-verify | backup/state | M | 2026-10-02, re-asked 10-07 | `copy-to` (local secondary) shipped; ssh dest + hash verify open — PAS does Tailscale vm-offload |
-| `index --since` incremental reindex hook for SessionEnd | search/explore | S | 2026-10-02, re-asked 10-07 | query-side `--since` shipped; index-side incremental open — PAS `devin-search.py` is the mold |
-| Shared `graph.db` with the PAS `devin-codegraph.py` (code↔session edges coexist) | graph/explore | M | 2026-10-02 | same-file alignment, both writers coexist |
-| `janitor report` (space-report subcommand) | janitor/state | S | 2026-10-07 | PAS manifest runs it daily read-only |
-| Trigger manifests (`*.yaml`) as plan DAG input | orchestrator/control | M | 2026-10-07 | `--spec-file` takes a JSON task spec; the PAS dispatcher envelope format is the mold |
-| `pm digest` milestone digest | pm/explore | M | 2026-10-07 | PAS consolidates private reports already |
-| qwenpaw healthcheck as heartbeat item | PAS/qwenpaw | S | 2026-10-07 | PAS scope — heartbeat suppression pattern exists |
-| Seed catalog registry with PAS `learned-*` inventory as `proposed` entries | skill-catalog/devkit | S | 2026-10-07 | exercises quarantine→approve on day one |
-| learned-* → catalog bundle export path | learning | M | 2026-10-07 | same write→gate→promote cycle as the memory bridge proposal |
-| `learning.weekly-extract` public report | learning | S | 2026-10-07 | manifest already runs in the PAS |
+Classification re-verified 2026-10-13 against PAS code — the "Verified"
+column names the implementation that proves each `[portar]`.
+
+**P0 — unblocks everything else (CI is red):**
+
+| Item | Class | Verified |
+|---|---|---|
+| E2E runner installs `devin-internals-spec` editable in target venvs | fix | 12 suites abort `deps_missing` weekly; runner must resolve the internal dep before pytest |
+
+**P1 — hygiene/debt (felt pain, cheap):**
+
+| Item | Class | Verified |
+|---|---|---|
+| XDG_DATA_HOME → XDG_CONFIG_HOME harmonization (pm) | debt | documented in the linux-parity convention |
+| Dedupe the 14 `learned-*` skills (teste-hook vs testes overlap) | debt | overlapping themes confirmed in the PAS inventory |
+| `deps-internals` repo-venv check (doctor) | fix | detects the same `deps_missing` class pre-suite |
+| Align devin-office with the E2E runner contract (`missing_dir`) | fix | reported broken weekly |
+| Recreate `scheduled_tasks` on Linux (systemd/cron) | debt | table empty on this machine |
+
+**P2 — incremental capability (one pattern, several surfaces):**
+
+| Item | Class | Verified |
+|---|---|---|
+| Incremental export cursor (`--since-session` watermark) | portar | `devin-history-export.py` incremental + lazy cursor (L544/649) |
+| `index --since` incremental reindex hook for SessionEnd | portar | `devin-search.py --incremental` with mtime state |
+| `metrics digest --weekly` | portar | `memory-rollup.yaml` + `metrics-watch.yaml` handlers (proposal misnamed them; machinery exists) |
+| `learning.weekly-extract` public report | portar | `learning-weekly-extract.yaml` manifest exists |
+
+**P3 — integrations (tool↔tool bridges):**
+
+| Item | Class | Verified |
+|---|---|---|
+| Shared `graph.db` with `devin-codegraph.py` (code↔session edges) | portar | `devin-codegraph.py` writes nodes/edges to `.devin/graph/graph.db` |
+| Seed catalog registry with the 14 PAS `learned-*` as `proposed` | portar | inventory exists; exercises quarantine→approve on day one |
+| learned-* → catalog bundle export path | estender | inventory exists; the export path itself is new |
+| Memory→catalog bridge: learning-loop writes enter `proposed` lane automatically | spec | ongoing handoff — the observation-lane spec in DIRECTIONS covers the shape |
+| Scheduled `audit` handler recipe for public repos | portar | 3 audit manifests run via trigger manifest |
+| `janitor report` (space-report subcommand) | portar | `janitor-space-report.yaml` runs daily read-only |
+
+**P4 — standalone features:**
+
+| Item | Class | Verified |
+|---|---|---|
+| `redact hook --install` — export-gate recipe + hook registration | portar | `redact_gate` exists in `session_learning.py` + `devin-history-export.py` |
+| `--to ssh://host/path` remote snapshot offload with re-verify | portar | `vm-offload-run.py` does Tailscale offload daily; `copy-to` (local) shipped |
+| Trigger manifests (`*.yaml`) as plan DAG input | portar | `session-dispatcher.py` — real sequential DAG: "EVENT → normalizer (envelope) → DAG" |
+| qwenpaw healthcheck as heartbeat item | estender | site-sync monitors it; not wired to heartbeat |
 
 ## Gated until the window ends (2026-12-03)
 
