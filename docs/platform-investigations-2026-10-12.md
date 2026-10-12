@@ -117,7 +117,7 @@ needs-spec, not built in this wave.
 
 - MCP servers: Agent Settings → MCP Servers → Add Local Server, or
   `context_servers` in `settings.json`. Our stdio MCP servers
-  (`devin-memory-mcp`, `poordjaevin-mcp`, …) work via this path today.
+  (`devin-memory-mcp`, `poordjaevin serve`, …) work via this path today.
 - Skills: Zed reads AGENTS.md-style context; no dedicated skill dir. Codex
   `AGENTS.md` (Wave 1) covers instructions; skills are loadable through MCP
   prompts where the server advertises them.
@@ -157,7 +157,7 @@ Settings → Tools → AI Assistant → Model Context Protocol → Add, JSON:
 {
   "mcpServers": {
     "devin-memory": { "command": "devin-memory-mcp" },
-    "poordjaevin":  { "command": "poordjaevin-mcp" }
+    "poordjaevin":  { "command": "poordjaevin", "args": ["serve"] }
   }
 }
 ```
@@ -167,24 +167,24 @@ so the same stanza serves both.
 
 ## Evidence log
 
-- Antigravity MCP docs: `antigravity.google/docs/mcp/` — custom servers via
+- Antigravity MCP docs: [antigravity.google/docs/mcp](https://antigravity.google/docs/mcp/) — custom servers via
   `mcp_config.json`; Store = built-in curated catalog.
-- Antigravity store submission: `discuss.ai.google.dev` — `[MCP Store]` tag
+- Antigravity store submission: [discuss.ai.google.dev](https://discuss.ai.google.dev/) — `[MCP Store]` tag
   triggers official review (Sitelemetry thread, Supabase thread).
 - Antigravity vsix: multiple third-party extension pages document
   "Install from VSIX" + `antigravity-ide --install-extension`; JetBrains'
   own ReSharper docs instruct Open VSX install inside Antigravity IDE.
-- Antigravity skills: vercel-labs/skills README agent table
+- Antigravity skills: [vercel-labs/skills](https://github.com/vercel-labs/skills) README agent table
   (`antigravity` → `.agents/skills/`, global `~/.gemini/antigravity/skills/`);
-  symlink bug: vercel-labs/skills issue #633.
-- Zed external agents: `zed.dev/docs/ai/agent-settings` — `agent_servers`,
+  symlink bug: [vercel-labs/skills#633](https://github.com/vercel-labs/skills/issues/633).
+- Zed external agents: [zed.dev/docs/ai/agent-settings](https://zed.dev/docs/ai/agent-settings) — `agent_servers`,
   `"type": "custom"`. ACP extensions deprecated → migrated to ACP registry
-  (zed-industries/zed@c84c22d).
-- JetBrains ACP: `jetbrains.com/help/ai-assistant/acp.html` — acp.json
+  ([zed-industries/zed@c84c22d](https://github.com/zed-industries/zed/commit/c84c22d)).
+- JetBrains ACP: [jetbrains.com/help/ai-assistant/acp.html](https://www.jetbrains.com/help/ai-assistant/acp.html) — acp.json
   location and schema; blog post Dec 2025 (beta in 25.3 RC).
-- JetBrains MCP: `jetbrains.com/help/ai-assistant/mcp.html` — JSON
+- JetBrains MCP: [jetbrains.com/help/ai-assistant/mcp.html](https://www.jetbrains.com/help/ai-assistant/mcp.html) — JSON
   `mcpServers` config, Claude import.
-- Bridge is client-only: `packages/bridge/bin/devin-bridge.js` command list —
+- Bridge is client-only: [`packages/bridge/bin/devin-bridge.js`](https://github.com/Icaro0310/devin-control/blob/main/packages/bridge/bin/devin-bridge.js) command list —
   `new`, `resume`, `prompt`, `sessions`, `policy`; no `serve`/`acp-server`.
 
 ## Follow-ups registered in BACKLOG
