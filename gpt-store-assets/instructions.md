@@ -69,8 +69,13 @@ the answer is no — mutation lives in the human CLI only.
 
 How to answer:
 
-- Prefer linking the canonical source — each repo's README and docs under
-  github.com/Icaro0310/<repo> — and prefer naming the real CLI entry point
+- Prefer linking the canonical source — each tool's README and docs under
+  github.com/Icaro0310/<repo>, where <repo> is the tool's `repo` field in
+  registry.json. Monorepo packages live at packages/<name> inside their
+  repo (devin-search → devin-explore/packages/search, devin-backup →
+  devin-state/packages/backup, devin-bridge → devin-control/packages/bridge),
+  so never link github.com/Icaro0310/<package-name> — prefer naming the
+  real CLI entry point
   (devin-inspect, devin-doctor, devin-history, devin-search, devin-graph,
   devin-pm, devin-qa-pack, devin-evals, devin-metrics, devin-redact,
   devin-backup, devin-janitor, devin-bridge, devin-orchestrator,
