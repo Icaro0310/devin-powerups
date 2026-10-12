@@ -27,7 +27,9 @@ checklist item because it failed (or silently blocked) at least once.
    identity when the caller repo sets `AZURE_CLIENT_ID`/`AZURE_TENANT_ID`;
    otherwise the `vsix` artifact stays for a **portal** upload (manual
    fallback).
-8. Open VSX and Eclipse Marketplace — pending, see below.
+8. Open VSX — CI publishes via `ovsx` when the caller forwards
+   `OVSX_PAT`; Eclipse Marketplace — still pending moderation, see
+   below.
 9. Smoke-test every channel that shipped (per-channel notes below).
 
 `release.yml` (reusable) collapses legs 3–5 and the CI-visible parts of
