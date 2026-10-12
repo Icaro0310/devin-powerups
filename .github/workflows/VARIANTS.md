@@ -25,6 +25,7 @@ their own pace. Concrete release tags (`v1.0.0`) mark the underlying commit.
 | `codeql.yml` | CodeQL analysis | `push`/`pull_request` main + `schedule` | `language` (default `python`) |
 | `secrets-scan.yml` | Secret-shaped string scan | called from repo `ci.yml` | none |
 | `python-test.yml` | pytest on windows+ubuntu | called from repo `ci.yml` | `python-version`, `package-dir` |
+| `adapter-test.yml` | One adapter face's own suite in isolation, on windows+ubuntu | called from per-package adapter workflows | `package-dir`, `adapter-dir`, `test-command`, `python-version`, `node-version`, `pre-install`, `skip-install` |
 | `pypi-publish.yml` | Verify wheel `__version__`, then publish the verified `dist` to PyPI | `workflow_call` only — the caller wires `release`/`workflow_dispatch` | `package-dir`, `python-version`, `module` |
 | `verify-wheel-version.yml` | Build + `__version__` gate; uploads the verified `dist` artifact | called from publish workflows | `package-dir`, `module`, `python-version` |
 
@@ -88,6 +89,36 @@ jobs:
       contents: read
       security-events: write
     uses: Icaro0310/devin-powerups/.github/workflows/codeql.yml@v1
+```
+
+```yaml
+# adapter-test.yml — one job per adapter face, scoped to the face's
+# paths. Python faces keep the defaults; Node faces set node-version and
+# skip-install. See docs/adapter-checklist.md for the contract.
+name: test-doctor-vscode
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/doctor/adapters/vscode/**'
+      - '.github/workflows/test-doctor-vscode.yml'
+  pull_request:
+    paths:
+      - 'packages/doctor/adapters/vscode/**'
+      - '.github/workflows/test-doctor-vscode.yml'
+permissions:
+  contents: read
+jobs:
+  adapter-test:
+    permissions:
+      contents: read
+    uses: Icaro0310/devin-powerups/.github/workflows/adapter-test.yml@v1
+    with:
+      package-dir: packages/doctor
+      adapter-dir: packages/doctor/adapters/vscode
+      test-command: node --test
+      node-version: "22"
+      skip-install: true
 ```
 
 ```yaml
