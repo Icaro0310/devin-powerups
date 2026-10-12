@@ -3,8 +3,10 @@
 
 For every public registry entry with a local checkout, scan
 ``.github/workflows/*.yml`` (and ``.yaml``): a workflow that pushes a
-container image (a registry push command, a ``--push`` build flag, or a
-build-push/bake-action ``push:`` input that is not literal ``false``)
+container image (a registry push command such as ``docker push`` or
+``docker image push``, a ``--push`` build flag that is not disabled,
+``--output=type=registry``, or a build-push/bake-action ``push:`` input
+that is not ``false``)
 must also grant ``id-token: write`` and actually sign (``cosign
 sign``/``attest`` or a sigstore signing action) — otherwise a new image
 workflow is born unsigned and nobody notices. Pulls, image references
@@ -19,14 +21,20 @@ import sys
 from pathlib import Path
 
 HUB = Path(__file__).resolve().parent.parent
-# Publishing evidence: a push verb or --push flag in a run step, or a
-# 'push:' input with a truthy value. A bare registry hostname (pulls,
-# image refs, comments) is not a publish. 'push:' at line end is the
-# 'on: push' trigger, not an action input, so a value must follow.
+# Publishing evidence: a registry CLI push ('docker push', 'docker image
+# push', 'docker-compose push', podman/crane/oras equivalents), a --push
+# flag that is not '=false', a build-push/bake 'push:' input that is not
+# 'false', or a buildx 'output=type=registry' target. A bare registry
+# hostname (pulls, image refs, comments) is not a publish, and 'push:' at
+# line end is the 'on: push' trigger, not an action input.
 PUSH_RE = re.compile(
-    r"(?:docker|podman|nerdctl|buildah|crane|oras)\s+(?:compose\s+)?push\b"
-    r"|--push\b"
-    r"|\bpush:[ \t]+(?!false\b|\{)\S"
+    r"(?:docker|podman|nerdctl|buildah|crane|oras)(?:-compose)?\s+"
+    r"(?:[\w-]+\s+)*push\b"
+    r"|--push\b(?![ \t]*=[ \t]*['\"]?(?i:false)['\"]?)"
+    r"|\bpush:[ \t]+(?!['\"]?(?i:false)['\"]?|\{)\S"
+    r"|\boutput=type=registry\b"
+    r"|--output[ \t]+type=registry\b"
+    r"|-o[ \t]+type=registry\b"
 )
 # Signing evidence: an actual sign/attest invocation or a sigstore signing
 # action — a bare 'cosign'/'sigstore' mention (comment, env var, install
@@ -41,13 +49,34 @@ TOKEN_RE = re.compile(r"id-token:\s*write")
 
 
 def _code_lines(text: str) -> str:
-    """Strip comment lines and trailing ' #...' so a commented-out push,
-    token grant or sign step cannot fake (or fabricate) evidence."""
+    """Strip comments without touching '#' inside quotes.
+
+    A '#' opens a comment only outside single/double quotes and only at
+    line start or after whitespace, so 'run: echo "a # b"; docker push x'
+    keeps its push while a commented-out step can still neither fake
+    sign/token evidence nor fabricate a publish."""
     out = []
     for line in text.splitlines():
-        if line.lstrip().startswith("#"):
-            continue
-        out.append(re.sub(r"[ \t]+#.*$", "", line))
+        cut = len(line)
+        quote = None  # "'", '"' or None (outside quotes)
+        i = 0
+        while i < len(line):
+            c = line[i]
+            if quote == '"':
+                if c == "\\":
+                    i += 1  # escaped char cannot close the quote
+                elif c == '"':
+                    quote = None
+            elif quote == "'":
+                if c == "'":
+                    quote = None  # '' escape toggles off/on; stays balanced
+            elif c in "'\"":
+                quote = c
+            elif c == "#" and (i == 0 or line[i - 1] in " \t"):
+                cut = i
+                break
+            i += 1
+        out.append(line[:cut].rstrip())
     return "\n".join(out)
 
 
