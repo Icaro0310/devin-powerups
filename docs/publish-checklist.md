@@ -27,7 +27,9 @@ checklist item because it failed (or silently blocked) at least once.
    identity when the caller repo sets `AZURE_CLIENT_ID`/`AZURE_TENANT_ID`;
    otherwise the `vsix` artifact stays for a **portal** upload (manual
    fallback).
-8. Open VSX and Eclipse Marketplace — pending, see below.
+8. Open VSX — CI publishes via `ovsx` when the caller forwards
+   `OVSX_PAT`; Eclipse Marketplace — still pending moderation, see
+   below.
 9. Smoke-test every channel that shipped (per-channel notes below).
 
 `release.yml` (reusable) collapses legs 3–5 and the CI-visible parts of
@@ -117,14 +119,22 @@ and the PyPI cross-repo caveat.
 
 ## Open VSX
 
-- Namespace claim pending: **EclipseFdn/open-vsx.org#14088** for
-  `icaro0310`. Until approved, publishing is impossible — the step in
-  `release.yml` is commented out with the activation recipe.
-- Once approved: create an Open VSX PAT and `npx ovsx publish --pat
-  $OVSX_PAT` (or uncomment the step and forward `OVSX_PAT` via
-  `secrets:`).
-- Smoke: `ovsx get <publisher>.<name>` / the extension appears on
-  open-vsx.org and in VSCodium's default registry.
+- **Live since 2026-10-12.** All six extensions published (doctor,
+  search, qa-pack, devkit, memory, bridge). Creating the `icaro0310`
+  namespace granted contributor publish authority — no owner grant
+  needed to publish.
+- CI: the `release.yml` leg runs `ovsx publish --pat $OVSX_PAT
+  --skip-duplicate --packagePath ./*.vsix` when the caller forwards the
+  secret (`secrets:` mapping or `inherit`); absent, it warns and the
+  vsix stays as the `vsix` artifact.
+- Manual: `OVSX_PAT=<token> npx ovsx publish <file.vsix>` — PAT lives
+  in the vault ("Open VSX + Eclipse" note), mirrored as the `OVSX_PAT`
+  secret in the five extension repos.
+- Still pending: **EclipseFdn/open-vsx.org#14088** — the owner grant
+  only flips `verified: false`→`true` (removes the "not a verified
+  publisher" banner); no republish needed when it lands.
+- Smoke: `curl -s https://open-vsx.org/api/icaro0310/<name>/latest`
+  (indexing takes a few minutes after publish).
 
 ## Eclipse Marketplace
 
