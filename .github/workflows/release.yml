@@ -130,10 +130,16 @@ jobs:
           name, version = meta['name'], meta['version']
           ref = os.environ['REF_NAME']
           if os.environ['REF_TYPE'] == 'tag' and '-v' in ref:
-              tag_ver = ref.rsplit('-v', 1)[1]
-              if tag_ver != version:
-                  print(f'::error::tag {ref} implies version {tag_ver} '
-                        f'but pyproject says {version} — retag or bump.')
+              tag_pkg, tag_ver = ref.rsplit('-v', 1)
+              # Tag prefix names the package: ecosystem tags use the
+              # pyproject name OR the package-dir basename
+              # (qa-pack-v0.1.0 vs devin-qa-pack-v0.1.0 — both seen).
+              allowed = {name, os.path.basename(
+                  os.path.normpath(os.environ['PACKAGE_DIR']))}
+              if tag_ver != version or tag_pkg not in allowed:
+                  print(f'::error::tag {ref} does not name {name} '
+                        f'{version} — a mistagged release would publish '
+                        'the wrong package or version; retag or bump.')
                   raise SystemExit(1)
           published = set()
           try:
