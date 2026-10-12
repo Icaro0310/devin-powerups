@@ -28,6 +28,8 @@ on:
           e.g. "python -m pytest -q" or "node --test".
           Contract: single command, space-separated args, no quoting —
           wrap anything more in a pytest.ini / package.json script.
+          SECURITY: pass a static literal only — never interpolate
+          github.event.* or any PR-controlled data into this input.
         type: string
         required: true
       python-version:
@@ -102,5 +104,8 @@ jobs:
         env:
           TEST_COMMAND: ${{ inputs.test-command }}
         # unquoted: space-separated args — word splitting is intended,
-        # same contract as pre-install
+        # same contract as pre-install. The env indirection keeps the
+        # input out of inline ${{ }} interpolation; the residual trust
+        # boundary is the caller workflow file itself, which must pass a
+        # static literal (see the input description).
         run: $TEST_COMMAND

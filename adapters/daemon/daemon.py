@@ -52,7 +52,11 @@ def run_check(cli: str = CLI, runner=subprocess.run) -> dict:
 
 def write_state(payload: dict, path: Path = STATE_PATH) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    # Write-then-rename: an interrupted write must never leave a truncated
+    # last.json where readers previously had a complete snapshot.
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    tmp.replace(path)
     return path
 
 
@@ -71,11 +75,15 @@ def main(
     while _running:
         write_state(run_check(cli=cli, runner=runner), path=state_path)
         # Wake once a second so a signal is honored promptly, not after a
-        # full interval.
-        for _ in range(int(interval)):
-            if not _running:
+        # full interval. Deadline-based so sub-second or fractional
+        # intervals still sleep the requested amount (int() truncation
+        # would turn 0.5s into a busy loop).
+        deadline = time.monotonic() + interval
+        while _running:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
                 break
-            sleep(1)
+            sleep(min(1.0, remaining))
     return 0
 
 

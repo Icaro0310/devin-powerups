@@ -32,9 +32,12 @@ def test_do_status_matches_cli_json(cli_runner):
 
 
 def test_failure_returns_error_dict(cli_runner):
-    payload = mcp_server.do_status()  # arrange a failing fixture first
-    if "error" in payload:
-        assert set(payload) == {"error", "detail"}
+    # Point the tool at a fixture the CLI must reject (missing input dir,
+    # bad id — whatever makes `check` exit non-zero in this package).
+    # The assert is unconditional: a passing payload here means the
+    # fixture was not actually failing, which is itself a bug.
+    payload = mcp_server.do_status("<invalid-or-missing-fixture>")
+    assert set(payload) == {"error", "detail"}
 
 
 def test_build_server_registers_tools():
@@ -43,7 +46,12 @@ def test_build_server_registers_tools():
     # job installing .[dev,mcp] SHOULD run this registration smoke test.
     pytest.importorskip("mcp")
     app = mcp_server.build_server()
-    assert app is not None
+    # Existence is not enough — the declared tool must be registered and
+    # reachable through the server API. The listing entry point varies
+    # across MCP SDK versions (app.list_tools(), @app.list_tools
+    # decorator, server.tools); use whichever this package's SDK exposes.
+    tools = getattr(app, "tools", None) or getattr(app, "_tools", {})
+    assert "<pkg>_status" in {getattr(t, "name", t) for t in tools}
 
 
 def test_pyproject_exposes_mcp_entry_point_and_extra():

@@ -1,4 +1,10 @@
-# Skeleton — canonical location: packages/<pkg>/adapters/precommit/
+# Skeleton — editable source: packages/<pkg>/adapters/precommit/
+#
+# IMPORTANT: pre-commit only discovers manifests at the repository ROOT.
+# The published `.pre-commit-hooks.yaml` must live at the product repo's
+# root (see devin-state/devin-assure/devin-devkit/devin-control — all
+# ship it at root). This file is the template for that root manifest;
+# hook.py and its test stay under adapters/precommit/.
 #
 # Thin hook over the package CLI: the verdict and the exit code are the
 # CLI's, nothing is recomputed here. Consumers wire it with:

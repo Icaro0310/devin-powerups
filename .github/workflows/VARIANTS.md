@@ -93,18 +93,24 @@ jobs:
 
 ```yaml
 # adapter-test.yml — one job per adapter face, scoped to the face's
-# paths. Python faces keep the defaults; Node faces set node-version and
-# skip-install. See docs/adapter-checklist.md for the contract.
+# paths AND the package source: a CLI change can break the parity
+# contract without touching the adapter, so core paths must also
+# trigger the face suite. Python faces keep the defaults; Node faces
+# set node-version and skip-install. See docs/adapter-checklist.md.
 name: test-doctor-vscode
 on:
   push:
     branches: [main]
     paths:
       - 'packages/doctor/adapters/vscode/**'
+      - 'packages/doctor/src/**'
+      - 'packages/doctor/pyproject.toml'
       - '.github/workflows/test-doctor-vscode.yml'
   pull_request:
     paths:
       - 'packages/doctor/adapters/vscode/**'
+      - 'packages/doctor/src/**'
+      - 'packages/doctor/pyproject.toml'
       - '.github/workflows/test-doctor-vscode.yml'
 permissions:
   contents: read

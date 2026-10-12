@@ -87,6 +87,9 @@ async function check() {
       const badge = severityBadge(payload.overall);
       statusBar.text = badge.text;
       statusBar.backgroundColor = badge.bg;
+      // A previous failure may have left an error tooltip — a PASS badge
+      // must not keep reporting it.
+      statusBar.tooltip = "Last check: " + (payload.overall || "unknown");
       statusBar.show();
     }
     return payload;
