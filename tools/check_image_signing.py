@@ -30,15 +30,28 @@ HUB = Path(__file__).resolve().parent.parent
 # publish. A bare registry hostname (pulls, image refs, comments) is not
 # a publish, and 'push:' at line end is the 'on: push' trigger, not an
 # action input.
+# CLI flags may sit between the binary and the push verb (docker global
+# flags) and again between a 'compose' subcommand and the verb (compose
+# project options). Valueless boolean flags accept an optional
+# '=true'/'=false'-style assignment; valued flags take '=v' or ' v' — a
+# flag must never swallow the push word itself, and a bare word that is
+# not an allowed subcommand ('inspect', 'images', ...) still blocks the
+# match so an image named 'push' is not a publish.
+_PUSH_CLI_FLAGS = (
+    r"(?:--debug|-D|--tlsverify|--tls|--help|--no-ansi|--compatibility"
+    r"|--dry-run|--verbose|--no-interpolate|--no-normalize"
+    r"|--no-path-resolution|--ignore-buildables|--orphan-warning"
+    r"|--all)(?:=\S+)?\s+"
+    r"|(?:--log-level|-l|--host|-H|--context|-c|--config|--tlscacert"
+    r"|--tlscert|--tlskey|--file|-f|--profile|--env-file"
+    r"|--project-directory|--workdir|--project-name|-p|--parallel"
+    r"|--ansi|--progress)(?:[ =]\S+)\s+"
+)
 PUSH_RE = re.compile(
     r"(?:docker|podman|nerdctl|buildah|crane|oras)(?:-compose)?\s+"
-    # Global CLI flags may sit between the binary and the push verb.
-    # Valueless flags take nothing; valued flags take '=v' or ' v' — a
-    # flag must never swallow the push word itself.
-    r"(?:(?:--debug|-D|--tlsverify|--tls|--help)\s+"
-    r"|(?:--log-level|-l|--host|-H|--context|-c|--config"
-    r"|--tlscacert|--tlscert|--tlskey)(?:[ =]\S+)\s+)*"
-    r"(?:(?:compose|image|manifest)\s+)?push\b"
+    r"(?:" + _PUSH_CLI_FLAGS + r")*"
+    r"(?:(?:image|manifest)\s+|compose\s+(?:" + _PUSH_CLI_FLAGS + r")*)?"
+    r"push\b"
     r"|--push\b(?![ \t]*=[ \t]*['\"]?(?i:false)['\"]?)"
     r"|\bpush:[ \t]+(?!['\"]?(?i:false)['\"]?|\{)\S"
     r"|\boutput=type=registry\b"
