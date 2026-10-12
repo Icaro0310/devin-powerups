@@ -293,7 +293,7 @@ workload delegation or required external integrations.
 
 The Python maintainer scripts work on Windows and Linux. `new-repo.py` invokes
 Git; creating a GitHub remote is a separate, explicit action. The template's
-CI tests Python projects on Windows and Ubuntu; `devin-bridge` tests Node on
+CI tests Python projects on Windows and Ubuntu; `devin-control` tests Node on
 both platforms.
 
 ## Contributing
@@ -306,13 +306,16 @@ and how their Devin-specific capability improves the base tool.
 
 - You maintain the Icaro0310 Devin ecosystem (or fork the pattern) and need
   the registry, catalog/DevKit exporters, platform-doc migration, scaffolder,
-  weekly report or shared `pypi-publish.yml` workflow.
+  weekly report or the reusable `pypi-publish.yml` workflow (each repo
+  still ships its own inline job — a `uses:` call cannot satisfy
+  per-repo trusted publishing).
 - You are starting a new `devin-*` project and want a common README plus
   Windows/Linux guides, CI and conventions (`tools/new-repo.py`).
 - You want a public activity report that reads only public GitHub commit
   metadata — no private repo contents, no session data.
-- You want one token-based PyPI publish workflow reused across every Python
-  repo instead of per-repo publish plumbing.
+- You want a uniform PyPI publish pattern across the ecosystem — per-repo
+  `pypi-publish.yml` jobs authenticating via OIDC trusted publishing,
+  no tokens in workflow code.
 
 ## When NOT to use this
 
@@ -344,10 +347,11 @@ GitHub commits API. Email delivery is optional and uses secrets and
 variables you configure in your own fork; if they are missing, the workflow
 keeps the HTML artifact and skips the email.
 
-**How do other repos publish to PyPI?** They call the reusable workflow:
-`uses: Icaro0310/devin-powerups/.github/workflows/pypi-publish.yml@main`
-with a `PYPI_API_TOKEN` secret. One token-based workflow, no per-repo OIDC
-setup.
+**How do other repos publish to PyPI?** Each product repo carries its own
+inline `pypi-publish.yml` job with `environment: pypi[-<pkg>]`, publishing
+via OIDC trusted publishing — PyPI validates `job_workflow_ref` against the
+TP-registered repo, so a `uses:` call into this hub cannot satisfy a
+per-repo TP. No `PYPI_API_TOKEN` appears in workflow code.
 
 ## License
 

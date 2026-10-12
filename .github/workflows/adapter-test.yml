@@ -1,0 +1,142 @@
+name: adapter-test (reusable)
+
+# One adapter face, tested in isolation on both OSes. The caller points
+# adapter-dir at a face's directory and test-command at that face's own
+# suite — "python -m pytest -q" for the Python faces, "node --test" for
+# the VS Code face. The parent package is pip-installed first so the CLI
+# the adapter shells out to exists on PATH; faces that need no install
+# (e.g. pure-Node) pass skip-install.
+#
+# Contract: docs/adapter-checklist.md — the face stays a thin shell and
+# ships only this suite; the workflow asserts nothing about the package
+# beyond what the face's own test does.
+#
+# Trust boundary: test-command / pre-install are allowlist-guarded
+# (plain charset, no shell metacharacters) before they reach a shell, so
+# word splitting can never produce operators, substitution or extra
+# commands — at most an executable name plus args, the same trust the
+# caller already has in its own `run:` steps.
+
+on:
+  workflow_call:
+    inputs:
+      package-dir:
+        description: Path to the product package the adapter shells out to
+        type: string
+        default: "."
+      adapter-dir:
+        description: Face directory — test-command's working-directory
+        type: string
+        required: true
+      test-command:
+        description: >-
+          The face's own test command, run inside adapter-dir —
+          e.g. "python -m pytest -q" or "node --test".
+          Contract: single command, space-separated args — must match
+          ^[a-zA-Z0-9 ./_-]+$ (enforced fail-closed by the guard step;
+          wrap anything more in a pytest.ini / package.json script).
+        type: string
+        required: true
+      python-version:
+        description: Python toolchain version; "" skips setup-python
+        type: string
+        default: "3.11"
+      node-version:
+        description: >-
+          Node toolchain version; "" (default) skips setup-node — set it
+          for the VS Code face and other Node faces
+        type: string
+        default: ""
+      pre-install:
+        description: >-
+          Extra pip install args run before the package install
+          (e.g. "-e shared/install-scheduler" for workspace deps not yet
+          on PyPI). Contract: space-separated args matching
+          ^[a-zA-Z0-9 ./_-]+$ — same guard as test-command; paths with
+          spaces are unsupported
+        type: string
+        default: ""
+      skip-install:
+        description: >-
+          Skip `pip install -e package-dir[dev]` — for faces whose CLI is
+          already on PATH or that ship no installable parent
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Guard caller-controlled inputs
+        # Runs first — before checkout — so a rejected value fails the
+        # job before anything else executes.
+        shell: bash
+        env:
+          TEST_COMMAND: ${{ inputs.test-command }}
+          PRE_INSTALL: ${{ inputs.pre-install }}
+        # Fail-closed allowlist: every character that gives the shell
+        # special meaning is rejected — ; && | $ ` > < ' " \ * ? [ ] ~ !
+        # # : , = % ^ { } ( ) and newlines. What remains can word-split
+        # into at most an executable plus literal args; it cannot
+        # select operators, substitutions, globs or extra commands.
+        # The pattern lives in a variable — a literal space inside an
+        # unquoted [[ =~ ]] RHS is a bash syntax error.
+        run: |
+          allow='^[a-zA-Z0-9 ./_-]+$'
+          for value in "$TEST_COMMAND" "$PRE_INSTALL"; do
+            [ -z "$value" ] && continue
+            if [[ ! "$value" =~ $allow ]]; then
+              echo "::error::caller input must match $allow (plain command + args, no shell metacharacters); rejected: $value"
+              exit 1
+            fi
+          done
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        if: inputs.python-version != ''
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        if: inputs.node-version != ''
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Pre-install workspace deps
+        if: inputs.pre-install != ''
+        shell: bash
+        env:
+          # caller-provided input must not reach the shell via inline
+          # interpolation — env values are never re-parsed
+          PRE_INSTALL: ${{ inputs.pre-install }}
+        # unquoted: space-separated args — word splitting is intended;
+        # the guard step above already proved the charset contains no
+        # shell metacharacters, so splitting is all the shell can do
+        run: pip install $PRE_INSTALL
+
+      - name: Install parent package
+        if: ${{ !inputs.skip-install && inputs.python-version != '' }}
+        shell: bash
+        env:
+          PACKAGE_DIR: ${{ inputs.package-dir }}
+        run: pip install -e "${PACKAGE_DIR}[dev]"
+
+      - name: Test adapter face
+        working-directory: ${{ inputs.adapter-dir }}
+        shell: bash
+        env:
+          TEST_COMMAND: ${{ inputs.test-command }}
+        # unquoted: space-separated args — word splitting is intended;
+        # the guard step above already proved the charset contains no
+        # shell metacharacters, so splitting is all the shell can do.
+        # The env indirection also keeps the input out of inline ${{}}
+        # interpolation.
+        run: $TEST_COMMAND

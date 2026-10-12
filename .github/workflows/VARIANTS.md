@@ -25,7 +25,10 @@ their own pace. Concrete release tags (`v1.0.0`) mark the underlying commit.
 | `codeql.yml` | CodeQL analysis | `push`/`pull_request` main + `schedule` | `language` (default `python`) |
 | `secrets-scan.yml` | Secret-shaped string scan | called from repo `ci.yml` | none |
 | `python-test.yml` | pytest on windows+ubuntu | called from repo `ci.yml` | `python-version`, `package-dir` |
-| `pypi-publish.yml` | Build + publish to PyPI | `release`/`workflow_dispatch` | `package-dir`, `python-version` |
+| `adapter-test.yml` | One adapter face's own suite in isolation, on windows+ubuntu | called from per-package adapter workflows | `package-dir`, `adapter-dir`, `test-command`, `python-version`, `node-version`, `pre-install`, `skip-install` |
+| `pypi-publish.yml` | Verify wheel `__version__`, then publish the verified `dist` to PyPI | `workflow_call` only — the caller wires `release`/`workflow_dispatch` | `package-dir`, `python-version`, `module` |
+| `verify-wheel-version.yml` | Build + `__version__` gate; uploads the verified `dist` artifact | called from publish workflows | `package-dir`, `module`, `python-version` |
+| `release.yml` | Release fan-out: wheel gate → PyPI OIDC → GHCR+cosign → `.vsix` artifact → marketplace notes | `workflow_call` from per-repo release workflows | `package-dir`, `module`, `pypi-environment`, `python-version`, `vscode-ext-dir`, `docker-image` → output `version` |
 
 ### Caller templates
 
@@ -67,7 +70,7 @@ jobs:
 ```
 
 ```yaml
-# codeql.yml — pass `language` only when it differs (e.g. devin-bridge).
+# codeql.yml — pass `language` only when it differs (e.g. devin-control).
 name: CodeQL
 on:
   push:
@@ -87,6 +90,78 @@ jobs:
       contents: read
       security-events: write
     uses: Icaro0310/devin-powerups/.github/workflows/codeql.yml@v1
+```
+
+```yaml
+# adapter-test.yml — one job per adapter face, scoped to the face's
+# paths AND the package source: a CLI change can break the parity
+# contract without touching the adapter, so core paths must also
+# trigger the face suite. Python faces keep the defaults; Node faces
+# set node-version and skip-install. test-command / pre-install are
+# allowlist-guarded: plain command + args matching
+# ^[a-zA-Z0-9 ./_-]+$, no shell metacharacters — the reusable fails
+# closed on anything else. See docs/adapter-checklist.md.
+name: test-doctor-vscode
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/doctor/adapters/vscode/**'
+      - 'packages/doctor/src/**'
+      - 'packages/doctor/pyproject.toml'
+      - '.github/workflows/test-doctor-vscode.yml'
+  pull_request:
+    paths:
+      - 'packages/doctor/adapters/vscode/**'
+      - 'packages/doctor/src/**'
+      - 'packages/doctor/pyproject.toml'
+      - '.github/workflows/test-doctor-vscode.yml'
+permissions:
+  contents: read
+jobs:
+  adapter-test:
+    permissions:
+      contents: read
+    uses: Icaro0310/devin-powerups/.github/workflows/adapter-test.yml@v1
+    with:
+      package-dir: packages/doctor
+      adapter-dir: packages/doctor/adapters/vscode
+      test-command: node --test
+      node-version: "22"
+      skip-install: true
+```
+
+```yaml
+# release.yml — one job fans the release out to every channel. The
+# caller's uses: job must grant the UNION of the scopes the called jobs
+# request (contents:read + id-token:write for PyPI OIDC/cosign +
+# packages:write for GHCR) or the run dies at startup_failure.
+# PyPI caveat: trusted publishing validates job_workflow_ref — a
+# cross-repo caller's ref points at devin-powerups/release.yml, which a
+# per-repo Trusted Publisher can never match (pypi/warehouse#11096).
+# The PyPI job detects that case and skips the upload with a warning;
+# the repo's own inline pypi-publish.yml stays the PyPI path. The leg
+# publishes for same-repo callers and vendored copies of release.yml.
+# docker-image / vscode-ext-dir are opt-outs: empty skips that leg.
+name: release
+on:
+  push:
+    tags: ["*-v*"]
+permissions:
+  contents: read
+jobs:
+  fanout:
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
+    uses: Icaro0310/devin-powerups/.github/workflows/release.yml@v1
+    with:
+      package-dir: packages/doctor
+      pypi-environment: pypi
+      # optional legs:
+      # docker-image: devin-doctor
+      # vscode-ext-dir: packages/doctor/adapters/vscode
 ```
 
 ```yaml
@@ -118,10 +193,10 @@ job-level permissions even when the workflow-level block already matches.
 
 | Repo | Workflow | Why it stays inline |
 |---|---|---|
-| `devin-bridge` | `ci.yml` | Node.js toolchain, not Python — `python-test.yml` does not apply |
-| `devin-evals` | `ci.yml` | Extra `corpus` job (EV-3 golden-case gate) |
-| `devin-memory` | `ci.yml` | Installs sibling deps from git pins before `pip install -e .` |
-| `devin-qa-pack` | `ci.yml` | Python matrix 3.10/3.11/3.12 + different action pins |
+| `devin-control` | `ci.yml` | Node.js toolchain, not Python — `python-test.yml` does not apply |
+| `devin-assure` | `ci.yml` | Extra `corpus` job (EV-3 golden-case gate) |
+| `devin-brain` | `ci.yml` | Installs sibling deps from git pins before `pip install -e .` |
+| `devin-assure` | `ci.yml` | Python matrix 3.10/3.11/3.12 + different action pins |
 
 These are the exceptions the audit expects to find. A repo drifting from
 the caller template without an entry here is a bug; a repo listed here
