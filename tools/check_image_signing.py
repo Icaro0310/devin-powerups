@@ -32,6 +32,12 @@ HUB = Path(__file__).resolve().parent.parent
 # action input.
 PUSH_RE = re.compile(
     r"(?:docker|podman|nerdctl|buildah|crane|oras)(?:-compose)?\s+"
+    # Global CLI flags may sit between the binary and the push verb.
+    # Valueless flags take nothing; valued flags take '=v' or ' v' — a
+    # flag must never swallow the push word itself.
+    r"(?:(?:--debug|-D|--tlsverify|--tls|--help)\s+"
+    r"|(?:--log-level|-l|--host|-H|--context|-c|--config"
+    r"|--tlscacert|--tlscert|--tlskey)(?:[ =]\S+)\s+)*"
     r"(?:(?:compose|image|manifest)\s+)?push\b"
     r"|--push\b(?![ \t]*=[ \t]*['\"]?(?i:false)['\"]?)"
     r"|\bpush:[ \t]+(?!['\"]?(?i:false)['\"]?|\{)\S"
@@ -51,35 +57,65 @@ SIGN_RE = re.compile(
 TOKEN_RE = re.compile(r"id-token:\s*write")
 
 
-def _code_lines(text: str) -> str:
-    """Strip comments without touching '#' inside quotes.
+_YAML_KEY_RE = re.compile(r"^\s*(?:-\s*)?[\w.-]+\s*:\s*")
 
-    A '#' opens a comment only outside single/double quotes and only at
-    line start or after whitespace, so 'run: echo "a # b"; docker push x'
-    keeps its push while a commented-out step can still neither fake
-    sign/token evidence nor fabricate a publish."""
+
+def _code_lines(text: str) -> str:
+    """Strip comments, and blank mid-line quoted interiors.
+
+    A '#' opens a comment only outside quotes and only at line start or
+    after whitespace, so 'run: echo "a # b"; docker push x' keeps its
+    push. But text inside a shell-level quote is an argument, not a
+    command: 'echo "# cosign sign x"' must not count as signing evidence,
+    so every quoted span mid-line has its interior blanked (the quote
+    chars stay, the '#' inside no longer needs to survive). The one
+    exception is a quoted YAML scalar right after 'key:' — 'run: "docker
+    push x"' is the whole value and keeps its content.
+    """
     out = []
     for line in text.splitlines():
-        cut = len(line)
-        quote = None  # "'", '"' or None (outside quotes)
         i = 0
+        # A 'key:' followed by a quote opens a YAML-level scalar: keep it.
+        m = _YAML_KEY_RE.match(line)
+        if m and m.end() < len(line) and line[m.end()] in "'\"":
+            q = line[m.end()]
+            i = m.end() + 1
+            while i < len(line):
+                if line[i] == "\\" and q == '"':
+                    i += 1
+                elif line[i] == q:
+                    i += 1
+                    break
+                i += 1
+        buf = list(line[:i])
+        quote = None  # mid-line "'", '"' or None (outside quotes)
         while i < len(line):
             c = line[i]
             if quote == '"':
                 if c == "\\":
-                    i += 1  # escaped char cannot close the quote
+                    buf.append(c)
+                    i += 1
+                    buf.append(line[i])
                 elif c == '"':
+                    buf.append(c)
                     quote = None
+                else:
+                    buf.append(" ")
             elif quote == "'":
                 if c == "'":
-                    quote = None  # '' escape toggles off/on; stays balanced
+                    buf.append(c)
+                    quote = None
+                else:
+                    buf.append(" ")
             elif c in "'\"":
                 quote = c
+                buf.append(c)
             elif c == "#" and (i == 0 or line[i - 1] in " \t"):
-                cut = i
                 break
+            else:
+                buf.append(c)
             i += 1
-        out.append(line[:cut].rstrip())
+        out.append("".join(buf).rstrip())
     return "\n".join(out)
 
 
