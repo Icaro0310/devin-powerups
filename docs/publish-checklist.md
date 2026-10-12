@@ -23,13 +23,16 @@ checklist item because it failed (or silently blocked) at least once.
    step); the GitHub Marketplace checkbox lives on the release form, so
    the release author must tick it *here*. `release.yml` does not
    create the GitHub release.
-7. `.vsix` → VS Code Marketplace **portal** upload (manual step today).
+7. `.vsix` → VS Code Marketplace — CI publishes via Entra workload
+   identity when the caller repo sets `AZURE_CLIENT_ID`/`AZURE_TENANT_ID`;
+   otherwise the `vsix` artifact stays for a **portal** upload (manual
+   fallback).
 8. Open VSX and Eclipse Marketplace — pending, see below.
 9. Smoke-test every channel that shipped (per-channel notes below).
 
 `release.yml` (reusable) collapses legs 3–5 and the CI-visible parts of
-7–8 (lint + `.vsix` artifact + notices) into one fan-out call — legs 6
-and the portal uploads stay manual. See
+7–8 (lint + `.vsix` artifact + Entra publish or notice) into one fan-out
+call — leg 6 stays manual. See
 [VARIANTS.md](../.github/workflows/VARIANTS.md) for the caller template
 and the PyPI cross-repo caveat.
 
@@ -77,9 +80,20 @@ and the PyPI cross-repo caveat.
   it in the same PR as the pyproject bump.
 - PAT/CLI publishing (`vsce publish`) needs a Personal Access Token from
   an **Azure DevOps org**, which needs an **Azure subscription** —
-  blocked. The current path is the **portal upload**:
-  <https://marketplace.visualstudio.com/manage/publishers/>, upload the
-  `.vsix` produced by `vsce package` (the `vsix` workflow artifact).
+  not available. The active path is **Entra workload identity**:
+  `release.yml`'s `vscode-ext` job runs under `environment: release`,
+  `azure/login` mints an OIDC token against the
+  `devin-vscode-marketplace` app registration (federated credential
+  `gh-<repo>-release`), and `vsce publish --azure-credential` pushes the
+  `.vsix`. Requires per-repo vars `AZURE_CLIENT_ID`/`AZURE_TENANT_ID`
+  and a federated credential on the app for that repo — setup: Entra →
+  App registrations → `devin-vscode-marketplace` → Certificates &
+  secrets → Federated credentials → GitHub Actions → entity
+  `Environment` = `release`. One-off helper to resolve the marketplace
+  member ID: `devin-explore/.github/workflows/marketplace-identity.yml`
+  (dispatch, read the `id` field, add it as publisher member →
+  Contributor). Portal upload remains the manual fallback:
+  <https://marketplace.visualstudio.com/manage/publishers/>.
 - After the portal upload the listing shows **"Verifying"** — normal;
   validation is async and can take minutes to hours.
 - Smoke: install the `.vsix` locally (`code --install-extension
