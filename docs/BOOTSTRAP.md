@@ -14,10 +14,9 @@ partir de um checkout limpo, sem conhecimento pessoal do mantenedor.
 O DevKit **nunca infere** corporate pelo SO — um Windows sem flag vira
 `personal_windows` (o conceito; o valor do CLI é com hífen). Se há
 qualquer restrição, passe `--environment corporate-windows`
-explicitamente em `install`. Atenção: `update`/`outdated` **ainda não
-aceitam** `--environment` (nem em `main`, nem na wheel publicada) — a
-cobertura desses caminhos é item pendente do D-2026-10-10d, não funciona
-hoje.
+explicitamente em `install`. `update`/`outdated` também aceitam
+`--environment` desde devin-devkit#36 — em checkouts/wheels mais antigos
+a flag é rejeitada, então confirme a versão antes de confiar no gate.
 
 ## Passo 1 — Fonte da verdade
 
