@@ -22,14 +22,17 @@ from pathlib import Path
 
 HUB = Path(__file__).resolve().parent.parent
 # Publishing evidence: a registry CLI push ('docker push', 'docker image
-# push', 'docker-compose push', podman/crane/oras equivalents), a --push
-# flag that is not '=false', a build-push/bake 'push:' input that is not
-# 'false', or a buildx 'output=type=registry' target. A bare registry
-# hostname (pulls, image refs, comments) is not a publish, and 'push:' at
-# line end is the 'on: push' trigger, not an action input.
+# push', 'docker manifest push', 'docker[- ]compose push',
+# podman/crane/oras equivalents), a --push flag that is not '=false', a
+# build-push/bake 'push:' input that is not 'false', or a buildx
+# 'output=type=registry' target. The subcommand list is a closed set so
+# an image named 'push' (e.g. 'docker image inspect push') is not a
+# publish. A bare registry hostname (pulls, image refs, comments) is not
+# a publish, and 'push:' at line end is the 'on: push' trigger, not an
+# action input.
 PUSH_RE = re.compile(
     r"(?:docker|podman|nerdctl|buildah|crane|oras)(?:-compose)?\s+"
-    r"(?:[\w-]+\s+)*push\b"
+    r"(?:(?:compose|image|manifest)\s+)?push\b"
     r"|--push\b(?![ \t]*=[ \t]*['\"]?(?i:false)['\"]?)"
     r"|\bpush:[ \t]+(?!['\"]?(?i:false)['\"]?|\{)\S"
     r"|\boutput=type=registry\b"
