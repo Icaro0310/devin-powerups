@@ -9,6 +9,9 @@ checklist item because it failed (or silently blocked) at least once.
 1. Version bump PR lands on `main` — `pyproject.toml` `version` and the
    wheel's `__version__` must agree (the wheel gate enforces it).
 2. Tag `<pkg>-v<ver>` on `main` → the repo's release workflow runs.
+   `release.yml` fails the PyPI leg when a `<pkg>-v<ver>` tag does not
+   match the pyproject version — a mistagged release would otherwise
+   pass the wheel gate and publish the wrong version.
 3. Wheel gate: `verify-wheel-version.yml` builds `dist/`, asserts
    `__version__ == pyproject.version`, uploads the verified `dist`
    artifact. Nothing publishes that did not pass this gate.
@@ -16,14 +19,17 @@ checklist item because it failed (or silently blocked) at least once.
    + OIDC trusted publishing — see below).
 5. GHCR image build+push via the repo's `docker-publish.yml` (triggers
    on the publish workflow succeeding; cosign keyless signature).
-6. GitHub release creation — the GitHub Marketplace checkbox lives on
-   this form, so the release author must tick it *here*.
+6. GitHub release creation — stays **manual** (or a separate caller
+   step); the GitHub Marketplace checkbox lives on the release form, so
+   the release author must tick it *here*. `release.yml` does not
+   create the GitHub release.
 7. `.vsix` → VS Code Marketplace **portal** upload (manual step today).
 8. Open VSX and Eclipse Marketplace — pending, see below.
 9. Smoke-test every channel that shipped (per-channel notes below).
 
-`release.yml` (reusable) collapses legs 3–8 into one fan-out call for
-repos that want a single release workflow — see
+`release.yml` (reusable) collapses legs 3–5 and the CI-visible parts of
+7–8 (lint + `.vsix` artifact + notices) into one fan-out call — legs 6
+and the portal uploads stay manual. See
 [VARIANTS.md](../.github/workflows/VARIANTS.md) for the caller template
 and the PyPI cross-repo caveat.
 
@@ -47,7 +53,9 @@ and the PyPI cross-repo caveat.
   **"file already exists"** — and that failure is *good news*: it
   proves the OIDC exchange worked (an auth failure is a **403** during
   token exchange, before upload). `release.yml` pre-checks the PyPI
-  JSON API so the leg stays green on re-runs.
+  JSON API **per file** so the leg stays green on re-runs and resumes
+  partial releases (a published sdist with a missing wheel uploads the
+  wheel, not a blanket skip).
 - A *pending* publisher is consumed by the first successful upload; if
   anything else creates the project first the pending entry goes stale
   (`invalid-pending-publisher`) — delete it and add an **Active**
@@ -64,6 +72,9 @@ and the PyPI cross-repo caveat.
   devin-memory missed them and packaging failed outright. `release.yml`
   runs a manifest lint (publisher/name/engines/activationEvents,
   incl. `onMcpServerDefinitionProviders:<id>` hooks) before `vsce`.
+- Extension `package.json` `version` ships **in lockstep** with the
+  package version — `release.yml` fails the leg on mismatch, so bump
+  it in the same PR as the pyproject bump.
 - PAT/CLI publishing (`vsce publish`) needs a Personal Access Token from
   an **Azure DevOps org**, which needs an **Azure subscription** —
   blocked. The current path is the **portal upload**:
@@ -115,6 +126,9 @@ and the PyPI cross-repo caveat.
   `:latest` + `:<version>`, and signs with **cosign keyless** (OIDC,
   no keys to manage). `release.yml`'s docker leg mirrors that pattern
   for repos with a root `Dockerfile`.
+- Image refs are **lowercase-only** — `ghcr.io/Icaro0310/...` is
+  rejected by buildx. `release.yml` lowercases owner + image name; a
+  hand-rolled workflow must do the same.
 - The image tags come from the pyproject `version` — same source of
   truth as the wheel.
 - Smoke: `cosign verify ghcr.io/<owner>/<image>:<ver>` (check the
