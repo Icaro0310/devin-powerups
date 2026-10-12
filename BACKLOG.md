@@ -43,13 +43,19 @@ this table is the executable queue.
 
 ## Port candidates (PAS-proven)
 
-`[portar]`-class scout proposals: the machinery already runs inside the
-PAS, so the pain was felt and solved there — porting is productization,
-not speculation. These carry normal backlog priority; `[novo]` and
-unproven `[estender]` proposals live in `DIRECTIONS.md` instead.
+`[portar]`-class scout proposals (the machinery already runs inside the
+PAS — porting is productization, not speculation) plus proposals of any
+class whose pain is already felt and nameable. Normal backlog priority;
+`[novo]` and unproven `[estender]` proposals live in `DIRECTIONS.md`.
 
 | Item | Repo | Effort | Proposed | Note |
 |---|---|---|---|---|
+| E2E runner installs `devin-internals-spec` editable in target venvs (fixes the `deps_missing` class — 12 suites abort weekly) | powerups + PAS | M | 2026-10-07 | same fix named in both the powerups and PAS sections |
+| `deps-internals` repo-venv check | doctor/explore | S | 2026-10-07 | detects the same `deps_missing` class before a suite runs |
+| XDG_DATA_HOME → XDG_CONFIG_HOME harmonization | pm/explore | S | 2026-10-07 | documented debt in the linux-parity convention |
+| Documented exit codes for `verify --all` (0 ok / 2 degraded / 3 corrupted) | backup/state | S | 2026-10-07 | daemon units landed; schedulers need the contract |
+| Align devin-office with the E2E runner contract (`missing_dir`) | office | S | 2026-10-07 | reported as broken weekly |
+| Dedupe the 14 `learned-*` skills (overlapping themes, e.g. teste-hook vs testes) | learning | S | 2026-10-07 | merge/consolidation job with version bump |
 | `redact hook --install` — export-gate recipe (`session_end` + `sessionend-scan` commands exist; the install/hook-registration piece does not) | state | M | 2026-10-02 | PAS `redact_gate` in `session_learning.py` is the mold |
 | Incremental export cursor (`--since-session` watermark; `--session-id`/`export-gui` already shipped) | history/explore | M | 2026-10-02, re-asked 10-07 | avoids rescanning the whole DB weekly |
 | Scheduled `audit` handler recipe documented for public repos | doctor/explore | S | 2026-10-02 | PAS runs it via trigger manifest |

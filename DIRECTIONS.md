@@ -78,9 +78,6 @@ today.
 
 | Repo | Proposal | Class | Felt pain? |
 |---|---|---|---|
-| powerups | Fix `test_export_devkit_manifest` for npm/PyPI source specs | estender | Yes — test fails on real drift (npm flip). Bug-class, belongs in BACKLOG if still red |
-| powerups | e2e-preflight installs `devin-internals-spec` editable in target venvs | novo | Yes — 12 suites abort with `deps_missing` weekly |
-| powerups | Weekly `registry-drift` workflow | novo | Already exists — `registry-drift` runs per push (see BACKLOG watchdogs) |
 | internals-spec | Version `state.vscdb` ItemTable sub-schema | novo | Partial — devin-dream already emits the keys |
 | internals-spec | CFL crash corpus minimization → `fixtures/` | estender | No |
 | internals-spec | Schema v18 detector + real fixture | estender | Partial — dream injects v18 drift (D06) |
@@ -88,11 +85,8 @@ today.
 | redact | `devin-redact diff` HTML report | novo | No |
 | history | Export GUI path from synthetic `state.vscdb` | estender | Partial — closes HI-1 without real data |
 | history | `devin-history diff A B` | novo | No |
-| history | Incremental export with cursor watermark | estender | No |
 | doctor | `doctor updates --apply` | estender | Partial — devkit `update` already covers package upgrades |
-| doctor | `deps-internals` repo-venv check | novo | Yes — same `deps_missing` class as above |
 | doctor | `devkit-drift` check (installed vs manifest profile) | novo | Partial |
-| pm | XDG_DATA_HOME → XDG_CONFIG_HOME harmonization | estender | Yes — documented debt in the linux-parity convention |
 | pm | `devin-pm velocity` sparkline | novo | No |
 | qa-pack | devin-dream fixtures pack (D01–D03) as CI precision gate | estender | Partial — precision gate is wanted, corpus exists |
 | qa-pack | `verdicts.jsonl` per session | novo | Partial — dashboard needs a stable format |
@@ -100,7 +94,6 @@ today.
 | metrics | `metrics.json` event output for metrics.watch | estender | Partial — trigger wired, format missing |
 | metrics | `metrics report --html` trend charts | novo | No |
 | metrics | Subagent rollup (cost/duration per profile) | novo | Partial — `subagent_heads` data exists |
-| backup | Documented exit codes for `verify --all` | novo | Yes — daemon units landed; schedulers need the contract |
 | backup | Incremental snapshots with journal | estender | No |
 | search | `--context N` snippet window | novo | Partial — cheap, useful for AI surfaces |
 | search | `export --obsidian` markdown notes | novo | Partial — vault alignment is a real theme here |
@@ -110,7 +103,6 @@ today.
 | evals | dream-generated eval packs (D01–D09 `expected.json`) | estender | Partial — corpus exists |
 | evals | `evals ci --junit` output | novo | Partial — CI annotation is handy |
 | evals | Trigger precision/recall eval vs dream fleet | novo | No |
-| memory | Bridge: `learned-*` skills → catalog `proposed` lane | estender | Yes — closes the write→gate→promote cycle already half-wired (G3) |
 | bridge | npx smoke job in CI | estender | Partial — published package has no end-to-end proof in CI |
 | bridge | `bridge resume --mapped` | novo | Partial — `.sessions.json` convention exists |
 | dashboard | Janitor/quarantine tiles | estender | Partial |
@@ -118,10 +110,8 @@ today.
 | dashboard | E2E health badge per repo | novo | Partial — scout briefing has the data |
 | office | Replay mode | estender | No — open since an earlier cycle, kanban moved on |
 | office | `office snapshot` PNG/SVG | novo | No |
-| office | Align with E2E runner contract (`missing_dir`) | estender | Yes — reported as broken weekly |
 | qwenpaw | Complete OpenAI-compat endpoint contract | estender | Partial — open since an earlier cycle |
 | qwenpaw | Robot smoke suite for endpoints | novo | No |
-| poordjaevin | PyPI OIDC publish | estender | Done — published |
 | poordjaevin | poordjaevin as real G3 gate in skill-catalog | estender | Partial — PAS `g3-overnight` already drains through `promote/quarantine --g3-report` in dry-run; the public-side gate is open |
 | poordjaevin | Per-question temperature in calibration | novo | Partial — documented good-first-issue, likely lowers ECE |
 | awesome-devin | Catalog generated from registry.json | estender | Partial — drift is real (the class `surface_diff.py` targets) |
@@ -133,9 +123,6 @@ today.
 | switch | `devin-devkit apply <profile>` calls switch underneath | estender | Partial — unifies install + profile selection |
 | switch | `switch doctor --fix` | novo | Partial — doctor already reports nearest profile |
 | skill-catalog | `catalog watch` via trigger manifest | novo | Partial |
-| devin-learning | Dedupe the 14 `learned-*` skills | estender | Yes — overlapping themes exist (teste-hook vs testes) |
-| personal-agent-system | Recreate scheduled_tasks on Linux (systemd/cron) | estender | Partial — real gap on this machine |
-| personal-agent-system | E2E runner internal-deps bootstrap | novo | Yes — same `deps_missing` class |
 | personal-agent-system | Single ops digest email | novo | No |
 
 ## Spec-needed directions
