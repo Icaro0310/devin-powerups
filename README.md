@@ -44,6 +44,7 @@ distribution; this hub is not needed at runtime.
 | `tools/hooks_dispatch.py` | The F5 hook dispatcher: one Devin hook command fans out to handlers registered in `.devin-ecosystem/hooks.json` under the Devin config dir, instead of every repo installing its own hook. Never fails the hook (abort contract: handler exit 42), per-handler + global timeouts, JSONL dispatch log. |
 | `registry.schema.json` | JSON Schema (2020-12) for `registry.json`. |
 | `capability-profile.schema.json` + `docs/capability-profile.md` | The F10 contract: `corporate` (fail-closed default) vs `personal` machine profiles, capability keys, and how extras declare `requires:`. |
+| `docs/BOOTSTRAP.md` | New-agent bootstrap guide: how a fresh agent rebuilds the intended environment from a clean checkout (install → profiles → apply). Start here if you are setting up a machine, not if you are changing a package. |
 | `.github/workflows/` | Per-project CI template and optional workflows for uploading/emailing reports that already exist. |
 
 The local scout/ideation engine is not included in this public repository. The

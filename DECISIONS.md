@@ -42,16 +42,68 @@ Result. Records are not eternal — revisit when new evidence arrives.
   the gate counted the `kind: analysis` threads as non-blocking and
   approved without intervention — the same system that held the 7
   caller PRs. Read the history as "the reviewer cannot clear
-  out-of-diff findings", not as "the gate is fragile".
+  out-of-diff findings", not as "the gate is fragile". Additional
+  enforcement evidence (2026-10-10, docker-publish PRs devin-assure#44
+  and devin-judge#29): a session attempted `resolveReviewThread` on two
+  stale-but-fixed blocking threads as `Icaro0310`; the gate kept
+  counting them ("resolved by anyone other than the Devin bot" still
+  blocks) and held both PRs until the threads were unresolved and
+  Devin's own re-review resolved them. The anti-bypass rule is
+  enforced in code, not just documented — a human resolving a finding
+  does not clear it, which is exactly the property the rule exists
+  for. Third
+  datapoint (2026-10-10, devin-assure#45 / devin-control#38): merging
+  `main` into a PR branch to bring the refuting fix into the diff base
+  does not trigger a Devin re-review on the merge head — no analysis
+  posted at all. So "make the fix part of the PR's diff" (sanctioned
+  alternative 1) only helps when the fix is authored in the PR, not
+  when it arrives via merge; in the latter case the per-finding proof
+  comment + admin merge remains the path, which is what both PRs used. Fourth
+  datapoint and a class distinction (2026-10-11): the count keeps two
+  different failure modes under one number. (a) out-of-diff — flagged
+  code lives outside the PR diff (caller-pinned reusables); (b)
+  in-diff-stale — flagged code WAS in the diff and got fixed, but no
+  re-review posted on the new head, so the thread never got
+  bot-resolved (devin-assure#45, devin-control#38 via merge commits;
+  devin-assure#47 via a real commit Devin never analyzed). Both funnel
+  to the same escape hatch with per-finding proof, but they are not
+  the same bug: (a) is a review-scope limit, (b) is a re-trigger gap.
+  If (b) keeps growing while (a) stays rare, the right fix is a
+  re-review trigger mechanism, not just the dismiss API — the backlog
+  item should name both.
 - **Expected outcome:** admin merges on this class are audited by the
   per-finding proof comment; the root cause is backlog (see
-  `BACKLOG.md` — "out-of-diff findings clearance mechanism", which
-  carries an expiry clause: the workaround is deleted once *either*
-  delivery path exists — Devin-side dismiss/re-check of out-of-diff
-  anchors, or the gate-side signed dismiss list — and the item closes
-  when the workaround is gone).
+  `BACKLOG.md` — "findings-clearance mechanism (two classes)", which
+  carries an expiry clause: the workaround is deleted once a delivery
+  path exists that clears stale anchors of both classes — Devin-side
+  dismiss/re-check, or the gate-side signed dismiss list — and the
+  item closes when the workaround is gone). Check-in point is the next
+  corporate validation window (the Zscaler-verification pass), not a
+  quarterly tick — an event someone will actually be inside, not a
+  date nobody reads.
 - **Result:** recorded; first application is the auto-approve rollout
   tail (7 PRs, each with per-finding proof comment + `--admin`).
+- **Addendum (2026-10-11) — distinct category: generator merges.**
+  Audit of the 15 admin merges found a class the pair-per-finding
+  vocabulary does not describe: the journey-recuration batch
+  ("refresh generated ecosystem blocks", 7 PRs across the repos; 2
+  merged APPROVED, 5 under REVIEW_REQUIRED). Verified per-PR: zero
+  blocking findings — review threads were `kind: analysis`, resolved;
+  `REVIEW_REQUIRED` persisted only because gate-bot approvals were
+  auto-dismissed when new commits pushed, i.e. approval churn, not
+  findings. Forcing those merges into per-finding language would
+  fabricate pairs for findings that never existed. The category,
+  named here: **generator merge** — generated output, identical across
+  repositories, review-exempt by nature. It does not need per-finding
+  pairs; it needs (a) a diff that is verifiably generator output
+  (`--check` clean or the generator's own render diffed), and (b) the
+  generator PR carrying the why. Admin path is acceptable on this
+  class for approval-dismissal churn alone, but only when the
+  blocking state is review-churn — if a real `bug|security` thread
+  exists, this record's main rule applies unchanged and the merge is
+  NOT a generator merge. Same-day PyPI wave note: the 8 token-removal
+  PRs merged naturally, which is the stronger signal — the class that
+  historically forced bypass went through the loop.
 
 ## D-2026-10-10 — Fork PRs are out of scope for the approval gate
 
@@ -524,3 +576,280 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   llms.txt show identical non-repeating paths; holder eco-blocks show
   the updated memberships.
 - **Result:** pending propagation.
+
+## D-2026-10-10d — Explicit `--environment` required on Windows hosts
+
+- **Decision:** on `windows` hosts, `devin-devkit install`, `update` and
+  `outdated` must not guess the environment. Passing `--environment`
+  (`personal-windows` or `corporate-windows`) becomes mandatory; omitting
+  it exits with an error naming the two choices instead of silently
+  selecting `personal_windows`. Linux keeps the host-derived default
+  (`linux`) because it is the only Linux environment. The `windows`
+  alias in `_ENVIRONMENT_ALIASES` is **deprecated, then removed** — an
+  ambiguous name is not a decision, but it is already released surface
+  (shipped in `devin-devkit 0.1.0` on PyPI), so direct removal would
+  break consumers of the published version. Sequence: the release that
+  lands this change keeps `--environment windows` resolving to
+  `personal_windows` but emits a deprecation warning that names the
+  exit — `use --environment personal-windows or corporate-windows`
+  (not merely "windows is deprecated", or users drop the flag and fall
+  into the new required-flag error by accident). Removal at the next
+  breaking release (batching with whatever breaking change comes next);
+  this clause closes when the alias is gone, not before.
+- **Reason:** the previous default violated the ecosystem rule recorded
+  when the brain flipped to "safe by default, permissive is opt-in":
+  the least restrictive environment captured whoever did not specify
+  one, on the host where the mistake is most expensive (a corporate
+  machine could install tools its policy forbids). Requiring the flag
+  is more honest than defaulting to `corporate_windows` (which would
+  silently disable legitimate personal capability on personal machines)
+  and strictly more honest than defaulting to `personal_windows`.
+- **Evidence:** environment-boundary audit, 2026-10-10 — see
+  `docs/audits/2026-10-10/REPORT.md` (the same class of gap as the
+  missing env gate on `update`, PR devin-devkit#36).
+- **Expected outcome:** no code path can reach a Windows install/update
+  without an explicit environment decision; `normalize_environment`
+  raises instead of defaulting when `host == "windows"` and
+  `environment is None`. Validation order: argparse stops checking
+  `--environment` choices so consumers own the message, but each
+  consumer validates **before** building its plan — a user-input error
+  surfaces first, never interleaved with plan-level failures. The PR
+  should also land the install↔update **parity test**: run
+  `build_plan` and `build_update_plan` over the same tool matrix and
+  assert the same canonical gate per case. Shared `evaluate_*`
+  evaluators close the "gate missing" axis; only the parity test locks
+  the "gate in wrong position" axis (the 7th case of this audit),
+  which no amount of green tests on the installer alone can prove.
+  Help text, platform guides and the bootstrap guide state the
+  requirement.
+- **Result:** decision recorded; implementation follows in a dedicated
+  devkit PR after the in-flight updater gate lands.
+- **Deferred:** the shared evaluators (`evaluate_target`,
+  `evaluate_requirements`) live in `installer.py` today and `updater.py`
+  imports them — extraction into a `gates.py`/`plan.py` imported by
+  both is the clean end-state, postponed to avoid inflating the gate
+  PR. Named debt, not a bug; the parity test
+  (`tests/test_gate_parity.py`) is what makes the shared pipeline
+  enforceable regardless of where it lives — and it imports only the
+  caller modules (`installer`, `updater`), never the evaluators
+  directly, so the extraction cannot break its imports.
+
+## D-2026-10-11 — Publish workflow hardening: one verifier, verified=shipped, no-branch-publish
+
+- **Decision:** all seven `pypi-publish.yml` workflows converge on one
+  structure: a `resolve` job maps the released package to its
+  directory/module; a `verify` job calls the single shared reusable
+  `Icaro0310/devin-powerups/.github/workflows/verify-wheel-version.yml`
+  **pinned by SHA** (`61bf0b6`, tagged `v1.3`) — never floating `@v1`
+  on a publish gate; `publish` downloads the `dist` artifact the
+  verifier uploaded and pushes those exact bytes to PyPI — it does
+  not rebuild; a merged-into-main guard (`compare main...$GITHUB_SHA`
+  must report `behind|identical`) aborts before upload. Packages with
+  no `__version__` (install-scheduler) skip the gate explicitly by
+  resolving `mod=""`, and a failed `resolve` skips the publish leg
+  rather than starting it.
+- **Guarantee that must be stated, not implied:** **verified=shipped** —
+  the verified bytes are the shipped bytes, carried through the `dist`
+  artifact; no second build exists between verify and upload, so
+  substitution by an attacker or a nondeterministic build is
+  impossible. Scope of the guarantee, precisely: it covers byte
+  identity between what the gate inspected and what PyPI received.
+  It does NOT assert that the check itself was correct, that the
+  wheel's contents are safe, or that the verify policy was right —
+  those remain separate, human-verified properties.
+- **Reason:** three real events drove it — `devin-redact 0.2.1` and
+  `devin-evals 0.3.x` reached PyPI via dispatch from unmerged branches
+  (index ahead of main, unreproducible from the canonical tree);
+  `devin_metrics`/`devin_orchestrator`/`devin_memory` shipped wheels
+  self-reporting stale `__version__` (drift detected by hand, after
+  release); and a caller-side `@v1` floating reference would let a
+  later tag move silently alter what a publish gate enforces.
+- **Exception policy (named):** the merged-into-main guard has **no
+  bypass flag**. A hotfix goes through a normal main PR first; a
+  documented escape would become a permanent convenience hole. If a
+  real scenario ever forces a branch publish, this record is revisited
+  then — the flag is not added preemptively.
+- **Expected outcome:** `__version__` drift is caught before upload
+  everywhere the gate runs; packages born without `__version__` fail
+  loudly rather than silently skip; branch-publish cannot desync the
+  index again; and the next stale-template copy fails at the meta-check
+  (BACKLOG) rather than at a human remembering. Review convergence
+  expectation, made falsifiable: N=3 rounds of findings for a new
+  workflow surface plus M per fix round the review forces (corrections
+  to gates are themselves finding-prone — observed three times this
+  round alone). Adjust N and M with data when the next surface lands;
+  the estimate exists to be compared against, not to sound right.
+
+## D-2026-10-11b — Publish auth: OIDC-only, token path removed
+
+- **Decision:** the six `pypi-publish.yml` workflows that passed
+  `password: secrets.PYPI_API_TOKEN` no longer do (state#45,
+  explore#47, devkit#39, control#42, brain#44, judge#33). With the
+  input set, `pypa/gh-action-pypi-publish` authenticated every upload
+  with the account token and silently disabled Trusted Publishing —
+  each run produced PyPI's "API token was used ... even though the
+  project has a Trusted Publisher configured" email. OIDC is now the
+  only auth path; there is no code path left that can fall back to
+  the token without a workflow edit.
+- **Verification:** one `workflow_dispatch` per package (skip-existing
+  makes uploads no-ops; the OIDC exchange is what is exercised). OIDC
+  green for **12/14 tuples** — redact/backup/janitor, doctor/graph/
+  history/pm/search, orchestrator/switch, devin-memory, poordjaevin —
+  zero "disabling Trusted Publishing" warnings. The two failures are
+  `devin-devkit` and `devin-skill-catalog`: `invalid-pending-publisher:
+  valid token, but project already exists` — their **pending** TPs were
+  registered before first upload and became invalid when the account
+  token created the projects. Fix is PyPI-side (owner): remove the stale
+  pending publishers, add active TPs on each project's publishing
+  settings (`Icaro0310/devin-devkit` + `pypi-publish.yml` + env
+  `pypi-devkit`/`pypi-skill-catalog`).
+- **Token disposition:** `PYPI_API_TOKEN` stays dormant in the six repos
+  as rollback until the devkit pair is green on OIDC; then delete the
+  repo secrets and revoke the account token on PyPI — an unused account
+  token uploadable to every project is pure attack surface. The earlier
+  "empty password → OIDC fallback" policy is superseded: a populated
+  secret made the fallback unconditional, which is exactly what
+  generated the repeated warnings.
+  **(Revocation framing retracted — see Addendum 3. The token is a
+  deliberate account-level fallback, not a surface to eliminate.)**
+- **Expected outcome:** every publish authenticates via OIDC with zero
+  "API token was used" warnings; once the devkit pair is green, the
+  `PYPI_API_TOKEN` repo secrets and the account token are deleted —
+  the token path is gone, not just unused.
+  **(Revised by Addendum 3: the repo secrets stay deleted because the
+  workflows carry no `password:` code path; the account token is not
+  deleted — it remains an owner-held fallback.)**
+- **Result:** partial — OIDC green for 12/14 tuples at record time;
+  `devin-devkit` and `devin-skill-catalog` remain blocked on stale
+  pending publishers (PyPI-side owner action tracked in BACKLOG).
+  Token secrets stay dormant until then, so the record closes only
+  when the revocation step completes.
+  **(Closure criterion revised by Addendum 3: the record closes when
+  the TP cleanup lands and the re-dispatches prove OIDC green — no
+  revocation step exists.)**
+- **Addendum (2026-10-11, owner review):** the "dormant rollback"
+  disposition was overruled — a rollback that requires editing the
+  workflow anyway is dead weight, not a safety net. Corrected order:
+  revoke the account token and delete all repo secrets FIRST, close
+  the pending-TP cleanup, then re-dispatch; nothing depends on the
+  token existing. Execution so far: `PYPI_API_TOKEN` deleted from all
+  **seven** repos that held it (the six above plus
+  `devin-internals-spec`, missed by the per-repo check — grep, not
+  enumeration, is the proof: `grep -rn 'PYPI_API_TOKEN'
+  **/.github/workflows/`). The same grep caught two workflows the six
+  PRs missed: the reusable `devin-powerups/pypi-publish.yml` (token
+  input + password removed, header now documents
+  active-publisher-before-first-upload) and `devin-assure`. It also
+  surfaced that `devin-internals-spec`'s publish only ever worked via
+  token (it `uses:`-called the reusable workflow, which TP always
+  rejects) — fixed by giving it an inline `pypi-publish.yml`
+  (internals-spec#35) like every other product repo. Remaining owner
+  steps, unchanged: revoke the account token; remove the stale
+  pending publishers and add active TPs for devkit + skill-catalog
+  (and now internals-spec); then the re-dispatches verify OIDC.
+  **(Addendum 3: "revoke the account token" is retracted — not
+  policy. The remaining owner steps are the TP cleanup only.)**
+- **Addendum 2 (2026-10-11):** the publish-auth meta-check now rides
+  the required `secrets-scan` job (step "Assert publish workflows are
+  OIDC-only") in every caller, plus a self-scan `ci.yml` on the hub —
+  token-auth drift fails the required check at commit time, where the
+  author still has context, instead of surfacing in a nightly audit.
+  Callers pin `secrets-scan.yml@v1`, so the guard only propagates when
+  the floating `v1` tag is re-pointed after this branch merges.
+
+- **Addendum 3 (2026-10-11, owner — policy correction, supersedes the
+  revocation framing above):** the framing that accumulated on this
+  record — "close the account-token surface", "revoke the token",
+  "eliminate `PYPI_API_TOKEN` as attack surface", "revocation order is
+  critical" — is **retracted**. It was generic credential-hygiene
+  reasoning applied without knowing this ecosystem's actual policy.
+
+  **Authoritative credential policy:** OIDC is the primary path
+  (scope-per-workflow, granular); the token is a deliberate,
+  account-wide fallback for when the OIDC path is unavailable or not
+  viable. Devin holds credentials by decision, not by accident —
+  autonomy via tokens and access is part of the owner's operational
+  strategy, not a risk to mitigate. A token that exists and is not on
+  the normal code path is fallback, not surface.
+
+  **The missing distinction:** "token exists" ≠ "workflow uses token".
+  What generated the PyPI emails was the second — workflows passed
+  `password:` and disabled an already-configured TP, so the weaker
+  path was the default while the stronger existed. The cure removes
+  the wrong *code path*; it does not remove the *capability*.
+
+  **What stands:** `password:` removed from the active
+  `pypi-publish.yml`s (OIDC is the only path in workflow code);
+  the `devin-internals-spec` `uses:` finding (TP could never match a
+  caller `job_workflow_ref` — inline workflow was the correct fix,
+  single-update-point loss noted as low backlog); the corrected count
+  of 7 token-holding repos (grep, not enumeration); the PyPI-side TP
+  cleanup (delete stale pending publishers for devkit/skill-catalog;
+  activate TPs for devkit env `pypi-devkit`, skill-catalog env
+  `pypi-skill-catalog`, internals-spec env `pypi`) — goal: make OIDC
+  viable, not disable the token; the re-dispatch of the 3, which
+  tests "the primary path works alone", not "the fallback is gone";
+  the HEARTBEAT rule "PyPI/GitHub security email → ticket same-day",
+  with objective adjusted to *detecting bypass of the primary path*,
+  not detecting that a credential exists.
+
+  **Retracted:** revoking the account token on PyPI; deleting
+  `PYPI_API_TOKEN` as attack surface; any "revocation order"
+  language — there is no revocation; any reading that treats owner
+  credentials as a security problem rather than operational policy.
+  No revocation, no rotation, no access restriction in this round or
+  any future one without an explicit owner decision.
+
+  **Optional observability (non-blocking, owner-approved only):** an
+  `echo "auth=token"` line in the `pypi-publish.yml` step summary when
+  a publish ever runs via token instead of OIDC — auditable, same
+  pattern as the sanctioned git-main-push-bypass. Do not implement
+  without explicit approval.
+
+  **Note to future readers:** do not reopen this as "security
+  hygiene". OIDC-primary + token-fallback is a deliberate decision
+  aligned with Devin autonomy. A future record proposing to revoke or
+  rotate credentials in this ecosystem contradicts this addendum and
+  requires an explicit owner decision first.
+
+## D-2026-10-11c — VS Code extension: container-is-not-local-only + CLI↔extension contract
+
+- **Decision:** the `icaro0310.devin-doctor` VS Code adapter is a new
+  surface class: the extension itself is local-only (thin shell over
+  `devin-doctor check --json`), but it runs inside an editor container
+  that makes network calls by design — marketplace auto-update,
+  telemetry, extension host. Two consequences, both shipped:
+  (a) the corporate-Windows coverage lands as a **section inside the
+  package's guide** (`_PLATFORM_EXTRAS` keyed to `devin-explore`, the
+  registry entry that renders the doctor guide), not as a 21st guide
+  file — every future `adapters/vscode/` gets the same treatment in its
+  own package's guide; (b) `check --json` is treated as a versioned
+  contract: the extension declares `"devin-doctor-cli": ">=0.1,<0.2"`
+  in `package.json`, enforces it at runtime against `payload.version`,
+  and validates the rendered shape (`overall`, `version`,
+  `summary.{pass,warn,fail}`, `findings[].{check,status,message,fix?}`)
+  — drift fails loudly or flags the badge instead of rendering garbage.
+- **Date:** 2026-10-11.
+- **Reason:** the `local_only: true` registry contract was written for
+  Python CLIs; claiming it for an editor-hosted surface would have
+  produced the "editor makes external calls on a local-first request"
+  helpdesk ticket. And the extension/CLI pair versions independently —
+  the same drift class as the `__version__` incident, in the opposite
+  direction.
+- **Evidence:** generated section in devin-explore
+  `packages/doctor/README.corporate-windows.md` (marketplace
+  auto-update, VS Code telemetry, extension host, sideload-vs-
+  marketplace IT policy, workspace trust); contract enforcement +
+  tests in `devin-explore#55`; Python-side schema assertions in
+  `test_check_json_schema`. Verified fact discovered while wiring the
+  extras key: the registry has **no `devin-doctor` tool name** —
+  `devin-explore`'s entry renders `packages/doctor`.
+- **Expected outcome:** corporate rollout of the extension carries the
+  container caveats with it; a CLI schema change or a version outside
+  the pinned range surfaces as a named warning, never silent drift.
+- **Result:** shipped — generator section + guide regen wave (10 PRs,
+  powerups#121 stacked on #120), extension contract PR devin-explore#55
+  (0.2.0, stacked on #53). Observed side-finding logged separately:
+  `check --json` on a populated data dir exceeds the extension's 120 s
+  subprocess cap (disk-usage walk) — a CLI-latency property, not
+  contract drift.
