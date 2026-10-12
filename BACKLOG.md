@@ -73,7 +73,7 @@ column names the implementation that proves each `[portar]`.
 |---|---|---|
 | Incremental export cursor (`--since-session` watermark) | portar | `devin-history-export.py` incremental + lazy cursor (L544/649) |
 | `index --since` incremental reindex hook for SessionEnd | portar | `devin-search.py --incremental` with mtime state |
-| `metrics digest --weekly` | portar | `memory-rollup.yaml` + `metrics-watch.yaml` handlers (proposal misnamed them; machinery exists) |
+| `metrics digest --weekly` | estender | rollup/watch manifests exist but produce no digest report — the digest output itself is new |
 | `learning.weekly-extract` public report | portar | `learning-weekly-extract.yaml` manifest exists |
 
 **P3 — integrations (tool↔tool bridges):**
@@ -95,6 +95,7 @@ column names the implementation that proves each `[portar]`.
 | `--to ssh://host/path` remote snapshot offload with re-verify | portar | `vm-offload-run.py` does Tailscale offload daily; `copy-to` (local) shipped |
 | Trigger manifests (`*.yaml`) as plan DAG input | portar | `session-dispatcher.py` — real sequential DAG: "EVENT → normalizer (envelope) → DAG" |
 | qwenpaw healthcheck as heartbeat item | estender | site-sync monitors it; not wired to heartbeat |
+| `verify --all` degraded-vs-corrupted exit distinction (0 ok / 2 degraded / 3 corrupted) | estender | README documents verify→1 and rotate→2, but nothing distinguishes degraded from corrupted — the distinction itself is new |
 
 ## Gated until the window ends (2026-12-03)
 

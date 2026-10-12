@@ -141,7 +141,7 @@ here so they are not re-proposed.
 | HN/forum promotion | deferred | distribution not closed; a technical post earns stars after channels are proven, not before |
 | Task Observer / one-skill-to-rule-them-all | `[portar]` — spec below | CC-BY-4.0; structural inspiration, not a fork |
 | `pm digest` milestone digest | `[novo]` — reclassified | proposed as `[portar]` but no digest generator exists in the PAS (2026-10-13 verification); pain not felt |
-| backup `verify` exit-code contract | already satisfied — removed | README documents verify→1, rotate→2; a contract exists, the proposal predates it |
+| backup `verify` exit-code contract | partially satisfied — narrowed | verify→1/rotate→2 documented; the degraded-vs-corrupted distinction (0/2/3) remains open, kept in BACKLOG |
 
 ## Spec-needed directions
 
