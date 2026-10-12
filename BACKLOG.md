@@ -10,10 +10,12 @@ repo (all prefixed `[V4]`); this file is the index.
 
 ## Open
 
+Unvalidated ideas and scout proposals live in `DIRECTIONS.md` —
+this table is the executable queue.
+
 | Item | Priority | Tracking |
 |---|---|---|
 | Antigravity MCP Store listing request — submit `poordjaevin`/`devin-memory` servers to the curated catalog via the `[MCP Store]` tag on discuss.ai.google.dev | optional | external — forum review; wave-9 doc |
-| `devin-bridge` ACP-server mode spec — bridge is client-only today (`new`/`resume`/`prompt`/`sessions`/`policy`); a `serve`/`acp-server` mode enables policy-gated Zed/JetBrains agents | medium | needs-spec, Rule 1; wave-9 doc |
 | Per-package README snippets for Antigravity `mcp_config.json` and Zed/JB `agent_servers` configs | low | fold into Wave 1 MCP "Add Your Own" sections |
 | P6 product-boundary probes → 2026-12-03 audit (F3 backup+janitor / F1 explore / F2 assure; signals preregistered in `docs/product-boundaries.md`) | high | docs + D-record (#49, #50) |
 | Findings-clearance mechanism (two classes) — Devin Review leaves blocking threads unresolved under two distinct failure modes. Class (a) out-of-diff: flagged code lives outside the PR diff (reusable-workflow code referenced via `uses: @tag`), so caller PRs carry stale blocking threads that the gate correctly never clears. Class (b) in-diff-stale: flagged code WAS in the diff and got fixed, but no re-review posted on the new head, so the thread is never bot-resolved — (b) is a re-trigger gap, not a scope limit, and its fix may be a re-review trigger mechanism rather than a dismiss path (D-2026-10-10, fourth datapoint). Options: (a) gate-side dismiss list — maintainer-signed allowlist file mapping finding ID → refuting commit, honored by `pr-approve`; (b) Devin-side re-check/dismiss of findings anchored to external refs; (c) resolve-only-if-devin remains, and the interim path stays the proof-comment + admin merge per D-2026-10-10. Without this, every PR touching code flagged by a previous PR's findings inherits unkillable threads. **Expiry clause, not aspiration:** two disjoint delivery paths for the real fix — (a) Devin Review gains programmatic dismiss/re-check of stale anchors (both classes), or (b) the gate-side signed dismiss list ships in `pr-approve` — and a single closure criterion: the proof-comment + admin workaround is struck from D-2026-10-10's sanctioned list once *either* path exists, and this item closes only when the workaround is gone (not when a delivery path shipped). After that date any admin merge under this record is an error, not a precedent. | high | first occurrence: auto-approve rollout tail (7 PRs, 2026-10-10); D-2026-10-10 |
@@ -38,8 +40,30 @@ repo (all prefixed `[V4]`); this file is the index.
 | Open VSX namespace ownership (`icaro0310`) — `verified: false` confirmed on `/api/icaro0310`. Publishing works because creating a namespace grants **contributor** authority — all six extensions live since 2026-10-12 and the `release.yml` leg ships them in CI (`OVSX_PAT` in repo secrets, forwarded via explicit `secrets:` mapping). The "not a verified publisher" warning is removed only by granting **owner** — claim filed as `EclipseFdn/open-vsx.org#14088`. Once granted the namespace flips to verified and the warning clears; no republish needed. Cosmetic today | low | claim filed; awaiting Eclipse review |
 | ~~Marketplace publishing identity: PAT vs Entra/managed identity~~ — **resolved 2026-10-12 as the pre-registered decision predicted**: Entra workload identity shipped — app `devin-vscode-marketplace` (no Azure subscription, no PAT), per-repo federated credentials (`environment:release`) on the five extension repos, SP Contributor on publisher `icaro0310`, `release.yml` publishes via `azure/login` + `vsce publish --azure-credential --skip-duplicate`. Proof: `icaro0310.devin-doctor v0.1.0` published from CI. Zero PAT surface, zero freeze-window migration | medium | powerups#130 + #131 |
 | ~~`devin-memory` MCP promotion tools exposed on the AI surface~~ — **closed 2026-10-12** (devin-brain#53 merged): `release`/`approve` only register when the server launches with `DEVIN_MEMORY_MCP_PROMOTE=1`; `extract`'s `auto_approve` is masked off without the opt-in (an AI client cannot bypass the review lane through it either). Promotion stays human-only via `quarantine --release`/`approve` CLI. CI now installs `mcp` so the gate tests run | medium | filed 2026-10-11; devin-brain |
-| Umbrella CLI per product — **not enunciable yet, needs a spec**. Each package already ships its own console script (devin-doctor/devin-history/devin-search/devin-graph/devin-pm; devin-backup/devin-janitor/devin-redact; devin-metrics/devin-evals/devin-qa-pack; devin-switch/devin-orchestrator/devin-bridge). What an umbrella would add (single entry dispatching to member CLIs, one install, grouped help) is a product decision: name (`devin`? per-product `devin-<product>`?), collision policy with the Devin CLI itself, and whether members become extras. Filed as a spec-needed item, same class as the brain→skill-catalog bridge — do not build without a consumption-point spec. | low | filed 2026-10-11 |
-| MCP serving for devin-explore packages — **spec needed, molde exists**. No explore package ships an MCP server today (state: backup/janitor/redact; assure: qa-pack; brain: memory all do). Read-only query surfaces (search query, graph query, doctor check, history) are Rule-1-safe MCP candidates by nature; qa-pack's `adapters/mcp.py` is the reference mold. Spec needed per package: tool names, what a "query" returns to an AI surface, and whether `doctor check` (multi-minute) fits MCP timeouts. | medium | filed 2026-10-11 |
+
+## Port candidates (PAS-proven)
+
+`[portar]`-class scout proposals: the machinery already runs inside the
+PAS, so the pain was felt and solved there — porting is productization,
+not speculation. These carry normal backlog priority; `[novo]` and
+unproven `[estender]` proposals live in `DIRECTIONS.md` instead.
+
+| Item | Repo | Effort | Proposed | Note |
+|---|---|---|---|---|
+| `redact hook --install` — export-gate recipe (`session_end` + `sessionend-scan` commands exist; the install/hook-registration piece does not) | state | M | 2026-10-02 | PAS `redact_gate` in `session_learning.py` is the mold |
+| Incremental export cursor (`--since-session` watermark; `--session-id`/`export-gui` already shipped) | history/explore | M | 2026-10-02, re-asked 10-07 | avoids rescanning the whole DB weekly |
+| Scheduled `audit` handler recipe documented for public repos | doctor/explore | S | 2026-10-02 | PAS runs it via trigger manifest |
+| `metrics digest --weekly` | metrics/assure | S | 2026-10-02 | PAS `metrics-rollup` handler is the mold |
+| `--to ssh://host/path` remote snapshot offload with re-verify | backup/state | M | 2026-10-02, re-asked 10-07 | `copy-to` (local secondary) shipped; ssh dest + hash verify open — PAS does Tailscale vm-offload |
+| `index --since` incremental reindex hook for SessionEnd | search/explore | S | 2026-10-02, re-asked 10-07 | query-side `--since` shipped; index-side incremental open — PAS `devin-search.py` is the mold |
+| Shared `graph.db` with the PAS `devin-codegraph.py` (code↔session edges coexist) | graph/explore | M | 2026-10-02 | same-file alignment, both writers coexist |
+| `janitor report` (space-report subcommand) | janitor/state | S | 2026-10-07 | PAS manifest runs it daily read-only |
+| Trigger manifests (`*.yaml`) as plan DAG input | orchestrator/control | M | 2026-10-07 | `--spec-file` takes a JSON task spec; the PAS dispatcher envelope format is the mold |
+| `pm digest` milestone digest | pm/explore | M | 2026-10-07 | PAS consolidates private reports already |
+| qwenpaw healthcheck as heartbeat item | PAS/qwenpaw | S | 2026-10-07 | PAS scope — heartbeat suppression pattern exists |
+| Seed catalog registry with PAS `learned-*` inventory as `proposed` entries | skill-catalog/devkit | S | 2026-10-07 | exercises quarantine→approve on day one |
+| learned-* → catalog bundle export path | learning | M | 2026-10-07 | same write→gate→promote cycle as the memory bridge proposal |
+| `learning.weekly-extract` public report | learning | S | 2026-10-07 | manifest already runs in the PAS |
 
 ## Gated until the window ends (2026-12-03)
 
