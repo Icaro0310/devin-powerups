@@ -1,0 +1,374 @@
+name: release-fanout (reusable)
+
+# One-call release fan-out: build+verify the wheel, publish to PyPI via
+# OIDC, build+sign the GHCR image, package the VS Code extension, and
+# emit the marketplace notes — the legs every product repo wires by
+# hand today. Caller template and input docs: VARIANTS.md.
+#
+# PyPI leg — READ BEFORE CALLING FROM ANOTHER REPO:
+# PyPI validates the OIDC token's job_workflow_ref against the Trusted
+# Publisher's repo+workflow. For a cross-repo `uses:` caller that ref
+# is THIS file (Icaro0310/devin-powerups/.../release.yml), which a
+# per-repo TP can never match — reusable-workflow publishing is still
+# unsupported PyPI-side (pypi/warehouse#11096; ecosystem finding
+# D-2026-10-11b in BACKLOG.md). The publish-pypi job therefore guards
+# the upload: when job_workflow_ref's repo differs from the calling
+# repo it emits a warning and skips, and the repo's own
+# pypi-publish.yml remains the PyPI path. The upload runs only when
+# caller and TP are colocated — a same-repo caller, or a repo that
+# vendors this file under its own name. The version-exists check runs
+# unconditionally either way, so re-releases stay idempotent.
+#
+# `uses: $/…` below is the self-repository reference: it resolves to
+# this repository at the exact ref the caller pinned, so the wheel gate
+# can never drift to a different commit than the fan-out invoking it.
+#
+# The caller's `uses:` job MUST grant every scope any job here
+# requests — `contents: read`, `id-token: write` (PyPI OIDC + cosign
+# keyless) and `packages: write` (GHCR) — missing grants fail at
+# startup (startup_failure with zero jobs).
+
+on:
+  workflow_call:
+    inputs:
+      package-dir:
+        description: Directory containing pyproject.toml
+        type: string
+        required: true
+      module:
+        description: >-
+          Importable module name that must expose __version__ — passed
+          through to the wheel gate; derived from the built wheel when
+          empty.
+        type: string
+        required: false
+        default: ""
+      pypi-environment:
+        description: >-
+          GitHub environment gating the PyPI job — must match the
+          environment configured on the project's Trusted Publisher
+          (pypi / pypi-devkit / pypi-skill-catalog / pypi-switch)
+        type: string
+        required: true
+      python-version:
+        description: Interpreter used to build and verify the wheel
+        type: string
+        default: "3.12"
+      vscode-ext-dir:
+        description: >-
+          Directory of the VS Code extension to package. When set, the
+          manifest lint + `vsce package` run and the .vsix uploads as
+          the `vsix` artifact for the manual portal publish; when empty
+          the leg is skipped.
+        type: string
+        required: false
+        default: ""
+      docker-image:
+        description: >-
+          GHCR image name (e.g. devin-memory →
+          ghcr.io/<owner>/devin-memory), built from the repo-root
+          Dockerfile and cosign-signed; when empty the leg is skipped.
+        type: string
+        required: false
+        default: ""
+    outputs:
+      version:
+        description: Version resolved from the package's pyproject.toml
+        value: ${{ jobs.publish-pypi.outputs.version }}
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    permissions:
+      contents: read
+    uses: $/.github/workflows/verify-wheel-version.yml
+    with:
+      package-dir: ${{ inputs.package-dir }}
+      module: ${{ inputs.module }}
+      python-version: ${{ inputs.python-version }}
+
+  publish-pypi:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.pypi-environment }}
+    permissions:
+      contents: read    # checkout reads pyproject for name+version
+      id-token: write   # PyPI Trusted Publishing (OIDC)
+    outputs:
+      version: ${{ steps.pypi.outputs.version }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: dist
+          path: dist/
+
+      # Tag sanity + idempotency in one read. A `<pkg>-v<ver>` tag whose
+      # version disagrees with pyproject is a mistagged release — fail
+      # fast, the wheel gate cannot see the tag. Then the PyPI JSON API
+      # is checked file-by-file: a version whose dist filenames are ALL
+      # published sets exists=true and the upload below is skipped;
+      # a PARTIAL release (e.g. sdist landed, wheel did not) keeps
+      # exists=false so the upload resumes — skip-existing then makes
+      # the already-there files a no-op. 404 = unpublished; other
+      # non-2xx fails the step — a transient index error must not read
+      # as "safe to skip".
+      - name: Check tag and PyPI release state
+        id: pypi
+        env:
+          PACKAGE_DIR: ${{ inputs.package-dir }}
+          REF_NAME: ${{ github.ref_name }}
+          REF_TYPE: ${{ github.ref_type }}
+        run: |
+          python3 - <<'PY'
+          import json, os, tomllib, urllib.error, urllib.request
+          meta = tomllib.load(open(os.path.join(
+              os.environ['PACKAGE_DIR'], 'pyproject.toml'), 'rb'))['project']
+          name, version = meta['name'], meta['version']
+          ref = os.environ['REF_NAME']
+          if os.environ['REF_TYPE'] == 'tag' and '-v' in ref:
+              tag_pkg, tag_ver = ref.rsplit('-v', 1)
+              # Tag prefix names the package: ecosystem tags use the
+              # pyproject name OR the package-dir basename
+              # (qa-pack-v0.1.0 vs devin-qa-pack-v0.1.0 — both seen).
+              allowed = {name, os.path.basename(
+                  os.path.normpath(os.environ['PACKAGE_DIR']))}
+              if tag_ver != version or tag_pkg not in allowed:
+                  print(f'::error::tag {ref} does not name {name} '
+                        f'{version} — a mistagged release would publish '
+                        'the wrong package or version; retag or bump.')
+                  raise SystemExit(1)
+          published = set()
+          try:
+              data = json.load(urllib.request.urlopen(
+                  f'https://pypi.org/pypi/{name}/{version}/json', timeout=30))
+              published = {f['filename'] for f in data.get('urls', [])}
+          except urllib.error.HTTPError as e:
+              if e.code != 404:
+                  raise
+          local = {f.name for f in os.scandir('dist') if f.is_file()}
+          missing = sorted(local - published)
+          exists = bool(published) and not missing
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as fh:
+              fh.write(f'version={version}\n')
+              fh.write(f'exists={"true" if exists else "false"}\n')
+          if exists:
+              print(f'::notice::{name} {version} is already fully on PyPI — '
+                    'the upload step is skipped (idempotent re-release).')
+          elif missing:
+              print(f'::notice::{name} {version} is partially published — '
+                    f'uploading missing files: {missing}')
+          PY
+
+      # OIDC feasibility guard: PyPI binds the exchange to
+      # job_workflow_ref — for a cross-repo `uses:` caller that is this
+      # file in devin-powerups, which no per-repo Trusted Publisher can
+      # match (pypi/warehouse#11096). Skip with a warning instead of a
+      # red leg; the product repo's own pypi-publish.yml stays the PyPI
+      # path. Same-repo callers and vendored copies publish normally.
+      - name: Check OIDC publisher feasibility
+        id: oidc
+        env:
+          JOB_WORKFLOW_REF: ${{ github.job_workflow_ref }}
+          REPO: ${{ github.repository }}
+        run: |
+          wf_repo="${JOB_WORKFLOW_REF%%/.github/*}"
+          if [ "$wf_repo" = "$REPO" ]; then
+            echo "feasible=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "feasible=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::PyPI Trusted Publishing cannot authenticate from a cross-repo reusable workflow (job_workflow_ref=$JOB_WORKFLOW_REF — see pypi/warehouse#11096). Upload skipped; publish via the repo's own pypi-publish.yml."
+          fi
+
+      - name: Upload to PyPI
+        if: steps.pypi.outputs.exists != 'true' && steps.oidc.outputs.feasible == 'true'
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
+        with:
+          packages-dir: dist/
+          # Resumes partial releases: files already on PyPI are skipped,
+          # missing ones upload — the check above only gates the
+          # fully-published case.
+          skip-existing: true
+
+  docker:
+    # Needs only the wheel gate: the image builds from source and the
+    # version is read from pyproject below — a PyPI outage must not
+    # block the container publish.
+    needs: verify
+    if: inputs.docker-image != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write   # GHCR push
+      id-token: write   # cosign keyless signing
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Resolve version and image ref
+        id: v
+        env:
+          PACKAGE_DIR: ${{ inputs.package-dir }}
+          OWNER: ${{ github.repository_owner }}
+          IMAGE_NAME: ${{ inputs.docker-image }}
+        run: |
+          ver=$(python3 -c "import tomllib,os; print(tomllib.load(open(os.path.join(os.environ['PACKAGE_DIR'],'pyproject.toml'),'rb'))['project']['version'])")
+          test -n "$ver"
+          echo "version=$ver" >> "$GITHUB_OUTPUT"
+          # Docker refs are lowercase-only — an owner like Icaro0310
+          # would otherwise produce an invalid ghcr.io/<Owner>/<img>
+          # reference that buildx rejects before the push.
+          echo "ref=ghcr.io/${OWNER,,}/${IMAGE_NAME,,}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Repo-root Dockerfile by convention — a repo whose image builds
+      # from a package subdir or needs a bespoke context keeps its own
+      # docker-publish.yml and leaves docker-image empty here.
+      - name: Build and push image
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: VERSION=${{ steps.v.outputs.version }}
+          tags: |
+            ${{ steps.v.outputs.ref }}:${{ steps.v.outputs.version }}
+            ${{ steps.v.outputs.ref }}:latest
+
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Sign image (keyless)
+        env:
+          IMAGE: ${{ steps.v.outputs.ref }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: cosign sign --yes "${IMAGE}@${DIGEST}"
+
+  vscode-ext:
+    # Needs only the wheel gate: the version is read from pyproject in
+    # the lint step below — the extension artifact must survive a PyPI
+    # outage or a pending environment approval.
+    needs: verify
+    if: inputs.vscode-ext-dir != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      # Manifest lint — cheap, fails before any npm/vsce work.
+      # (a) `main` requires non-empty activationEvents (hit for real on
+      #     devin-memory: missing activationEvents failed vsce package);
+      # (b) engines.vscode present; (c) publisher present AND lower-case
+      #     (Marketplace publisher IDs are lowercase — a case mismatch
+      #     fails at publish); (d) name present; (e) every
+      #     contributes.mcpServerDefinitionProviders entry needs its
+      #     onMcpServerDefinitionProviders:<id> activation event;
+      # (f) `version` must equal the release's pyproject version — the
+      #     extension ships in lockstep, a stale package.json version
+      #     would upload an outdated .vsix under a new release tag.
+      - name: Lint extension manifest
+        working-directory: ${{ inputs.vscode-ext-dir }}
+        env:
+          PACKAGE_DIR: ${{ inputs.package-dir }}
+        run: |
+          python3 - <<'PY'
+          import json, os, sys, tomllib
+          pkg = json.load(open('package.json'))
+          errs = []
+          events = pkg.get('activationEvents') or []
+          if pkg.get('main') and not events:
+              errs.append("'main' is set but 'activationEvents' is missing or "
+                          "empty — vsce package fails without it")
+          if not pkg.get('engines', {}).get('vscode'):
+              errs.append("'engines.vscode' is required")
+          publisher = pkg.get('publisher')
+          if not publisher or publisher != publisher.lower():
+              errs.append("'publisher' must exist and be lower-case — "
+                          "publisher IDs are lowercase, a case mismatch fails publish")
+          if not pkg.get('name'):
+              errs.append("'name' is required")
+          providers = pkg.get('contributes', {}).get('mcpServerDefinitionProviders') or []
+          expected = {f"onMcpServerDefinitionProviders:{p['id']}"
+                      for p in providers if isinstance(p, dict) and p.get('id')}
+          missing = sorted(expected - set(events))
+          if missing:
+              errs.append("'activationEvents' is missing MCP provider hooks: "
+                          + ', '.join(missing))
+          rel_version = tomllib.load(open(os.path.join(
+              os.environ['GITHUB_WORKSPACE'], os.environ['PACKAGE_DIR'],
+              'pyproject.toml'), 'rb'))['project']['version']
+          if rel_version and pkg.get('version') != rel_version:
+              errs.append(f"'version' {pkg.get('version')} != release version "
+                          f"{rel_version} — the extension ships in lockstep; "
+                          "bump package.json before tagging")
+          for err in errs:
+              print(f'::error::{err}')
+          sys.exit(1 if errs else 0)
+          PY
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+
+      - name: Install extension dependencies
+        working-directory: ${{ inputs.vscode-ext-dir }}
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install --no-audit --no-fund
+          fi
+
+      - name: Package .vsix
+        working-directory: ${{ inputs.vscode-ext-dir }}
+        run: npx @vscode/vsce package
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: vsix
+          path: ${{ inputs.vscode-ext-dir }}/*.vsix
+
+      # Manual-portal placeholder: the VS Code Marketplace publish goes
+      # through the web portal today — PAT/CLI publish is blocked
+      # pending an Azure DevOps org, which needs an Azure subscription.
+      # Upload the `vsix` artifact under
+      # https://marketplace.visualstudio.com/manage/publishers/<publisher>
+      - name: Marketplace publish is manual
+        run: echo "::notice::vsix packaged as the 'vsix' artifact — upload it manually at https://marketplace.visualstudio.com/manage (portal is the current path; PAT/CLI publish is blocked pending the Azure subscription)."
+
+      # ==== Open VSX — DISABLED until the namespace claim lands ====
+      # Activates when EclipseFdn/open-vsx.org#14088 approves the
+      # `icaro0310` namespace. Then uncomment, add the OVSX_PAT secret
+      # to each calling repo and forward it via `secrets:` — reusable
+      # workflows only see secrets the caller passes (or `inherit`).
+      # - name: Publish to Open VSX
+      #   working-directory: ${{ inputs.vscode-ext-dir }}
+      #   env:
+      #     OVSX_PAT: ${{ secrets.OVSX_PAT }}
+      #   run: npx ovsx publish --pat "$OVSX_PAT"
+      # ==== end Open VSX ====
+
+  gh-marketplace:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      # Informational only — GitHub Marketplace listing is a checkbox on
+      # the release-creation form ("Publish this Action to the GitHub
+      # Marketplace"), not a CI step, and editing a release afterwards
+      # cannot add it. Gotchas for the release form: action description
+      # <125 chars (silent blocker), branding icon+color required, and
+      # the listing slug comes from action.yml `name:`, not the repo.
+      - name: Note Marketplace listing path
+        run: echo "::notice::GitHub Marketplace listing happens at release creation (checkbox on the release form) — nothing to do in CI."

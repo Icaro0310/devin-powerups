@@ -28,6 +28,7 @@ their own pace. Concrete release tags (`v1.0.0`) mark the underlying commit.
 | `adapter-test.yml` | One adapter face's own suite in isolation, on windows+ubuntu | called from per-package adapter workflows | `package-dir`, `adapter-dir`, `test-command`, `python-version`, `node-version`, `pre-install`, `skip-install` |
 | `pypi-publish.yml` | Verify wheel `__version__`, then publish the verified `dist` to PyPI | `workflow_call` only — the caller wires `release`/`workflow_dispatch` | `package-dir`, `python-version`, `module` |
 | `verify-wheel-version.yml` | Build + `__version__` gate; uploads the verified `dist` artifact | called from publish workflows | `package-dir`, `module`, `python-version` |
+| `release.yml` | Release fan-out: wheel gate → PyPI OIDC → GHCR+cosign → `.vsix` artifact → marketplace notes | `workflow_call` from per-repo release workflows | `package-dir`, `module`, `pypi-environment`, `python-version`, `vscode-ext-dir`, `docker-image` → output `version` |
 
 ### Caller templates
 
@@ -128,6 +129,39 @@ jobs:
       test-command: node --test
       node-version: "22"
       skip-install: true
+```
+
+```yaml
+# release.yml — one job fans the release out to every channel. The
+# caller's uses: job must grant the UNION of the scopes the called jobs
+# request (contents:read + id-token:write for PyPI OIDC/cosign +
+# packages:write for GHCR) or the run dies at startup_failure.
+# PyPI caveat: trusted publishing validates job_workflow_ref — a
+# cross-repo caller's ref points at devin-powerups/release.yml, which a
+# per-repo Trusted Publisher can never match (pypi/warehouse#11096).
+# The PyPI job detects that case and skips the upload with a warning;
+# the repo's own inline pypi-publish.yml stays the PyPI path. The leg
+# publishes for same-repo callers and vendored copies of release.yml.
+# docker-image / vscode-ext-dir are opt-outs: empty skips that leg.
+name: release
+on:
+  push:
+    tags: ["*-v*"]
+permissions:
+  contents: read
+jobs:
+  fanout:
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
+    uses: Icaro0310/devin-powerups/.github/workflows/release.yml@v1
+    with:
+      package-dir: packages/doctor
+      pypi-environment: pypi
+      # optional legs:
+      # docker-image: devin-doctor
+      # vscode-ext-dir: packages/doctor/adapters/vscode
 ```
 
 ```yaml
