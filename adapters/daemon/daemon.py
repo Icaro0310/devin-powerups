@@ -11,6 +11,7 @@ schedules, persists and shuts down cleanly. No check logic lives here.
 from __future__ import annotations
 
 import json
+import os
 import signal
 import subprocess
 import sys
@@ -53,8 +54,10 @@ def run_check(cli: str = CLI, runner=subprocess.run) -> dict:
 def write_state(payload: dict, path: Path = STATE_PATH) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     # Write-then-rename: an interrupted write must never leave a truncated
-    # last.json where readers previously had a complete snapshot.
-    tmp = path.with_name(path.name + ".tmp")
+    # last.json where readers previously had a complete snapshot. The tmp
+    # name carries the pid so two daemons sharing a state_path cannot
+    # clobber each other's pending rename.
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
     tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     tmp.replace(path)
     return path
