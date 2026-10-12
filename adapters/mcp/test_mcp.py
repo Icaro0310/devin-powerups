@@ -40,19 +40,24 @@ def _call(fn, *args, **kwargs):
         return mcp_server._err(error)
 
 
-def test_failure_returns_error_dict(tmp_path):
+def test_failure_returns_error_dict(monkeypatch):
     # ARRANGE a failing fixture before calling — required, not optional:
     # the assert is unconditional, so a passing payload means the fixture
     # was not actually failing, which is itself a bug in this test.
-    # Concrete patterns the real adapters use (pick what do_<verb>'s
-    # signature supports):
+    # Shipped default: patch the tool callable to raise — deterministic on
+    # every adapter, no signature knowledge needed.
+    # Alternatives the real adapters use (pick what do_<verb> supports):
     #   * corrupt the synthetic fixture — devin-janitor writes
     #     b"not sqlite" into sessions_db, then calls
     #     _call(do_classify, data_dir=str(devin_dir.root));
     #   * pass an unreadable path arg when do_<verb> accepts one, e.g.
-    #     _call(do_dry_run, data_dir=str(tmp_path / "missing"));
-    #   * monkeypatch the imported core function to raise.
-    payload = _call(mcp_server.do_status)  # <- pass the arranged args/seam
+    #     _call(do_dry_run, data_dir=str(tmp_path / "missing")) —
+    #     re-add tmp_path to the signature if you take that route.
+    def _raise(*_args, **_kwargs):
+        raise RuntimeError("arranged failure — exercises the error mapping")
+
+    monkeypatch.setattr(mcp_server, "do_status", _raise)
+    payload = _call(mcp_server.do_status)
     assert set(payload) == {"error", "detail"}
 
 

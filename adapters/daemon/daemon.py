@@ -15,6 +15,7 @@ import os
 import signal
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -54,13 +55,20 @@ def run_check(cli: str = CLI, runner=subprocess.run) -> dict:
 def write_state(payload: dict, path: Path = STATE_PATH) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     # Write-then-rename: an interrupted write must never leave a truncated
-    # last.json where readers previously had a complete snapshot. The tmp
-    # name carries the pid so two daemons sharing a state_path cannot
-    # clobber each other's pending rename; truncate the basename so a
-    # near-limit filename (255-byte component cap) still fits.
-    tmp = path.with_name(f"{path.name[:200]}.{os.getpid()}.tmp")
-    tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    tmp.replace(path)
+    # last.json where readers previously had a complete snapshot. mkstemp
+    # reserves a guaranteed-unique name in the same directory — concurrent
+    # daemons sharing a state_path cannot collide, and no existing file is
+    # ever truncated to make room for the pending rename.
+    fd, tmp_name = tempfile.mkstemp(
+        dir=path.parent, prefix=f"{path.name}.", suffix=".tmp"
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as tmp:
+            tmp.write(json.dumps(payload, indent=2))
+        Path(tmp_name).replace(path)
+    except BaseException:
+        Path(tmp_name).unlink(missing_ok=True)
+        raise
     return path
 
 
