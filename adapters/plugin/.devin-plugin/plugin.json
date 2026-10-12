@@ -1,0 +1,15 @@
+{
+  "name": "<pkg>",
+  "version": "<current package version>",
+  "description": "<one line, same as the pyproject description>",
+  "author": { "name": "Icaro0310" },
+  "repository": "https://github.com/Icaro0310/<product-repo>",
+  "license": "MIT",
+  "keywords": ["devin", "<pkg-short>"],
+  "mcpServers": {
+    "<pkg>": {
+      "command": "uvx",
+      "args": ["--from", "<pkg>[mcp]", "<pkg-cli>-mcp"]
+    }
+  }
+}
