@@ -100,6 +100,29 @@ jobs:
 
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
+      - name: Assert adapter/package version lockstep
+        # Catches at PR time what the release lint would catch at tag
+        # time — three drift incidents in three weeks (redact, evals,
+        # memory/search) say release-time-only is too late. Fires only
+        # when the face has a package.json AND the package has a
+        # pyproject — the VS Code face today; a no-op for every other
+        # face. The extension ships in lockstep with its package.
+        shell: bash
+        env:
+          PACKAGE_DIR: ${{ inputs.package-dir }}
+          ADAPTER_DIR: ${{ inputs.adapter-dir }}
+        run: |
+          ext="$ADAPTER_DIR/package.json"; pkg="$PACKAGE_DIR/pyproject.toml"
+          { [ -f "$ext" ] && [ -f "$pkg" ]; } || exit 0
+          python - "$ext" "$pkg" <<'EOF'
+          import json, sys, tomllib
+          ext_v = json.load(open(sys.argv[1]))["version"]
+          pkg_v = tomllib.load(open(sys.argv[2], "rb"))["project"]["version"]
+          if ext_v != pkg_v:
+              sys.exit(f"::error::{sys.argv[1]} version {ext_v} != {sys.argv[2]} "
+                       f"version {pkg_v} — the adapter ships in lockstep; bump both")
+          EOF
+
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         if: inputs.python-version != ''
         with:
