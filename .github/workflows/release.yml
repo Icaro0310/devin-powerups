@@ -364,7 +364,7 @@ jobs:
       - name: Publish to VS Code Marketplace
         if: vars.AZURE_CLIENT_ID != '' && vars.AZURE_TENANT_ID != ''
         working-directory: ${{ inputs.vscode-ext-dir }}
-        run: npx @vscode/vsce publish --azure-credential --packagePath *.vsix --skipDuplicate
+        run: npx @vscode/vsce publish --azure-credential --packagePath *.vsix --skip-duplicate
 
       - name: Marketplace publish skipped — Entra vars missing
         if: vars.AZURE_CLIENT_ID == '' || vars.AZURE_TENANT_ID == ''
