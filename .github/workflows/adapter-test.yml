@@ -114,13 +114,21 @@ jobs:
         env:
           PACKAGE_DIR: ${{ inputs.package-dir }}
           ADAPTER_DIR: ${{ inputs.adapter-dir }}
-        # grep/sed extraction, not tomllib: this runs before setup-python,
-        # so only the runner image's ambient tools are guaranteed.
+        # Runs before setup-python/setup-node — only runner-image tools
+        # (node + sed exist on all three images). JSON is parsed, not
+        # grepped, so nested "version" keys can't shadow the top-level
+        # one; the TOML read is confined to the [project] table and
+        # accepts both quote styles.
         run: |
           ext="$ADAPTER_DIR/package.json"; pkg="$PACKAGE_DIR/pyproject.toml"
           { [ -f "$ext" ] && [ -f "$pkg" ]; } || exit 0
-          ext_v=$(grep -m1 '"version"' "$ext" | sed -E 's/.*"version"[^"]*"([^"]+)".*/\1/')
-          pkg_v=$(grep -m1 '^version' "$pkg" | sed -E 's/.*"([^"]+)".*/\1/')
+          ext_v=$(node -p "JSON.parse(require('fs').readFileSync('$ext','utf8')).version || ''")
+          pkg_v=$(sed -n '/^\[project\]/,/^\[/p' "$pkg" \
+                  | sed -nE "s/^version *= *[\"']([^\"']+)[\"'].*/\1/p" | head -1)
+          if [ -z "$ext_v" ] || [ -z "$pkg_v" ]; then
+            echo "::error::cannot read a static version from $ext or $pkg — the lockstep gate requires static versions in both"
+            exit 1
+          fi
           if [ "$ext_v" != "$pkg_v" ]; then
             echo "::error::$ext version $ext_v != $pkg version $pkg_v — the adapter ships in lockstep; bump both"
             exit 1
