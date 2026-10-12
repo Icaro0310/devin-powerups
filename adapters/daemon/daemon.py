@@ -56,8 +56,9 @@ def write_state(payload: dict, path: Path = STATE_PATH) -> Path:
     # Write-then-rename: an interrupted write must never leave a truncated
     # last.json where readers previously had a complete snapshot. The tmp
     # name carries the pid so two daemons sharing a state_path cannot
-    # clobber each other's pending rename.
-    tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+    # clobber each other's pending rename; truncate the basename so a
+    # near-limit filename (255-byte component cap) still fits.
+    tmp = path.with_name(f"{path.name[:200]}.{os.getpid()}.tmp")
     tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     tmp.replace(path)
     return path
