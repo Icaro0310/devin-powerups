@@ -2,10 +2,13 @@
 """Fail when a workflow pushes a container image without cosign signing.
 
 For every public registry entry with a local checkout, scan
-``.github/workflows/*.yml`` (and ``.yaml``): a workflow that pushes to a
-container registry (``ghcr.io``) must also grant ``id-token: write`` and
-invoke cosign/sigstore — otherwise a new image workflow is born unsigned
-and nobody notices.
+``.github/workflows/*.yml`` (and ``.yaml``): a workflow that pushes a
+container image (a registry push command, a ``--push`` build flag, or a
+build-push/bake-action ``push:`` input that is not literal ``false``)
+must also grant ``id-token: write`` and actually sign (``cosign
+sign``/``attest`` or a sigstore signing action) — otherwise a new image
+workflow is born unsigned and nobody notices. Pulls, image references
+and comments mentioning a registry do not count as publishing.
 
 Usage: check_image_signing.py [--root DIR]   (default root: ecosystem root)
 """
@@ -16,9 +19,36 @@ import sys
 from pathlib import Path
 
 HUB = Path(__file__).resolve().parent.parent
-PUSH_RE = re.compile(r"ghcr\.io")
-SIGN_RE = re.compile(r"cosign|sigstore")
+# Publishing evidence: a push verb or --push flag in a run step, or a
+# 'push:' input with a truthy value. A bare registry hostname (pulls,
+# image refs, comments) is not a publish. 'push:' at line end is the
+# 'on: push' trigger, not an action input, so a value must follow.
+PUSH_RE = re.compile(
+    r"(?:docker|podman|nerdctl|buildah|crane|oras)\s+(?:compose\s+)?push\b"
+    r"|--push\b"
+    r"|\bpush:[ \t]+(?!false\b|\{)\S"
+)
+# Signing evidence: an actual sign/attest invocation or a sigstore signing
+# action — a bare 'cosign'/'sigstore' mention (comment, env var, install
+# step, 'cosign verify') never produced a signature.
+SIGN_RE = re.compile(
+    r"cosign\s+(?:sign|attest)\b"
+    r"|docker\s+trust\s+sign\b"
+    r"|notation\s+sign\b"
+    r"|uses:\s*sigstore/gh-action-sigstore-python"
+)
 TOKEN_RE = re.compile(r"id-token:\s*write")
+
+
+def _code_lines(text: str) -> str:
+    """Strip comment lines and trailing ' #...' so a commented-out push,
+    token grant or sign step cannot fake (or fabricate) evidence."""
+    out = []
+    for line in text.splitlines():
+        if line.lstrip().startswith("#"):
+            continue
+        out.append(re.sub(r"[ \t]+#.*$", "", line))
+    return "\n".join(out)
 
 
 def problems_for(repo: Path, name: str) -> list[str]:
@@ -27,7 +57,7 @@ def problems_for(repo: Path, name: str) -> list[str]:
         return []
     problems = []
     for wf in sorted(wf_dir.glob("*.yml")) + sorted(wf_dir.glob("*.yaml")):
-        text = wf.read_text(encoding="utf-8", errors="replace")
+        text = _code_lines(wf.read_text(encoding="utf-8", errors="replace"))
         if not PUSH_RE.search(text):
             continue
         if not TOKEN_RE.search(text):
