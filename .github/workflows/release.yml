@@ -194,7 +194,10 @@ jobs:
           skip-existing: true
 
   docker:
-    needs: [verify, publish-pypi]
+    # Needs only the wheel gate: the image builds from source and the
+    # version is read from pyproject below — a PyPI outage must not
+    # block the container publish.
+    needs: verify
     if: inputs.docker-image != ''
     runs-on: ubuntu-latest
     permissions:
@@ -251,7 +254,10 @@ jobs:
         run: cosign sign --yes "${IMAGE}@${DIGEST}"
 
   vscode-ext:
-    needs: [verify, publish-pypi]
+    # Needs only the wheel gate: the version is read from pyproject in
+    # the lint step below — the extension artifact must survive a PyPI
+    # outage or a pending environment approval.
+    needs: verify
     if: inputs.vscode-ext-dir != ''
     runs-on: ubuntu-latest
     permissions:
@@ -273,10 +279,10 @@ jobs:
       - name: Lint extension manifest
         working-directory: ${{ inputs.vscode-ext-dir }}
         env:
-          EXPECTED_VERSION: ${{ needs.publish-pypi.outputs.version }}
+          PACKAGE_DIR: ${{ inputs.package-dir }}
         run: |
           python3 - <<'PY'
-          import json, os, sys
+          import json, os, sys, tomllib
           pkg = json.load(open('package.json'))
           errs = []
           events = pkg.get('activationEvents') or []
@@ -298,7 +304,9 @@ jobs:
           if missing:
               errs.append("'activationEvents' is missing MCP provider hooks: "
                           + ', '.join(missing))
-          rel_version = os.environ.get('EXPECTED_VERSION')
+          rel_version = tomllib.load(open(os.path.join(
+              os.environ['GITHUB_WORKSPACE'], os.environ['PACKAGE_DIR'],
+              'pyproject.toml'), 'rb'))['project']['version']
           if rel_version and pkg.get('version') != rel_version:
               errs.append(f"'version' {pkg.get('version')} != release version "
                           f"{rel_version} — the extension ships in lockstep; "
