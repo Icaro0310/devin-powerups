@@ -56,6 +56,8 @@ class whose pain is already felt and nameable. Normal backlog priority;
 | Documented exit codes for `verify --all` (0 ok / 2 degraded / 3 corrupted) | backup/state | S | 2026-10-07 | daemon units landed; schedulers need the contract |
 | Align devin-office with the E2E runner contract (`missing_dir`) | office | S | 2026-10-07 | reported as broken weekly |
 | Dedupe the 14 `learned-*` skills (overlapping themes, e.g. teste-hook vs testes) | learning | S | 2026-10-07 | merge/consolidation job with version bump |
+| Recreate `scheduled_tasks` on Linux (systemd --user/cron for janitor, scout, testgen, ci-watch) | PAS | M | 2026-10-07 | the scheduled_tasks table is empty on this machine — real gap |
+| Memory→catalog bridge: `learned-*` skills written by the learning loop enter the catalog's `proposed` lane automatically | memory/brain | M | 2026-10-07 | ongoing handoff, distinct from the one-time inventory seed and the manual bundle export — closes the write→gate→promote cycle |
 | `redact hook --install` — export-gate recipe (`session_end` + `sessionend-scan` commands exist; the install/hook-registration piece does not) | state | M | 2026-10-02 | PAS `redact_gate` in `session_learning.py` is the mold |
 | Incremental export cursor (`--since-session` watermark; `--session-id`/`export-gui` already shipped) | history/explore | M | 2026-10-02, re-asked 10-07 | avoids rescanning the whole DB weekly |
 | Scheduled `audit` handler recipe documented for public repos | doctor/explore | S | 2026-10-02 | PAS runs it via trigger manifest |
