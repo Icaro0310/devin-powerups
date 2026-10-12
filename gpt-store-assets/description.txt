@@ -1,0 +1,1 @@
+Guide to the devin-* ecosystem: unofficial, local-first Devin tooling — session search, install diagnostics, QA/eval gates, memory with quarantine, store backup and config profiles. Routes you to the right repo, docs and CLI. Not affiliated with Cognition AI.
