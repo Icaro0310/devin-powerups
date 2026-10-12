@@ -125,6 +125,22 @@ today.
 | skill-catalog | `catalog watch` via trigger manifest | novo | Partial |
 | personal-agent-system | Single ops digest email | novo | No |
 
+## Evaluated and archived (2026-10-13)
+
+External tools/skills assessed against the conversion rule. Archived
+here so they are not re-proposed.
+
+| Item | Verdict | Reason |
+|---|---|---|
+| gitql (SQL over git history) | `[novo]` — no felt pain | `git log --grep` covers the actual queries; if ever needed, use the binary, no fork |
+| dreamjs (JSON from schema) | discarded | unmaintained 5y + overlaps devin-dream→evals fixtures; unmaintained code is instant debt |
+| Graphify (code knowledge graph) | **adopted via catalog** | complementary to devin-graph (code vs sessions); skill, not port — vendored + governed 2026-10-13 |
+| addyosmani/agent-skills (25) | **adopted via catalog** | MIT; vendored, quarantined, G1-gated, promoted — validates the catalog on a real external set |
+| ponytail (6) | **adopted + installed** | MIT; catalog-active and live in user `~/.devin/skills/` |
+| RAG_Techniques | discarded | embeddings/vector store contradicts local-first SQLite positioning; if devin-search ever goes semantic, that is a separate decision |
+| HN/forum promotion | deferred | distribution not closed; a technical post earns stars after channels are proven, not before |
+| Task Observer / one-skill-to-rule-them-all | `[portar]` — spec below | CC-BY-4.0; structural inspiration, not a fork |
+
 ## Spec-needed directions
 
 Filed from the wave-9/audit cycle. Same conversion rule: they stay here
@@ -143,3 +159,17 @@ until the consumption point — and the pain — is concrete.
   qa-pack's `adapters/mcp.py` is the mold. Per-package spec needed:
   tool names, what a "query" returns, whether `doctor check` fits MCP
   timeouts.
+- **Observation lane, Task-Observer-inspired** (spec sketch from
+  `rebelytics/one-skill-to-rule-them-all`, CC-BY-4.0 — attribution:
+  Eoghan Henn / rebelytics.com). The PAS `session_learning.py` already
+  captures turn-level lessons and auto-promotes recurring themes to
+  `learned-*` skills; the catalog already owns the
+  proposed→quarantined→approved lifecycle. The missing piece the
+  observer model adds: a governed *proposal* stage for changes to
+  **existing** skills — corrections/friction observed during use become
+  staged improvement proposals reviewed by a human, not direct writes.
+  Concretely: learning-loop observations land as catalog `proposed`
+  entries with evidence (the memory→catalog bridge in BACKLOG is the
+  transport), plus a review pass that can diff a staged skill update
+  before approve. Needs spec: observation schema, how an observation
+  binds to a skill SHA, which tier auto-promotes vs waits for review.
