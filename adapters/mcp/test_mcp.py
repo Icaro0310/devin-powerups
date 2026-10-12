@@ -31,13 +31,38 @@ def test_do_status_matches_cli_json(cli_runner):
     assert mcp_server.do_status() == cli_runner("status", "--json")
 
 
-def test_failure_returns_error_dict(cli_runner):
-    # Point the tool at a fixture the CLI must reject (missing input dir,
-    # bad id — whatever makes `check` exit non-zero in this package).
-    # The assert is unconditional: a passing payload here means the
-    # fixture was not actually failing, which is itself a bug.
-    payload = mcp_server.do_status("<invalid-or-missing-fixture>")
+def _call(fn, *args, **kwargs):
+    """Apply the same exception -> {error, detail} mapping the tool layer
+    wraps every do_* in (mirrors devin-janitor's _call helper)."""
+    try:
+        return fn(*args, **kwargs)
+    except Exception as error:  # noqa: BLE001 — mirrors the tool boundary
+        return mcp_server._err(error)
+
+
+def test_failure_returns_error_dict(tmp_path):
+    # ARRANGE a failing fixture before calling — required, not optional:
+    # the assert is unconditional, so a passing payload means the fixture
+    # was not actually failing, which is itself a bug in this test.
+    # Concrete patterns the real adapters use (pick what do_<verb>'s
+    # signature supports):
+    #   * corrupt the synthetic fixture — devin-janitor writes
+    #     b"not sqlite" into sessions_db, then calls
+    #     _call(do_classify, data_dir=str(devin_dir.root));
+    #   * pass an unreadable path arg when do_<verb> accepts one, e.g.
+    #     _call(do_dry_run, data_dir=str(tmp_path / "missing"));
+    #   * monkeypatch the imported core function to raise.
+    payload = _call(mcp_server.do_status)  # <- pass the arranged args/seam
     assert set(payload) == {"error", "detail"}
+
+
+def _registered_tool_names(server) -> set:
+    # Listing entry point the ecosystem's MCP tests use (devin-memory's
+    # test_mcp_server.py): FastMCP (mcp 1.x) and MCPServer (mcp 2.x) both
+    # hold registered tools at _tool_manager._tools, keyed by tool name —
+    # synchronous, unlike the SDKs' async list_tools().
+    manager = getattr(server, "_tool_manager", None)
+    return set(getattr(manager, "_tools", {}) or {})
 
 
 def test_build_server_registers_tools():
@@ -46,12 +71,10 @@ def test_build_server_registers_tools():
     # job installing .[dev,mcp] SHOULD run this registration smoke test.
     pytest.importorskip("mcp")
     app = mcp_server.build_server()
-    # Existence is not enough — the declared tool must be registered and
-    # reachable through the server API. The listing entry point varies
-    # across MCP SDK versions (app.list_tools(), @app.list_tools
-    # decorator, server.tools); use whichever this package's SDK exposes.
-    tools = getattr(app, "tools", None) or getattr(app, "_tools", {})
-    assert "<pkg>_status" in {getattr(t, "name", t) for t in tools}
+    # Existence is not enough — the declared tool must be registered under
+    # the name the SDK derives from the def in mcp_server.py (pkg_status
+    # here; keep this literal in sync when the tool is renamed).
+    assert "pkg_status" in _registered_tool_names(app)
 
 
 def test_pyproject_exposes_mcp_entry_point_and_extra():

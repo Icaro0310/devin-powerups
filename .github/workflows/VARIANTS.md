@@ -96,7 +96,10 @@ jobs:
 # paths AND the package source: a CLI change can break the parity
 # contract without touching the adapter, so core paths must also
 # trigger the face suite. Python faces keep the defaults; Node faces
-# set node-version and skip-install. See docs/adapter-checklist.md.
+# set node-version and skip-install. test-command / pre-install are
+# allowlist-guarded: plain command + args matching
+# ^[a-zA-Z0-9 ./_-]+$, no shell metacharacters — the reusable fails
+# closed on anything else. See docs/adapter-checklist.md.
 name: test-doctor-vscode
 on:
   push:
