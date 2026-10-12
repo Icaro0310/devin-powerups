@@ -88,6 +88,10 @@ def test_apply_creates_os_guides_and_removes_legacy_translation(tmp_path: Path):
     assert "--no-build-isolation" in corporate and "source_only" in corporate
     assert "no required network calls" in corporate and "Fully local runtime" in corporate
     assert "## Zscaler" in corporate
+    # Reviewed cert-store guidance (Devin Review on the regenerated guides):
+    # the export must produce PEM and both Windows cert stores are covered.
+    assert "certlm.msc" in corporate and "Base-64 encoded X.509 (.CER)" in corporate
+    assert "certutil -encode zscaler-root.cer zscaler-root.pem" in corporate
     assert "## Personal Windows specifics" in windows
     assert "Microsoft Store" in windows and "Uninstall" in windows
     assert "uv tool install" in linux and "XDG_DATA_HOME" in linux
