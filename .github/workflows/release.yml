@@ -260,8 +260,15 @@ jobs:
     needs: verify
     if: inputs.vscode-ext-dir != ''
     runs-on: ubuntu-latest
+    # environment:release — the Entra federated credential on each
+    # caller repo is scoped to this exact environment name, so the
+    # OIDC `sub` is `repo:<caller>:environment:release`. It also turns
+    # marketplace publish into a human-gated deploy if the caller sets
+    # required reviewers on `release`.
+    environment: release
     permissions:
       contents: read
+      id-token: write   # azure/login OIDC → Entra federated credential
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
@@ -338,13 +345,30 @@ jobs:
           name: vsix
           path: ${{ inputs.vscode-ext-dir }}/*.vsix
 
-      # Manual-portal placeholder: the VS Code Marketplace publish goes
-      # through the web portal today — PAT/CLI publish is blocked
-      # pending an Azure DevOps org, which needs an Azure subscription.
-      # Upload the `vsix` artifact under
-      # https://marketplace.visualstudio.com/manage/publishers/<publisher>
-      - name: Marketplace publish is manual
-        run: echo "::notice::vsix packaged as the 'vsix' artifact — upload it manually at https://marketplace.visualstudio.com/manage (portal is the current path; PAT/CLI publish is blocked pending the Azure subscription)."
+      # Marketplace publish via Entra workload-identity federation:
+      # azure/login exchanges the job's GitHub OIDC token for an Entra
+      # token using the `devin-vscode-marketplace` app registration
+      # (federated credential `gh-<repo>-release`, subject
+      # environment:release) — no PAT, no Azure subscription. The
+      # identity's marketplace member ID was added to the publisher as
+      # Contributor (members portal). Skips with a warning when the
+      # caller repo does not define AZURE_CLIENT_ID/AZURE_TENANT_ID.
+      - name: Azure login (federated)
+        if: vars.AZURE_CLIENT_ID != '' && vars.AZURE_TENANT_ID != ''
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+
+      - name: Publish to VS Code Marketplace
+        if: vars.AZURE_CLIENT_ID != '' && vars.AZURE_TENANT_ID != ''
+        working-directory: ${{ inputs.vscode-ext-dir }}
+        run: npx @vscode/vsce publish --azure-credential --packagePath *.vsix --skipDuplicate
+
+      - name: Marketplace publish skipped — Entra vars missing
+        if: vars.AZURE_CLIENT_ID == '' || vars.AZURE_TENANT_ID == ''
+        run: echo "::warning::AZURE_CLIENT_ID/AZURE_TENANT_ID not set — vsix stays as the 'vsix' artifact for manual portal upload (https://marketplace.visualstudio.com/manage)."
 
       # ==== Open VSX — DISABLED until the namespace claim lands ====
       # Activates when EclipseFdn/open-vsx.org#14088 approves the
