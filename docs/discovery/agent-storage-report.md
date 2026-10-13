@@ -150,15 +150,19 @@ None. The only probe failure was opening `state_5.sqlite` without
    offline). Its probes are equivalent for filesystem facts but a live
    run would also capture env vars (`COPILOT_DIR`, `CODEX_HOME`) and
    binary versions. Optional future run. `[NÃO VERIFICADO]`
-
-To close any of these, run the discovery tools shipped in this repo on
-the target machine: `scripts/discovery/discover-agent-storage.ps1`
-(Windows PowerShell 5.1, no admin) or
-`scripts/discovery/discover-agent-storage.py` (Python 3.8+ stdlib) —
-`MANUAL-FALLBACK.md` there lists one-liners for CLM/AppLocker/WDAC
-hosts where scripts cannot execute.
 5. `chat.disableAIFeatures` = unset on the observed profile; other
    profiles exist under `Code/User/profiles/` (uninspected). `[LOCAL]` partial
+
+Most gaps close with a live or remote run of the discovery tools shipped
+in this repo: `scripts/discovery/discover-agent-storage.ps1` (Windows
+PowerShell 5.1, no admin) or
+`scripts/discovery/discover-agent-storage.py` (Python 3.8+ stdlib) —
+`MANUAL-FALLBACK.md` there lists one-liners for CLM/AppLocker/WDAC
+hosts where scripts cannot execute. Gap 2 is the exception: the scripts
+count rollout files without reading `threads` rows, so an install that
+has sessions needs a separate `rollout_path` liveness probe (e.g. a
+read-only sqlite query over `state_*.sqlite`) — the tools would have to
+be extended to cover it.
 
 ## What this report never contains
 
