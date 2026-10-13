@@ -71,8 +71,8 @@ column names the implementation that proves each `[portar]`.
 
 | Item | Class | Verified |
 |---|---|---|
-| Incremental export cursor (`--since-session` watermark) | portar | `devin-history-export.py` incremental + lazy cursor (L544/649) |
-| `index --since` incremental reindex hook for SessionEnd | portar | `devin-search.py --incremental` with mtime state |
+| ~~Incremental export cursor~~ — **shipped 2026-10-13**: `devin_internals.cursor` (internals-spec v0.3.1, PyPI) + `devin-history export --since/--incremental` (explore#62) + `devin-learning extract --since/--incremental` (brain#57). Pattern spec: `docs/incrementality.md` | portar | shared helper replaces 3 local cursor impls |
+| `index --since` incremental reindex hook for SessionEnd | portar | `devin-search.py --incremental` with mtime state; note: `devin-search index`/`devin-graph build` already incremental internally (rowid/ledger) — hook wiring is the gap |
 | `metrics digest --weekly` | estender | rollup/watch manifests exist but produce no digest report — the digest output itself is new |
 | `learning.weekly-extract` public report | portar | `learning-weekly-extract.yaml` manifest exists |
 
