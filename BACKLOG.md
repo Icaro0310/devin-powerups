@@ -51,11 +51,11 @@ class whose pain is already felt and nameable. Normal backlog priority;
 Classification re-verified 2026-10-13 against PAS code — the "Verified"
 column names the implementation that proves each `[portar]`.
 
-**P0 — unblocks everything else (CI is red):**
+**P0 — shipped (2026-10-13, personal-agent-system#31):**
 
 | Item | Class | Verified |
 |---|---|---|
-| E2E runner installs `devin-internals-spec` editable in target venvs | fix | 12 suites abort `deps_missing` weekly; runner must resolve the internal dep before pytest |
+| ~~E2E runner installs `devin-internals-spec` editable in target venvs~~ | fix | shipped: venv-per-repo (`~/.venvs/<repo>`, auto-created), editable installs of declared+discovered `devin_*` deps, `deps_missing` now fails the run — sweep: 12 → 0 |
 
 **P1 — hygiene/debt (felt pain, cheap):**
 
