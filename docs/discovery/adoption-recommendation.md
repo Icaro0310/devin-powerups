@@ -1,7 +1,17 @@
 # Adoption recommendation — input to Gate G1
 
-Status: recommendation only. The owner decides each item in writing at
-G1. Every claim carries its evidence label; nothing here is product code.
+Status: **G1 PENDING** — skipped by written owner instruction
+(2026-10-13: "pule o G1 por agora, coloque como pending e siga em
+frente"). Phase 2b proceeds under the provisional decisions below; any
+of them may be reverted when the owner writes G1. Decisions assumed:
+(a) per-surface strategies as recommended here, (b) parser order
+copilot-cli → codex-cli → vscode-chat, (c) vendored TS redact port,
+(e) files as copilot-cli primary — the last two are settled by 2a
+evidence; (d) session-vault as UI: no; (f) corporate restrictions:
+unresolved — the corporate run is still owed.
+
+Status note: every claim carries its evidence label; nothing here is
+product code.
 `agent-storage-report.md` is now `owner-output-received` (collected
 offline via read-only NTFS mount + native Linux run); the remaining
 evidence gaps are listed at the end of that report and in the final
