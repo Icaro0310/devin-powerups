@@ -64,3 +64,8 @@ muitos ficheiros, superficies geradas, ou merges sob guardrails.
   lockfile drift)
 - v3 (2026-10-13): default invertido em superseded (assume que nao esta),
   classe `approve-job flake` nomeada
+- (2026-10-13) limite do default invertido: o grep-em-main aplica-se a
+  PRs que tocam superficie de produto ou config (.github/, pyproject,
+  codigo). Para PRs docs-only ou dependabot, fechar por leitura do
+  titulo e aceitavel — sem este limite a regra correcta desgasta-se por
+  uso excessivo, e regra gasta morre.
