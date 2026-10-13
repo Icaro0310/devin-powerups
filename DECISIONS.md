@@ -1283,3 +1283,19 @@ contact are the target.
   publishes are a documented self-check in `docs/publish-checklist.md`.
 - **The live drift:** closing symptom is merging devin-explore#53 (the
   0.1.1 bump), which restores `main` to the published version.
+## D-2026-10-13i — Pin policy for reusable workflows: float the safe ones, pin the elevated ones
+
+- **Context:** `python-test.yml` callers use the floating `@v1` tag while
+  `verify-wheel-version`/`pypi-publish` callers pin SHAs. Two sensors
+  shipped in one day illustrated the asymmetry: the `uv lock --check`
+  step propagated to every `@v1` caller with zero rollout, while the
+  verify-gate relocation cost 8 pin-bump PRs. Without a note, a future
+  reader will "fix" `@v1` to a SHA by analogy — buying a 15-repo rollout
+  for a gain the job doesn't need.
+- **Decision:** float the tag for low-privilege workflows
+  (`contents: read` — test/lint/scan), pin SHAs for elevated or
+  publish-path workflows (secrets, `id-token`, uploads). A header
+  comment in `python-test.yml` states this at the point of confusion.
+- **Corollary:** fixes to `@v1` callers ride the tag move; SHA-pinned
+  callers need an explicit pin-bump wave plus a `v1` re-tag for any
+  floaters.
