@@ -37,3 +37,10 @@ All parsing runs locally. Parse warnings use sanitized templates
 first-message text) are never read into the canonical model.
 
 Requires VS Code 1.100+. MIT.
+
+## Development
+
+`npm run build` compiles `src/` + `adapters/` to `out/` (ESM).
+`npm run vscode:package` produces `agent-sessions.vsix`.
+**`engines.vscode` and `@types/vscode` move together** — `vsce` rejects
+a types version newer than `engines`; bump both in the same commit.
