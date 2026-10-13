@@ -228,3 +228,12 @@ are queues. Revisit only when a concrete reason appears.
 | MCP Registry claim | pending — claim not publicly verifiable | `devin-brain/.well-known/mcprush-claim.txt` exists but `icaro0310.github.io/devin-brain/.well-known/` returns 404 — Pages does not serve it (jekyll dotdir or Pages off). Options: enable Pages with `include: [.well-known]`, or move the claim to the main site repo. Owner decision (MÉDIO-3 checkpoint) |
 | Antigravity | compatible in principle | `.vsix` from Open VSX verified valid (zip ok, `engines.vscode ^1.85.0`); install test needs the IDE binary — not present on this host |
 | Zed | probe blocked | `devin-bridge` ACP test needs a Zed instance — not installed on this host |
+
+## Naming note (2026-10-13)
+
+**Cognition "Dreaming" != `devin-dream`.** Cognition's Dreaming is the
+nightly memory-consolidation pass inside the official Devin Memory
+feature (cloud, Git+Markdown memory drive). `devin-dream` (absorbed into
+devin-evals) generates synthetic sessions with known verdicts for
+adversarial regression. Same word, different function — do not merge,
+rename, or cross-reference them.

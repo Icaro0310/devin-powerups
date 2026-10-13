@@ -1048,3 +1048,35 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
 - **Expected outcome:** this drift class fails on the PR that introduces
   it, in every repo sharing the reusable CI — 0 per release instead of
   ~1.
+
+## D-2026-10-13g — devin-memory repositioned: memory governance layer, not "Devin's memory"
+
+- **Context:** Cognition shipped official Devin Memory + Dreaming
+  (2026-10-05/06, `Customize → Memory`, no extra cost) and open-sourced
+  the substrate as the Agent Memory Repo spec (MIT,
+  `AgentMemoryRepo/agentmemoryrepo`): a personal Git repo of Markdown
+  notes, `MEMORY.md` entry point, per-session checkouts, a nightly
+  dreaming pass that dedupes and resolves conflicts.
+- **Decision:** `devin-memory`/`devin-brain` is repositioned from "the
+  Devin's memory" (the official feature now covers that: automatic
+  learning, native dreaming, zero-config) to **the memory-governance
+  layer for any agent**: human quarantine before memories become durable
+  truth, explicit provenance with versioning and retraction, strictly
+  local storage (JSONL, zero network calls), and multi-agent consumption
+  via `devin-memory-mcp` (Claude Code, Cursor, etc. — the official
+  feature is Devin-only). Complementary layers, not competitors; no
+  competing memory store will be built.
+- **Second-order effects:** the official launch *validates* the
+  Git+Markdown substrate choice the ecosystem already made. The
+  Agent Memory Repo spec entered `devin-skill-catalog` as a
+  `governed-pointer` entry (`agent-memory-repo`, MIT, approved —
+  activation stays opt-in via `devin plugins install`/`npx skills add`).
+  `devin-skill-catalog` gains relevance: it can now govern specs, not
+  just skills. Name collision noted in DIRECTIONS.md: Cognition
+  "Dreaming" != `devin-dream`.
+- **Not affected:** history, search, graph, evals, redact, learning —
+  the official feature overlaps only the memory-governance domain.
+  `devin-learning` stays (structured metadata extraction vs Dreaming's
+  note consolidation).
+- **Human checkpoint:** enabling official Memory is a web-UI toggle
+  (`Customize → Memory`) — owner action, no CLI path.
