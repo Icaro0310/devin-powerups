@@ -1319,3 +1319,15 @@ contact are the target.
 ## D-2026-10-13j — Adapters-check sensor: doc files exempt from loopback `host:port`; allowlist is hash-pinned per file
 
 New reusable CI sensor (`adapters-check.yml` + `scripts/check-adapters-hygiene.py`) blocks distributed adapter files (adapters/, packages/*/adapters/, .devin/skills/) from leaking internals or drifting from the package's public contract. Two policy choices worth recording: (1) `host:port` literals only flag **non-doc** files — a daemon README documenting the product's own `127.0.0.1:8788` bind is the public contract, not a leak; every other rule applies to docs too. (2) Known-legitimate hits pin via repo-root `.adapters-hygiene-allow` (`path sha256=<hex>`, same mechanism as `.secrets-scan-allow`) — fixtures stay pinned, not pattern-exempted.
+
+## D-2026-10-13k — Sweep-closure record: 5 items accepted-as-is / deferred-pending-dor + spec rule
+
+Closure of the MÉDIO-3/4 + skill-audit flagged list. Two were factual and fixed the same day (janitor standalone: `archived=true` + MOVED banner — frozen history, zero work; plugin.json↔pyproject drift: real bump-drift class, 6 manifests synced + lockstep step extended in python-test.yml@v1). The remaining five are closed **as decisions**, not parked — they must not reappear as backlog noise:
+
+- **`SLACK-BRAIN`/`djaevin-local`/`poordjaevin`/`heartbeat` names in devin-state (`config.py`, `judge.py`, README):** **accepted as public contract, not renamed.** They are configurable shipped defaults documented in the README; rename cost (breaking change + user migration) exceeds the gain (neutral names). Revisit only on a concrete corporate complaint.
+- **`OBSIDIAN_VAULT: ~/devin/ObsidianVault` in control profiles:** **accepted as configurable default.** `~/devin/…` is the example path any user would set — a shipped default, not a personal leak.
+- **`devin-bridge` ACP-server spec:** **stays in DIRECTIONS until concrete pain.** Rule-1 sensitive — exposing spawn/kill to an AI-driven surface is exactly what the rule prohibits. Hypothesis to evaluate on a real use case, not speculative work.
+- **Zed runtime probe:** **deferred until a Zed instance exists on a host.** Do not install Zed just for the probe — curiosity, not pain. Config-only path is shipped and documented.
+- **`pm digest` / `weekly-report` in MCP/SKILL:** **deferred until CLI usage justifies.** MCP/SKILL is convenience over a working CLI; revisit on request or real usage.
+
+**Spec rule (formalizing a convention from an earlier round, was only in conversation):** a good spec is **not** revised after it becomes executable — once the spec drives shipped work, corrections happen in code + D-record, and the spec table is updated to `shipped`, never retro-edited to match what got built. The spec stays the record of intent; the code + D-records are the record of truth.
