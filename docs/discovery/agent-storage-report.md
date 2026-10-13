@@ -50,7 +50,7 @@ Versions below are inferred from install paths only.
 | `codex` CLI | binary not found; `~/.codex/` tree exists (`installation_id`, 5 sqlite DBs, `skills/`, `tmp/`) | `[LOCAL]` presence; version `[NÃO VERIFICADO]` |
 | `chat.disableAIFeatures` | unset | `[LOCAL]` |
 | Python / Node | Windows: `Python314/` at root; npm-global has `opencode`, `pi`, `devin-bridge`, etc. Linux: Python 3.14.4, Node 22.20.0 | `[LOCAL]` |
-| `managed-settings/` under `AppData/Local/copilot/` | present (1 sha256-named file) — **possible managed/corporate policy signal** for G1(f) | `[LOCAL]` existence only; content unread |
+| `managed-settings/` under `AppData/Local/copilot/` | present (1 sha256-named file) on a **personal** machine — semantics unverified; presence alone cannot establish managed/policy state | `[LOCAL]` existence only; content unread |
 
 ### Surface: Copilot VS Code Chat — `vscode-chat`
 
@@ -127,7 +127,9 @@ Key findings:
   (usable for `workspace-hash`, never emitted) `[LOCAL]` keys only.
 - Per-session `session.db` (`todos`, `inbox_entries`, `todo_deps`) is a
   storage location none of the six candidates documents `[LOCAL]`.
-- `managed-settings/` presence is a corporate-policy signal → G1(f).
+- `managed-settings/` exists on a personal machine — its meaning is
+  `[NÃO VERIFICADO]` (could be normal CLI layout); not corporate
+  evidence by itself. G1(f) stays open for the corporate run.
 
 ### Errors / access-denied
 
