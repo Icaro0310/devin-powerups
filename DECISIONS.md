@@ -1311,3 +1311,7 @@ contact are the target.
   stage a risky change: pin ONE affected caller to the candidate SHA,
   let it run, then move `v1`. If nobody pins, the only defense is
   "hope it doesn't break" — which is exactly the gap this record closes.
+- **Status:** convention, not enforcement — the canary step exists while
+  someone remembers it. Upgrade path if it bites: a `# canary: <sha>`
+  marker line in a caller, validated by a cheap CI check, would make it
+  mechanical. Deferred until the first missed-canary incident.
