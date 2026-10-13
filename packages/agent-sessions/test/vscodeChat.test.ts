@@ -139,8 +139,8 @@ test('emptyWindowChatSessions -> workspace_hash null, canonical id without works
   assert.equal(res.sessions.length, 1);
   const s = res.sessions[0]!;
   assert.equal(s.workspace_hash, null);
-  assert.equal(s.id, `vscode-chat:native:${id}`);
-  assert.equal(s.id, canonicalId('vscode-chat', null, 'native', id));
+  assert.equal(s.id, null); // no stable workspace identity -> never canonical
+  assert.ok(s.parse_warnings.some((w) => w.code === 'unknown-workspace'));
 });
 
 test('truncated last mutation line -> truncated-tail warning', () => {
@@ -182,5 +182,27 @@ test('open session without completion marker -> session-open warning', () => {
   const s = res.sessions[0]!;
   assert.equal(s.event_count, 1);
   assert.ok(s.parse_warnings.some((w) => w.code === 'session-open'));
-  assert.equal(s.ended_at, iso(T0 + 5000)); // lastMessageDate still bounds the end
+  assert.equal(s.ended_at, null); // no completion/close marker -> end not determinable
+});
+
+test('mutation with __proto__ path -> skipped, no prototype pollution', () => {
+  const root = mkRoot();
+  const id = 'sess-proto-1';
+  const lines = JSON.stringify({ kind: 0, v: { version: 2, creationDate: T0, requests: [] } }) + '\n'
+    + JSON.stringify({ kind: 1, k: ['__proto__', 'polluted'], v: 'pwned' }) + '\n';
+  write(root, path.join(wsDir(WS_A), `${id}.jsonl`), lines);
+  const res = vscodeChatParser.collect(envFor(root), 'metadata');
+  const s = res.sessions[0]!;
+  assert.equal(({} as Record<string, unknown>).polluted, undefined);
+  assert.ok(s.parse_warnings.some((w) => w.code === 'unsupported-mutation'));
+});
+
+test('document without version -> missing-field warning', () => {
+  const root = mkRoot();
+  write(root, path.join(globalDir('emptyWindowChatSessions'), 'sess-nover.json'),
+    JSON.stringify({ creationDate: T0, lastMessageDate: T0 + 1, requests: [] }));
+  const res = vscodeChatParser.collect(envFor(root), 'metadata');
+  const s = res.sessions[0]!;
+  assert.equal(s.source_version, null);
+  assert.ok(s.parse_warnings.some((w) => w.code === 'missing-field'));
 });

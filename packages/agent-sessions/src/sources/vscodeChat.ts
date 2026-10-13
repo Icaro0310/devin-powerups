@@ -80,6 +80,8 @@ function discover(userDir: string): ChatFile[] {
 // ---------- mutation replay (.jsonl) / snapshot (.json) ----------
 
 /** The container at `keys` in `root`, creating objects/arrays along the way. */
+const UNSAFE_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
+
 function walk(root: Record<string, any>, keys: (string | number)[]): any {
   let cur: any = root;
   for (let i = 0; i < keys.length; i++) {
@@ -120,6 +122,7 @@ function rebuild(text: string): Rebuild {
     }
     if (!isObject(r)) continue;
     const k = Array.isArray(r.k) ? r.k.filter((p: unknown) => typeof p === 'string' || typeof p === 'number') : [];
+    if (k.some((p) => typeof p === 'string' && UNSAFE_KEYS.has(p))) { unknownKinds++; continue; }
     const last = k[k.length - 1];
     const parent = () => walk(state, k.slice(0, -1));
     switch (r.kind) {
@@ -190,13 +193,16 @@ function metaOf(rb: Rebuild, f: ChatFile): SessionMeta {
   else if (!lastReq) w.push(warn('no-end-marker', 'no requests recorded; session end not determinable'));
   else if (!completed) w.push(warn('session-open', 'last request has no completion marker; session may be open'));
   const version = typeof doc.version === 'number' || typeof doc.version === 'string' ? String(doc.version) : null;
+  if (version === null) w.push(warn('missing-field', 'session document has no version field'));
+  if (!f.wsHash) w.push(warn('unknown-workspace', 'no stable workspace identity; session not deduplicated'));
+  const ended = completed && times.length ? new Date(Math.max(...times)).toISOString() : null;
   return {
     surface: SURFACE,
-    id: canonicalId(SURFACE, f.wsHash, 'native', f.id),
+    id: f.wsHash ? canonicalId(SURFACE, f.wsHash, 'native', f.id) : null,
     display_key: '',
     title: null, // auto-generated titles embed first-prompt text (verified on real data) — content-derived; customTitle not distinguishable
     started_at: times.length ? new Date(Math.min(...times)).toISOString() : null,
-    ended_at: times.length ? new Date(Math.max(...times)).toISOString() : null,
+    ended_at: ended,
     source_version: version,
     workspace_hash: f.wsHash,
     event_count: requests.length,

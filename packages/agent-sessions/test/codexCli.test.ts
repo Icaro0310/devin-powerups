@@ -166,8 +166,34 @@ test('g) rollout without cwd -> null workspace hash in id', () => {
   const res = codexCliParser.collect(env, 'metadata');
   assert.equal(res.sessions.length, 1);
   const s = res.sessions[0]!;
-  assert.equal(s.id, 'codex-cli:native:roll-nocwd');
-  assert.equal(s.id, canonicalId('codex-cli', null, 'native', 'roll-nocwd'));
+  assert.equal(s.id, null); // no stable workspace identity -> never canonical
   assert.equal(s.workspace_hash, null);
+  assert.match(s.display_key, /^codex-cli:ephemeral:/);
   assert.ok(s.parse_warnings.some((w) => w.code === 'unknown-workspace'));
+});
+
+test('h) task_started after task_complete -> end no longer determinable', () => {
+  const env = mkhome('h');
+  mkRollout(env.home, join('sessions', '2025', '01', '07', 'rollout-restart.jsonl'), [
+    { timestamp: '2025-01-07T10:00:00Z', type: 'session_meta', payload: { id: 'roll-restart', timestamp: '2025-01-07T10:00:00Z', cwd: '/repo/a' } },
+    { timestamp: '2025-01-07T10:05:00Z', type: 'event_msg', payload: { type: 'task_complete' } },
+    { timestamp: '2025-01-07T10:10:00Z', type: 'event_msg', payload: { type: 'task_started' } },
+  ]);
+  const res = codexCliParser.collect(env, 'metadata');
+  const s = res.sessions[0]!;
+  assert.equal(s.ended_at, null); // second task still running
+  assert.ok(s.parse_warnings.some((w) => w.code === 'no-end-marker' || w.code === 'session-open'));
+});
+
+test('i) same native id in different workspaces -> both kept, cross-workspace warning', () => {
+  const env = mkhome('i');
+  for (const [file, cwd] of [['rollout-x1.jsonl', '/repo/a'], ['rollout-x2.jsonl', '/repo/b']] as const) {
+    mkRollout(env.home, join('sessions', '2025', '01', '08', file), [
+      { timestamp: '2025-01-08T10:00:00Z', type: 'session_meta', payload: { id: 'dup-id', timestamp: '2025-01-08T10:00:00Z', cwd } },
+      { timestamp: '2025-01-08T10:30:00Z', type: 'event_msg', payload: { type: 'task_complete' } },
+    ]);
+  }
+  const res = codexCliParser.collect(env, 'metadata');
+  assert.equal(res.sessions.length, 2); // distinct workspaces are distinct sessions
+  assert.ok(res.warnings.some((w) => w.code === 'cross-workspace-duplicate'));
 });

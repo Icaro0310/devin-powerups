@@ -124,7 +124,7 @@ function readThreads(path: string): Draft[] {
       const startedAt = toIso(row.created_at), updated = toIso(row.updated_at);
       if (!nativeId) w.push(warn('missing-field', 'native id missing', sv));
       if (!startedAt) w.push(warn('missing-field', 'start timestamp missing', sv));
-      if (!cwd) w.push(warn('unknown-workspace', 'workspace path missing; id carries no workspace segment', sv));
+      if (!cwd) w.push(warn('unknown-workspace', 'workspace path missing; session id stays null, not deduplicated', sv));
       const hasUser = row.has_user_event === 1 || row.has_user_event === true;
       const endedAt = deriveEndedAt(updated, null, hasUser, w, sv ?? undefined);
       return {
@@ -143,7 +143,7 @@ function parseRollout(path: string): Draft | null {
   const lines = text.split('\n');
   if (endsNl) lines.pop();
   let nativeId: string | null = null, cwd: string | null = null, startedAt: string | null = null;
-  let lastTs: string | null = null, endTs: string | null = null;
+  let lastTs: string | null = null, endTs: string | null = null, taskOpen = false;
   let events = 0, malformed = 0, truncated = false;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -169,6 +169,10 @@ function parseRollout(path: string): Draft | null {
       cwd = asStr(payload.cwd) ?? asStr(git.root) ?? asStr(git.repository_root) ?? cwd;
     } else if (obj.type === 'event_msg' && payload.type === 'task_complete' && ts) {
       endTs = ts;
+      taskOpen = false;
+    } else if (obj.type === 'event_msg' && payload.type === 'task_started' && ts) {
+      endTs = null;
+      taskOpen = true; // a later task start invalidates the previous completion marker
     }
     events++;
   }
@@ -177,10 +181,16 @@ function parseRollout(path: string): Draft | null {
   if (truncated) w.push(warn('truncated-tail', 'final record truncated', 'rollout'));
   if (malformed > 0) w.push(warn('partial-parse', `${malformed} malformed record(s) skipped`, 'rollout'));
   if (!nativeId) w.push(warn('missing-field', 'native id missing', 'rollout'));
-  if (!cwd) w.push(warn('unknown-workspace', 'workspace path missing; id carries no workspace segment', 'rollout'));
+  if (!cwd) w.push(warn('unknown-workspace', 'workspace path missing; session id stays null, not deduplicated', 'rollout'));
   if (!startedAt) startedAt = lastTs;
   if (!startedAt) w.push(warn('missing-field', 'start timestamp missing', 'rollout'));
-  const endedAt = deriveEndedAt(lastTs, endTs, false, w, 'rollout');
+  let endedAt: string | null;
+  if (taskOpen) {
+    w.push(warn('session-open', 'task_started without matching task_complete; task may be in progress', 'rollout'));
+    endedAt = null;
+  } else {
+    endedAt = deriveEndedAt(lastTs, endTs, false, w, 'rollout');
+  }
   return {
     nativeId, cwd: cwd ? normCwd(cwd) : null, startedAt, endedAt,
     sourceVersion: 'rollout', eventCount: events, warnings: w,
@@ -189,7 +199,7 @@ function parseRollout(path: string): Draft | null {
 
 function toMeta(d: Draft, index: number): SessionMeta {
   const ws = d.cwd ? workspaceHash(d.cwd) : null;
-  const id = d.nativeId ? canonicalId(SURFACE, ws, 'native', d.nativeId) : null;
+  const id = d.nativeId && ws ? canonicalId(SURFACE, ws, 'native', d.nativeId) : null;
   return {
     surface: SURFACE, id, display_key: id ?? ephemeralKey(SURFACE, index),
     title: null, started_at: d.startedAt, ended_at: d.endedAt,
@@ -217,14 +227,30 @@ export const codexCliParser: SurfaceParser = {
 
     const warnings: ParseWarning[] = [];
     const drafts: Draft[] = [];
+    // Dedup scope (ids.ts): same source + same stable workspace hash only.
+    // Records without workspace identity are never deduplicated.
     const seen = new Set<string>();
-    let dupes = 0;
+    const idWorkspaces = new Map<string, Set<string>>();
+    let dupes = 0, crossWs = 0;
+    const track = (d: Draft): void => {
+      const ws = d.cwd ? workspaceHash(d.cwd) : null;
+      if (d.nativeId && ws) {
+        const s = idWorkspaces.get(d.nativeId) ?? new Set<string>();
+        if (s.size > 0 && !s.has(ws)) crossWs++;
+        s.add(ws);
+        idWorkspaces.set(d.nativeId, s);
+      }
+    };
+    const pushDraft = (d: Draft): void => {
+      const key = d.nativeId && d.cwd ? `${workspaceHash(d.cwd)}|${d.nativeId}` : null;
+      if (key && seen.has(key)) { dupes++; return; }
+      if (key) seen.add(key);
+      track(d);
+      drafts.push(d);
+    };
     if (state) {
       try {
-        for (const d of readThreads(state)) {
-          if (d.nativeId) seen.add(d.nativeId);
-          drafts.push(d);
-        }
+        for (const d of readThreads(state)) pushDraft(d);
       } catch {
         if (files.length === 0) return result(SURFACE, 'read-error', []);
         warnings.push(warn('partial-parse', 'state database unreadable; rollout files used', stateVersion(state)));
@@ -237,12 +263,10 @@ export const codexCliParser: SurfaceParser = {
       } catch {
         warnings.push(warn('partial-parse', 'one rollout file unreadable', 'rollout'));
       }
-      if (!d) continue;
-      if (d.nativeId && seen.has(d.nativeId)) { dupes++; continue; }
-      if (d.nativeId) seen.add(d.nativeId);
-      drafts.push(d);
+      if (d) pushDraft(d);
     }
     if (dupes > 0) warnings.push(warn('duplicates', `${dupes} duplicate session record(s) skipped`));
+    if (crossWs > 0) warnings.push(warn('cross-workspace-duplicate', `${crossWs} session id(s) present in multiple workspaces`));
     if (drafts.length === 0) return result(SURFACE, 'no-sessions', [], warnings);
     drafts.sort((a, b) => (b.startedAt ?? '').localeCompare(a.startedAt ?? ''));
     return result(SURFACE, 'ok', drafts.map(toMeta), warnings);

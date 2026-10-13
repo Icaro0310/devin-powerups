@@ -96,6 +96,7 @@ function scanEventsFile(filePath: string): Scan {
       if (i === last) scan.truncatedTail = true; else scan.badLines++;
       continue;
     }
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) { scan.badLines++; continue; } // valid JSON, not an event
     const ev = obj as Record<string, unknown>;
     if (typeof ev.type !== 'string') { scan.badLines++; continue; } // valid JSON, wrong envelope
     if (!KNOWN_TYPES.has(ev.type)) scan.unknownTypes++;
@@ -150,6 +151,7 @@ function toMeta(c: Candidate, scan: Scan): SessionMeta {
   let version: string | null = null;
   let started: string | null = null;
   let ended: string | null = null;
+  let badVersion = false;
   let sawStart = false;
   for (const ev of scan.events) {
     const t = timestamp(ev.timestamp);
@@ -159,12 +161,16 @@ function toMeta(c: Candidate, scan: Scan): SessionMeta {
       started = t ?? started;
       const d = ev.data;
       const v = d && typeof d === 'object' ? (d as Record<string, unknown>).version : undefined;
-      if (v !== undefined && v !== null) version = String(v);
+      if (v !== undefined && v !== null) {
+        const s = String(v);
+        if (/^[0-9A-Za-z][0-9A-Za-z.\-+_]{0,63}$/.test(s)) version = s; // version-shaped text only
+        else badVersion = true;
+      }
     }
     if (ev.type === 'session.shutdown' && t) ended = t;
   }
   if (!sawStart) warnings.push(warn('missing-field', 'no session.start event'));
-  else if (version === null) warnings.push(warn('missing-field', 'session.start has no version field'));
+  else if (version === null) warnings.push(warn('missing-field', badVersion ? 'session.start version is not version-shaped; dropped' : 'session.start has no version field'));
   if (started === null) warnings.push(warn('missing-field', 'no start timestamp determinable', version));
   if (ended === null) {
     warnings.push(scan.truncatedTail || scan.badLines > 0
@@ -180,10 +186,11 @@ function toMeta(c: Candidate, scan: Scan): SessionMeta {
   // derived from message content or generated summaries.
   const named = (ws.user_named ?? '').toLowerCase();
   const title = ['true', 'yes', '1'].includes(named) ? (ws.name ?? null) : null;
-  const id = c.nativeId ? canonicalId(SURFACE, wsHash, 'native', c.nativeId) : null;
-  if (id === null && wsHash === null) {
-    warnings.push(warn('unknown-workspace', 'no stable session id or workspace identity', version));
-  } else if (id === null) {
+  const id = c.nativeId && wsHash ? canonicalId(SURFACE, wsHash, 'native', c.nativeId) : null;
+  if (wsHash === null) {
+    warnings.push(warn('unknown-workspace', 'no stable workspace identity; session not deduplicated', version));
+  }
+  if (!c.nativeId) {
     warnings.push(warn('missing-field', 'no native session id determinable', version));
   }
   return {
@@ -213,15 +220,16 @@ function collect(env: CollectEnv, _mode: CollectMode): SourceResult {
   let unreadable = 0, unrecognized = 0, dupes = 0, crossWs = 0;
   for (const c of candidates) {
     const prior = seenIds.get(c.nativeId);
+    if (prior && prior.root === c.root) continue; // same-root legacy dup is silent
     if (prior) {
-      if (prior.root !== c.root) {
-        let h: string | null = null;
-        if (c.yamlPath) {
-          try { h = wsHashOf(readYamlScalars(readFileSync(c.yamlPath, 'utf8'))); } catch { /* unreadable dup */ }
-        }
-        if (h !== null && prior.wsHash !== null && h !== prior.wsHash) crossWs++; else dupes++;
+      let h: string | null = null;
+      if (c.yamlPath) {
+        try { h = wsHashOf(readYamlScalars(readFileSync(c.yamlPath, 'utf8'))); } catch { /* unreadable dup */ }
       }
-      continue; // first readable copy wins; same-root legacy dup is silent
+      // Dedup needs proof: same native id AND same workspace hash. Anything
+      // else (proven different or unprovable) is kept as its own session.
+      if (h !== null && prior.wsHash !== null && h === prior.wsHash) { dupes++; continue; }
+      if (h !== null && prior.wsHash !== null && h !== prior.wsHash) crossWs++;
     }
     const scan = scanEventsFile(c.eventsPath);
     if (scan.status === 'unreadable') { unreadable++; continue; }

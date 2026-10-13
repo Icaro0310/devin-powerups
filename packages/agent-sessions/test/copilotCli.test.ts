@@ -140,10 +140,11 @@ test('flat session-state/<uuid>.jsonl variant -> native id, null ws hash', () =>
     ev(1, 'session.shutdown'),
   ].join('\n') + '\n');
   const r = copilotCliParser.collect(envFor(home), 'metadata');
-  assert.equal(r.state, 'ok');
+  assert.equal(r.state, 'partial'); // unknown-workspace warning
   const s = r.sessions[0]!;
-  assert.equal(s.id, canonicalId('copilot-cli', null, 'native', UUID));
+  assert.equal(s.id, null); // no stable workspace identity -> never canonical
   assert.equal(s.workspace_hash, null);
+  assert.ok(s.parse_warnings.some((w) => w.code === 'unknown-workspace'));
   assert.equal(s.title, null);
 });
 
@@ -161,4 +162,43 @@ test('env COPILOT_DIR root merges; same id in two roots -> duplicates', () => {
   assert.equal(r.state, 'partial');
   assert.equal(r.sessions.length, 1); // merged, deduped
   assert.ok(r.warnings.some((w) => w.code === 'duplicates'));
+});
+
+test('null JSON line in events file -> bad line skipped, session still parsed', () => {
+  const home = join(FIX, 'nullline');
+  writeSession(home, UUID, [
+    'null',
+    ev(0, 'session.start', { version: 1 }),
+    ev(1, 'session.shutdown'),
+  ], YAML_NAMED);
+  const r = copilotCliParser.collect(envFor(home), 'metadata');
+  assert.notEqual(r.state, 'read-error');
+  assert.equal(r.sessions.length, 1);
+  assert.ok(r.sessions[0]!.parse_warnings.some((w) => w.code === 'partial-parse'));
+});
+
+test('non-version-shaped version field -> dropped, missing-field warning', () => {
+  const home = join(FIX, 'badver');
+  writeSession(home, UUID, [
+    ev(0, 'session.start', { version: 'run this --dangerous flag' }),
+    ev(1, 'session.shutdown'),
+  ], YAML_NAMED);
+  const r = copilotCliParser.collect(envFor(home), 'metadata');
+  const s = r.sessions[0]!;
+  assert.equal(s.source_version, null);
+  assert.ok(s.parse_warnings.some((w) => w.code === 'missing-field' && /version/.test(w.message)));
+});
+
+test('same id different workspace across roots -> both kept, cross-workspace warning', () => {
+  const home = join(FIX, 'xws');
+  const envRoot = join(FIX, 'xws-env');
+  const lines = [ev(0, 'session.start', { version: 1 }), ev(1, 'session.shutdown')];
+  writeSession(home, UUID, lines, YAML_NAMED);
+  const dir = join(envRoot, 'session-state', UUID);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, 'events.jsonl'), lines.join('\n') + '\n');
+  writeFileSync(join(dir, 'workspace.yaml'), YAML_NAMED.replaceAll(GIT, '/repo/other'));
+  const r = copilotCliParser.collect(envFor(home, { COPILOT_DIR: envRoot }), 'metadata');
+  assert.equal(r.sessions.length, 2); // distinct workspaces are distinct sessions
+  assert.ok(r.warnings.some((w) => w.code === 'cross-workspace-duplicate'));
 });
