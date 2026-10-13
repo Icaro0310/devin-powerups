@@ -42,9 +42,9 @@ muitos ficheiros, superficies geradas, ou merges sob guardrails.
 - (2026-10-13) classe nomeada: `approve-job flake` — check
   `approve / approve` falha em <10s com `gh: Resource not accessible
   by integration (HTTP 403)` + `jq: Cannot iterate over null`. E flake
-  de permissao do GITHUB_TOKEN, nao falha real — visto em
-  dashboard#9, state#37, PAS#26/27/28. Sintoma reconhecido => retry ou
-  ignora; nao diagnosticar como regressao.
+  de permissao do GITHUB_TOKEN, nao falha real — visto em varios repos
+  do ecossistema (dashboard#9, state#37, entre outros). Sintoma
+  reconhecido => retry ou ignora; nao diagnosticar como regressao.
 - (2026-10-13) teste que pina marcadores de conteudo testa o snapshot,
   nao o contrato: `test_skill_policy.py` ficou verde enquanto pinava
   strings que o SKILL.md ja nao tinha — so falhou quando um PR reescreveu
@@ -52,23 +52,23 @@ muitos ficheiros, superficies geradas, ou merges sob guardrails.
   seguir o contrato vivo, e todo rewrite de ficheiro pinado exige
   re-pin do teste no mesmo commit.
 - (2026-10-13) pin declarado vs lock real e o mesmo eixo do lockstep
-  versao: `uv.lock` ficou em internals-spec 0.3.0 quando o pin subiu
-  para >=0.3.1 — invisivel porque CI usa pip, nunca `uv sync --locked`.
-  Todo bump de pin exige `uv lock` no mesmo commit; sem gate, o lock
-  so diverge em silencio para quem corre `uv run` local.
+  versao: um `uv.lock` ficou em 0.3.0 quando o pin subiu para >=0.3.1 —
+  invisivel porque CI usa pip, nunca `uv sync --locked`. Todo bump de
+  pin exige `uv lock` no mesmo commit; sem gate, o lock so diverge em
+  silencio para quem corre `uv run` local.
 - (2026-10-13) "parece ausente" != "esta ausente" — o verso do default
   invertido. Antes de pedir credenciais ou declarar "sem sessao",
   inventario obrigatorio de mecanismos existentes: `ps aux` para
   launchers (CDP, playwright, MCP), `ls ~/.local/share/` e
-  `~/.config/` para perfis/kits persistentes, vault com 2-3 variantes
-  de query (vault-first). Caso real: um kit de scraping persistente
-  (dir proprio em `~/.local/share/`, browser com porta CDP aberta,
-  sessao GitHub viva, launcher running) ficou invisivel durante ~4
-  turnos porque a busca
-  foi MCP-browser -> vault-credenciais -> "pede ao user" — nunca `ps`.
-  Pedir credencial que a maquina ja tem e a falha, nao a ausencia.
-  Regras violadas: vault-first (queries minimas) e
-  inventario-antes-de-negar (memoria-e-vault-primeiro SS4).
+  `~/.config/` para perfis/kits persistentes, e o store local de
+  credenciais com 2-3 variantes de query. Caso real: um kit de
+  scraping persistente (dir proprio em `~/.local/share/`, browser com
+  porta CDP aberta, sessao GitHub viva, launcher running) ficou
+  invisivel durante ~4 turnos porque a busca foi MCP-browser -> store
+  de credenciais -> "pede ao user" — nunca `ps`. Pedir credencial que
+  a maquina ja tem e a falha, nao a ausencia. Regras violadas:
+  pesquisa de credenciais primeiro (queries minimas) e inventario
+  antes de negar.
 
 ## Changelog
 
