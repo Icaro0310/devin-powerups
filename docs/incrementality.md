@@ -51,12 +51,14 @@ file → empty state (fail-open); `DEVIN_CURSOR_DIR` overrides the
 
 | Surface | Mechanism ported | Package | Status |
 |---|---|---|---|
-| `devin-history export --since` | artifact marker + session watermark | devin-explore/packages/history | this wave |
-| `devin-learning extract` cursor | `learning-state.json` shape (rowid watermark per session) | devin-brain | this wave |
+| `devin-history export --since` | artifact marker + session watermark | devin-explore/packages/history | shipped (#62) |
+| `devin-learning extract` cursor | `learning-state.json` shape (rowid watermark per session) | devin-brain | shipped (#57) |
 | `devin-search` doc corpus | `idx_state(path→mtime)` in the index DB — extends the existing index_meta model to vault docs | devin-explore/packages/search | spec'd, next wave |
-| `metrics digest --weekly` | new: compose summary+daily+watch into a report file; cursor = last digest week | devin-assure/packages/metrics | spec'd, next wave |
+| `metrics digest --weekly` | new: compose summary+daily+watch into a report file; cursor = last digest week | devin-assure/packages/metrics | shipped (#61) |
 | trigger manifests as plan DAG | dispatcher schema (`.devin/catalog/triggers/*.yaml`) → plan input | devin-control | spec'd, next wave — biggest lift |
-| `bundle export` | catalog bundle already carries state; incremental = manifest hash diff | devin-devkit/skill-catalog | spec'd, next wave |
+| `bundle export` | catalog bundle already carries state; incremental = manifest hash diff | devin-devkit/skill-catalog | shipped (#50) |
+| `devin-pm digest` | session watermark + ISO week report | devin-explore/packages/pm | shipped (#65) |
+| `devin-learning weekly-report` | aggregate-only public weekly report | devin-brain | shipped (#59) |
 
 What is NOT incremental-but-missing: `devin-search index` and
 `devin-graph build` are already incremental internally (rowid/ledger
