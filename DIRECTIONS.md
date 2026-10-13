@@ -154,8 +154,10 @@ until the consumption point — and the pain — is concrete.
   boundary. Pain not yet felt — no consumer is blocked today.
 - **Umbrella CLI per product** — every package ships its own console
   script; a dispatcher (`devin` or per-product) is a product decision:
-  name, collision policy with the Devin CLI, members-as-extras. Not
-  enunciable yet — do not build without a consumption-point spec.
+  name, collision policy with the Devin CLI, members-as-extras.
+  **Decision status (2026-10-13): deferred-pending-dor — not enunciable
+  yet; do not build without a consumption-point spec. Written so it does
+  not resurface as "should we build an umbrella?" in every triage.**
 - ~~**MCP serving for devin-explore packages**~~ — **shipped**: search,
   graph, doctor, history, pm all ship `*-mcp` console scripts +
   `mcp_server.py` with `do_*` functions; Zed/JB/Antigravity host-config
@@ -174,6 +176,9 @@ until the consumption point — and the pain — is concrete.
   transport), plus a review pass that can diff a staged skill update
   before approve. Needs spec: observation schema, how an observation
   binds to a skill SHA, which tier auto-promotes vs waits for review.
+  **Decision status (2026-10-13): deferred-pending-dor — the proposal
+  stage is a governance idea without a felt friction yet; spec when
+  staged skill corrections actually pile up unreviewed.**
 
 ## External evaluations — second batch (2026-10-13)
 
