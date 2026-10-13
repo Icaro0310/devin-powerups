@@ -20,8 +20,9 @@ the knowledge docs change.
      live); Code Interpreter and Image Generation are not needed.
    - **Actions**: none — this GPT never calls external APIs.
 4. **Knowledge → Upload files**: everything in [`knowledge/`](knowledge/)
-   **except** `ABOUT.md` (`registry.json`, `README.md`,
-   `adapter-checklist.md`).
+   **except** `ABOUT.md` — `registry.json`, `README.md`,
+   `adapter-checklist.md`, `BOOTSTRAP.md`, and every file under
+   `knowledge/packages/` (one README per published package).
 5. Privacy policy: the publish dialog asks for a privacy URL when you
    publish publicly (also settable from the editor's settings). Paste the
    URL line from [`privacy-url.txt`](privacy-url.txt) — read the comment in

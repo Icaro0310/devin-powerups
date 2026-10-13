@@ -1,6 +1,6 @@
 https://icaro0310.github.io/privacy.html
-# The page exists (privacy.html in the Icaro0310.github.io repo) but is
-# currently scoped to gsc-report, the Search Console tool. Before
-# publishing to Everyone, confirm it adequately covers the devin-*
-# ecosystem GPT or broaden its wording in that repo. Paste only the URL
-# line above into the editor — not this comment.
+# The page exists and covers this GPT — privacy.html in the
+# Icaro0310.github.io repo has a dedicated "devin-* Ecosystem Guide
+# (ChatGPT GPT)" section alongside the original gsc-report one
+# (broadened 2026-10). Paste only the URL line above into the editor —
+# not this comment.

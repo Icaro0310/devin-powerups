@@ -175,3 +175,34 @@ until the consumption point — and the pain — is concrete.
   transport), plus a review pass that can diff a staged skill update
   before approve. Needs spec: observation schema, how an observation
   binds to a skill SHA, which tier auto-promotes vs waits for review.
+
+## External evaluations — second batch (2026-10-13)
+
+Assessed against the conversion rule; evidence in the PAS session
+reports. Archived so they are not re-proposed.
+
+| Item | Verdict | Reason |
+|---|---|---|
+| RepoWise (repowise-dev/repowise) | **partially adopted via catalog** | 5-layer code-intelligence MCP (dep graph + git history + docs + decisions + health) is orthogonal to devin-graph's session graph — D-2026-10-13c keeps it external. 6 agent skills vendored+governed (AGPL-3.0 upstream: governed entries, no code copy) |
+| Agent-Reach (Panniantong/Agent-Reach) | **adopted via catalog** | MIT; web access via third-party platforms — `corporate_scope: external`. Approved entry, not installed: needs its own CLI/MCP |
+| OpenMontage (calesthio/OpenMontage) | catalog pointer, dependent | AGPL-3.0, heavy video-production system; entry marks it candidate dependent on the Brag initiative — no felt pain yet |
+| SearXNG (searxng/searxng) | **adopted as infra** | self-hosted search is the missing web-search capability; running live as `devin-searxng.service` (:8888, JSON enabled) + `searxng-websearch` skill active — D-2026-10-13b |
+| Research Agent skill (fabianocarvalhojr) | dependent candidate, unverified | depends on SearXNG; upstream repo/skills could not be verified — do not vendor without direct evidence |
+| Laya (NandhaKishorM/laya) | evaluating | ALTO-2 backend comparison vs poordjaevin NLI in progress |
+| Paperclip (paperclipai/paperclip) | archived | hosted company-of-agents control plane (org charts, budgets); wrong abstraction for PAS local-first scheduling |
+| Herdr (herdrdev/herdr) | archived | Rust multiplexer for persistent interactive agent terminals; PAS covers non-interactive scheduled work — no felt pain |
+| billion-context (ranxianglei/billion-context) | archived | LLM-proxy context compression cannot intercept Devin's ACP transport; native compaction exists |
+| 49-IDE (49-Agents/49-IDE) | archived | browser canvas of terminal agents; wrong abstraction for devin-office's session-observation model |
+| mcp-handler (vercel-labs/mcp-handler) | deferred | Next.js adapter for hosted MCP — only relevant to GPT Store option (b), still pending owner decision |
+| Magnitude (magnitudedev/magnitude) | archived | test-automation framework, not a TSDB (name collision); devin-metrics SQLite is sufficient |
+| LocalSend (localsend/localsend) | archived | ssh/scp/Tailscale offload already covers machine-to-machine transport |
+| MiroFish | archived | multi-agent simulation; no felt pain |
+| Wan2GP | archived | local video generation; no felt pain |
+| Higgsfield | archived | paid SaaS; contradicts local-first |
+| Open Lovable | archived | site generator; not ecosystem tooling |
+| n8n | archived | workflow automation overlaps the PAS dispatcher model |
+| AI Shorts Generator | archived | content tool, not infrastructure |
+| Diagram Design | archived | diagram skill; no felt pain |
+| social-media-skills / marketing lists | archived | promotion tooling; deferred with the HN/forum item |
+| Open SEO | archived | promotion tool, not ecosystem capability |
+| design-automation / social-media / automation-master (fabianocarvalhojr) | archived | no felt pain; same unverified-source caveat |

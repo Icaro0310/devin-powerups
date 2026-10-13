@@ -61,11 +61,11 @@ column names the implementation that proves each `[portar]`.
 
 | Item | Class | Verified |
 |---|---|---|
-| XDG_DATA_HOME → XDG_CONFIG_HOME harmonization (pm) | debt | documented in the linux-parity convention |
-| Dedupe the 14 `learned-*` skills (teste-hook vs testes overlap) | debt | overlapping themes confirmed in the PAS inventory |
-| `deps-internals` repo-venv check (doctor) | fix | detects the same `deps_missing` class pre-suite |
+| ~~XDG_DATA_HOME → XDG_CONFIG_HOME harmonization (pm)~~ — **resolved 2026-10-13, already satisfied**: `devin_internals.paths` IS the shared store-paths module (extracted under D-2026-10-08 to converge 11+ vendored `paths.py`); it documents DATA root ≠ CONFIG root on Linux by design and `pm`'s reads are correct on both sides (`projects.py` reads the Devin CLI `sessions.db` under DATA_HOME, `vscdb.py` reads VS Code state under CONFIG_HOME). The debt was documented, not real | debt | evidence: `devin-internals-spec/src/devin_internals/paths.py` |
+| ~~Dedupe the 14 `learned-*` skills (teste-hook vs testes overlap)~~ — **shipped 2026-10-13**: `personal-agent-system/scripts/learned_dedupe.py` dedupes lessons **across** `learned-*` skills (the `--cleanup` path only dedupes within one skill). Dry-run + `--apply`, backup before write, deterministic canonical owner. First apply: 1 cross-skill dup removed (deploy→geral), 5 empty learned-* reported (kept, report-only) | debt | `learned_dedupe.py` |
+| `deps-internals` repo-venv check (doctor) | fix | detects the same `deps_missing` class pre-suite — cheaper now that the runner bootstraps (#31): doctor can probe `~/.venvs/<repo>` + declared deps without installing |
 | Align devin-office with the E2E runner contract (`missing_dir`) | fix | reported broken weekly |
-| Recreate `scheduled_tasks` on Linux (systemd/cron) | debt | table empty on this machine |
+| ~~Recreate `scheduled_tasks` on Linux (systemd/cron)~~ — **shipped 2026-10-13**: `collectPasInventory` in `weekly-ecosystem-scout.mjs` enumerated Windows `schtasks` only → empty on Linux. Now also collects crontab entries + user systemd units; real inventory: 11 tasks (5 cron + 6 systemd user units) | debt | scout `scheduled_tasks` |
 
 **P2 — incremental capability (one pattern, several surfaces):**
 
