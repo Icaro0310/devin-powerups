@@ -1,0 +1,2326 @@
+{
+  "$schema": "https://github.com/Icaro0310/devin-powerups/registry.schema.json",
+  "version": 28,
+  "generated": "2026-10-11",
+  "owner": "Icaro0310",
+  "note": "Public maintainer toolkit: registry, template, scaffolder, and public-project report. Public Devin tools are listed below; the maintainer's private runtime remains kind=system and is excluded from public-project reports. Unrelated personal repositories are not part of this catalog. CI is inline per public project; see README.md.",
+  "ci": {
+    "architecture": "inline",
+    "previous_architecture": "reusable workflows in the private devin-ci/devin-powerups hub",
+    "reason": "Reusable workflows living in a private repo are not reliably accessible from public repos, so each project ships a self-contained ci.yml.",
+    "shape": "test job (pytest for Python repos, node --test for devin-bridge) on windows-latest + ubuntu-latest, plus a secrets-scan job over the repository tree excluding .git, fixtures/ and node_modules/; test source is scanned.",
+    "status_doc": "README.md#ci-status"
+  },
+  "known_issues": [
+    "PyPI publishing is partial; unlisted packages install from pinned GitHub sources until released.",
+    "devin-office is a source-only service, not yet a distributable CLI; macOS support is planned, not claimed."
+  ],
+  "environments": {
+    "linux": {
+      "label": "Linux",
+      "runtime": "extended",
+      "delegation": "optional",
+      "local_only": false,
+      "external_compute": true,
+      "devkit": "linux",
+      "description": "Native Linux execution plus optional Devin VM/QwenPaw workload delegation."
+    },
+    "personal_windows": {
+      "label": "Personal Windows",
+      "runtime": "extended",
+      "delegation": "optional",
+      "local_only": false,
+      "external_compute": true,
+      "devkit": "personal-windows",
+      "description": "Windows host execution plus optional Devin VM/QwenPaw workload delegation."
+    },
+    "corporate_windows": {
+      "label": "Corporate Windows",
+      "runtime": "local-only",
+      "delegation": "forbidden",
+      "local_only": true,
+      "external_compute": false,
+      "devkit": "corporate-windows",
+      "description": "Restricted Windows execution that is intentionally self-contained: no VM, QwenPaw, Slack requirement, external delegation, or external compute."
+    }
+  },
+  "devkit": {
+    "version": 1,
+    "installer": "uv",
+    "supported_platforms": [
+      "windows",
+      "linux"
+    ],
+    "planned_platforms": [
+      "macos"
+    ],
+    "git_required_tools": [],
+    "tools": {
+      "devin-internals-spec": {
+        "manager": "uv",
+        "source": "pypi",
+        "package": "devin-internals-spec",
+        "version": "0.3.0",
+        "commands": [
+          "devin-inspect"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "published",
+        "category": "foundation"
+      },
+      "devin-history": {
+        "manager": "uv",
+        "source": "pypi",
+        "package": "devin-history",
+        "version": "0.1.0",
+        "commands": [
+          "devin-history"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "published",
+        "category": "operations"
+      },
+      "devin-pm": {
+        "manager": "uv",
+        "source": "pypi",
+        "package": "devin-pm",
+        "version": "0.1.0",
+        "commands": [
+          "devin-pm"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "published",
+        "category": "operations"
+      },
+      "devin-metrics": {
+        "manager": "uv",
+        "source": "pypi",
+        "package": "devin-metrics",
+        "version": "0.2.0",
+        "commands": [
+          "devin-metrics",
+          "devin-dashboard"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "published",
+        "category": "evaluation"
+      },
+      "devin-backup": {
+        "manager": "uv",
+        "source": "pypi",
+        "package": "devin-backup",
+        "version": "0.1.0",
+        "commands": [
+          "devin-backup"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "published",
+        "category": "operations"
+      },
+      "devin-search": {
+        "manager": "uv",
+        "source": "pypi",
+        "package": "devin-search",
+        "version": "0.1.0",
+        "commands": [
+          "devin-search"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "published",
+        "category": "memory"
+      },
+      "devin-graph": {
+        "manager": "uv",
+        "source": "pypi",
+        "package": "devin-graph",
+        "version": "0.1.0",
+        "commands": [
+          "devin-graph"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "published",
+        "category": "memory"
+      },
+      "devin-evals": {
+        "manager": "uv",
+        "source": "pypi",
+        "package": "devin-evals",
+        "version": "0.3.1",
+        "commands": [
+          "devin-evals"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "published",
+        "category": "evaluation"
+      },
+      "devin-janitor": {
+        "manager": "uv",
+        "source": "pypi",
+        "package": "devin-janitor",
+        "version": "0.1.0",
+        "commands": [
+          "devin-janitor"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "published",
+        "category": "security"
+      },
+      "devin-control": {
+        "manager": "npm",
+        "source": "npm",
+        "package": "@icaro0310/devin-bridge",
+        "version": "0.1.0",
+        "commands": [
+          "devin-bridge"
+        ],
+        "runtime": "node>=20",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "published",
+        "category": "security"
+      },
+      "devin-orchestrator": {
+        "manager": "uv",
+        "source": "pypi",
+        "package": "devin-fanout",
+        "version": "0.2.0",
+        "commands": [
+          "devin-orchestrator"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "published",
+        "category": "operations"
+      },
+      "devin-office": {
+        "manager": "manual",
+        "source": "manual",
+        "package": "devin-office",
+        "version": "0.1.0",
+        "commands": [
+          "python daemon.py"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "manual",
+        "category": "operations",
+        "manual_note": "Source-only dashboard service; no distributable package metadata yet."
+      },
+      "devin-switch": {
+        "manager": "uv",
+        "source": "pypi",
+        "package": "devin-switch",
+        "version": "0.1.0",
+        "commands": [
+          "devin-switch"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "published",
+        "category": "governance"
+      },
+      "devin-skill-catalog": {
+        "manager": "uv",
+        "source": "pypi",
+        "package": "devin-skill-catalog",
+        "version": "0.1.0",
+        "commands": [
+          "devin-skill-catalog"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "published",
+        "category": "governance"
+      },
+      "devin-brain": {
+        "manager": "uv",
+        "source": "pypi",
+        "package": "devin-memory",
+        "version": "0.3.0",
+        "commands": [
+          "devin-memory",
+          "devin-learning",
+          "devin-memory-mcp"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "published",
+        "category": "memory",
+        "extras": [
+          "mcp"
+        ]
+      },
+      "devin-judge": {
+        "manager": "uv",
+        "source": "pypi",
+        "package": "poordjaevin",
+        "version": "0.1.2",
+        "commands": [
+          "poordjaevin"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "published",
+        "category": "governance",
+        "extras": [
+          "local",
+          "mcp"
+        ]
+      },
+      "devin-state": {
+        "manager": "uv",
+        "source": "pypi",
+        "package": "devin-redact",
+        "version": "0.2.1",
+        "commands": [
+          "devin-redact"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "published",
+        "category": "security"
+      },
+      "devin-assure": {
+        "manager": "uv",
+        "source": "pypi",
+        "package": "devin-qa-pack",
+        "version": "0.1.0",
+        "commands": [
+          "devin-qa-pack"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "published",
+        "category": "qa"
+      },
+      "devin-explore": {
+        "manager": "uv",
+        "source": "pypi",
+        "package": "devin-doctor",
+        "version": "0.1.0",
+        "commands": [
+          "devin-doctor"
+        ],
+        "runtime": "python>=3.10",
+        "platforms": [
+          "windows",
+          "linux"
+        ],
+        "status": "published",
+        "category": "qa"
+      }
+    },
+    "profiles": {
+      "qa": {
+        "label": "QA",
+        "description": "Verify session claims and local Devin state with deterministic evidence.",
+        "tools": [
+          "devin-internals-spec",
+          "devin-assure",
+          "devin-evals",
+          "devin-metrics",
+          "devin-explore"
+        ]
+      },
+      "evaluation": {
+        "label": "Evaluation",
+        "description": "Measure changes with synthetic fixtures, rubrics, and local metrics.",
+        "tools": [
+          "devin-internals-spec",
+          "devin-evals",
+          "devin-metrics"
+        ]
+      },
+      "security": {
+        "label": "Security",
+        "description": "Reduce risk around secrets, policy-gated actions, and noisy sessions.",
+        "tools": [
+          "devin-state",
+          "devin-control",
+          "devin-janitor"
+        ]
+      },
+      "memory": {
+        "label": "Memory",
+        "description": "Search, connect, and preserve agent knowledge with optional ACP integrations.",
+        "tools": [
+          "devin-brain",
+          "devin-graph",
+          "devin-search",
+          "devin-judge"
+        ]
+      },
+      "explore": {
+        "label": "Explore",
+        "description": "Navigate the Devin session universe — history, full-text search and relationship graph over the same local stores. P6 co-install probe for the explore family.",
+        "tools": [
+          "devin-history",
+          "devin-search",
+          "devin-graph"
+        ]
+      },
+      "operations": {
+        "label": "Operations",
+        "description": "Inspect, back up, export, and maintain Devin data and projects.",
+        "tools": [
+          "devin-backup",
+          "devin-history",
+          "devin-explore",
+          "devin-metrics",
+          "devin-janitor",
+          "devin-pm",
+          "devin-orchestrator",
+          "devin-switch",
+          "devin-skill-catalog"
+        ],
+        "manual": [
+          "devin-office"
+        ]
+      },
+      "agent": {
+        "label": "Agent",
+        "description": "Convenience alias for the memory and decision tools.",
+        "tools": [
+          "devin-brain",
+          "devin-graph",
+          "devin-search",
+          "devin-judge"
+        ],
+        "alias_of": "memory"
+      },
+      "safety": {
+        "label": "Safety",
+        "description": "Convenience alias for security tooling.",
+        "tools": [
+          "devin-state",
+          "devin-control",
+          "devin-janitor"
+        ],
+        "alias_of": "security"
+      },
+      "full": {
+        "label": "Full",
+        "description": "All installable public tools; source-only services are listed separately.",
+        "tools": [
+          "devin-internals-spec",
+          "devin-state",
+          "devin-history",
+          "devin-explore",
+          "devin-pm",
+          "devin-assure",
+          "devin-metrics",
+          "devin-backup",
+          "devin-search",
+          "devin-graph",
+          "devin-evals",
+          "devin-brain",
+          "devin-janitor",
+          "devin-control",
+          "devin-orchestrator",
+          "devin-switch",
+          "devin-skill-catalog",
+          "devin-judge"
+        ],
+        "manual": [
+          "devin-office"
+        ]
+      },
+      "all": {
+        "label": "All",
+        "description": "Alias for the full installable profile.",
+        "tools": [
+          "devin-internals-spec",
+          "devin-state",
+          "devin-history",
+          "devin-explore",
+          "devin-pm",
+          "devin-assure",
+          "devin-metrics",
+          "devin-backup",
+          "devin-search",
+          "devin-graph",
+          "devin-evals",
+          "devin-brain",
+          "devin-janitor",
+          "devin-control",
+          "devin-orchestrator",
+          "devin-switch",
+          "devin-skill-catalog",
+          "devin-judge"
+        ],
+        "manual": [
+          "devin-office"
+        ],
+        "alias_of": "full"
+      }
+    }
+  },
+  "repositories": [
+    {
+      "name": "devin-powerups",
+      "url": "https://github.com/Icaro0310/devin-powerups",
+      "kind": "infra",
+      "artifact": "infrastructure",
+      "interfaces": [
+        "cli",
+        "registry",
+        "docs"
+      ],
+      "audiences": [
+        "maintainers",
+        "developers"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
+      "environments": {
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": true
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": true
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false,
+          "reason": "local generators work offline; GitHub-backed maintainer reports require explicit credentials"
+        }
+      },
+      "visibility": "public",
+      "wave": 0,
+      "status": "active",
+      "public": true,
+      "nature": "infrastructure",
+      "track": "platform",
+      "role": "foundation",
+      "mode": "mixed",
+      "maturity": "stable",
+      "is_control_plane": true,
+      "official_overlap": "none",
+      "overlap_note": null,
+      "description": "Public maintainer hub: registry, roadmap, project template, scaffolder, release checks, and community catalog generators.",
+      "ownership": "first_party",
+      "job": null,
+      "product_id": null,
+      "package": null,
+      "entrypoints": [],
+      "legacy": null
+    },
+    {
+      "name": "devin-devkit",
+      "url": "https://github.com/Icaro0310/devin-devkit",
+      "kind": "distribution",
+      "artifact": "distribution",
+      "interfaces": [
+        "cli",
+        "installer"
+      ],
+      "audiences": [
+        "developers",
+        "end-users",
+        "devops"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
+      "environments": {
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
+      },
+      "visibility": "public",
+      "wave": 0,
+      "status": "active",
+      "public": true,
+      "nature": "distribution",
+      "track": "platform",
+      "role": "installer",
+      "mode": "mixed",
+      "maturity": "usable",
+      "official_overlap": "none",
+      "overlap_note": null,
+      "version": "0.1.0",
+      "stack": "python",
+      "local_dir": "devin-devkit",
+      "note": "uv workspace monorepo since F4.5: packages/devkit (this entry) + packages/skill-catalog (absorbed from devin-skill-catalog, which was archived). Package names and CLIs unchanged.",
+      "description": "Build on the ecosystem: profile-based installer for the public Devin tools across Linux, Personal Windows and Corporate Windows (isolated uv environments, npm bridge), plus lifecycle and quality gates for .devin skills/rules via devin-skill-catalog.",
+      "ownership": "first_party",
+      "job": "build",
+      "product_id": "devin-devkit",
+      "package": {
+        "ecosystem": "pypi",
+        "name": "devin-devkit",
+        "path": "packages/devkit"
+      },
+      "entrypoints": [
+        "devin-devkit"
+      ],
+      "legacy": null
+    },
+    {
+      "name": "devin-internals-spec",
+      "url": "https://github.com/Icaro0310/devin-internals-spec",
+      "kind": "project",
+      "artifact": "tool",
+      "interfaces": [
+        "cli",
+        "library"
+      ],
+      "audiences": [
+        "developers",
+        "maintainers"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
+      "environments": {
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
+      },
+      "visibility": "public",
+      "wave": 0,
+      "status": "delivered",
+      "public": true,
+      "nature": "infrastructure",
+      "track": "observe",
+      "role": "foundation",
+      "mode": "read",
+      "maturity": "usable",
+      "official_overlap": "none",
+      "overlap_note": null,
+      "version": "0.3.0",
+      "session": "parallel-food",
+      "stack": "python",
+      "ci": "inline",
+      "tests": 52,
+      "description": "Documented internals of Devin Desktop/CLI stores + schema-version detection + fixtures + devin-inspect CLI.",
+      "tag": "v0.3.0",
+      "distribution_status": "published",
+      "ownership": "foundation",
+      "job": null,
+      "product_id": null,
+      "package": {
+        "ecosystem": "pypi",
+        "name": "devin-internals-spec",
+        "path": "."
+      },
+      "entrypoints": [
+        "devin-inspect"
+      ],
+      "legacy": null
+    },
+    {
+      "name": "devin-state",
+      "url": "https://github.com/Icaro0310/devin-state",
+      "kind": "project",
+      "artifact": "tool",
+      "interfaces": [
+        "cli",
+        "library"
+      ],
+      "audiences": [
+        "security",
+        "developers",
+        "devops"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
+      "environments": {
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
+      },
+      "visibility": "public",
+      "wave": 0,
+      "status": "delivered",
+      "public": true,
+      "nature": "product",
+      "track": "guard",
+      "role": "module",
+      "mode": "mixed",
+      "maturity": "usable",
+      "official_overlap": "none",
+      "overlap_note": null,
+      "version": "0.2.1",
+      "session": "sparkling-metal",
+      "stack": "python",
+      "ci": "inline",
+      "tests": 23,
+      "tag": "v0.2.0",
+      "description": "Devin state lifecycle monorepo: secret/PII redaction (devin-redact), store snapshot backup/restore (devin-backup) and session janitor (devin-janitor), sharing the devin-install-scheduler package.",
+      "distribution_status": "published",
+      "ownership": "first_party",
+      "job": "control",
+      "product_id": "devin-state",
+      "package": {
+        "ecosystem": "pypi",
+        "name": "devin-redact",
+        "path": "packages/redact"
+      },
+      "entrypoints": [
+        "devin-redact"
+      ],
+      "legacy": {
+        "repo": "devin-redact",
+        "status": "renamed",
+        "redirect": true
+      },
+      "note": "uv workspace monorepo since F4.1: packages/redact (this entry, ex devin-redact), packages/backup, packages/janitor, shared/install-scheduler. Package-specific tags <pkg>-v* publish each package independently."
+    },
+    {
+      "name": "devin-history",
+      "url": "https://github.com/Icaro0310/devin-explore",
+      "kind": "project",
+      "artifact": "tool",
+      "interfaces": [
+        "cli"
+      ],
+      "audiences": [
+        "operations",
+        "end-users",
+        "data-scientists"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
+      "environments": {
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
+      },
+      "visibility": "public",
+      "wave": 1,
+      "status": "delivered",
+      "public": true,
+      "nature": "product",
+      "track": "observe",
+      "role": "module",
+      "mode": "read",
+      "maturity": "usable",
+      "official_overlap": "none",
+      "overlap_note": null,
+      "version": "0.1.0",
+      "session": "comet-soap",
+      "stack": "python",
+      "ci": "inline",
+      "tests": 44,
+      "description": "Export and audit Devin session history — markdown notes, JSON, CSV, Obsidian-ready.",
+      "distribution_status": "published",
+      "ownership": "first_party",
+      "job": "understand",
+      "product_id": "devin-explore",
+      "package": {
+        "ecosystem": "pypi",
+        "name": "devin-history",
+        "path": "packages/history",
+        "depends_on": [
+          "devin-internals-spec"
+        ]
+      },
+      "local_dir": "devin-explore",
+      "entrypoints": [
+        "devin-history"
+      ],
+      "legacy": null,
+      "note": "Absorbed into the devin-explore monorepo (F4.3); the devin-history PyPI package and CLI are unchanged, released from packages/history. Original repo archived with MOVED banner."
+    },
+    {
+      "name": "devin-explore",
+      "url": "https://github.com/Icaro0310/devin-explore",
+      "kind": "project",
+      "artifact": "tool",
+      "interfaces": [
+        "cli"
+      ],
+      "audiences": [
+        "operations",
+        "end-users",
+        "data-scientists"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
+      "environments": {
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
+      },
+      "visibility": "public",
+      "wave": 1,
+      "status": "delivered",
+      "public": true,
+      "nature": "product",
+      "track": "observe",
+      "role": "module",
+      "mode": "read",
+      "maturity": "usable",
+      "official_overlap": "none",
+      "overlap_note": null,
+      "version": "0.1.0",
+      "session": "basalt-chill",
+      "stack": "python",
+      "ci": "inline",
+      "tests": 53,
+      "description": "Understand Devin sessions: diagnose the local installation (stores, schema, locks, config, disk — with fix suggestions), export and audit session history, run FTS5 full-text search, query a knowledge graph of sessions/projects/files/tools, and roll sessions into per-repo milestones and status reports. All local, no telemetry.",
+      "distribution_status": "published",
+      "ownership": "first_party",
+      "job": "understand",
+      "product_id": "devin-explore",
+      "package": {
+        "ecosystem": "pypi",
+        "name": "devin-doctor",
+        "path": "packages/doctor",
+        "depends_on": [
+          "devin-internals-spec"
+        ]
+      },
+      "entrypoints": [
+        "devin-doctor"
+      ],
+      "legacy": {
+        "repo": "devin-doctor",
+        "status": "renamed",
+        "redirect": true
+      },
+      "note": "uv workspace monorepo since F4.3: packages/doctor (this entry, ex devin-doctor), packages/history, packages/search, packages/graph, packages/pm. Package-specific tags: <pkg>-v*."
+    },
+    {
+      "name": "devin-pm",
+      "url": "https://github.com/Icaro0310/devin-explore",
+      "kind": "project",
+      "artifact": "tool",
+      "interfaces": [
+        "cli",
+        "registry"
+      ],
+      "audiences": [
+        "operations",
+        "maintainers"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
+      "environments": {
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
+      },
+      "visibility": "public",
+      "wave": 1,
+      "status": "delivered",
+      "public": true,
+      "nature": "product",
+      "track": "observe",
+      "role": "module",
+      "mode": "read",
+      "maturity": "usable",
+      "official_overlap": "none",
+      "overlap_note": null,
+      "version": "0.1.0",
+      "session": "smiling-loaf",
+      "stack": "python",
+      "ci": "inline",
+      "tests": 53,
+      "description": "Project manager over sessions: per-repo rollups, milestones, status reports, registry.json.",
+      "distribution_status": "published",
+      "ownership": "first_party",
+      "job": "understand",
+      "product_id": "devin-explore",
+      "package": {
+        "ecosystem": "pypi",
+        "name": "devin-pm",
+        "path": "packages/pm",
+        "depends_on": [
+          "devin-internals-spec"
+        ]
+      },
+      "local_dir": "devin-explore",
+      "entrypoints": [
+        "devin-pm"
+      ],
+      "legacy": null,
+      "note": "Absorbed into the devin-explore monorepo (F4.3); the devin-pm PyPI package and CLI are unchanged, released from packages/pm. Track moved related->observe on absorption, as pre-announced. Original repo archived with MOVED banner."
+    },
+    {
+      "name": "devin-assure",
+      "url": "https://github.com/Icaro0310/devin-assure",
+      "kind": "project",
+      "artifact": "tool",
+      "interfaces": [
+        "cli"
+      ],
+      "audiences": [
+        "qa",
+        "developers"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
+      "environments": {
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
+      },
+      "visibility": "public",
+      "wave": 2,
+      "status": "delivered",
+      "public": true,
+      "nature": "product",
+      "track": "assure",
+      "role": "flagship",
+      "mode": "read",
+      "maturity": "usable",
+      "official_overlap": "none",
+      "overlap_note": null,
+      "version": "0.1.0",
+      "session": "smooth-beanie",
+      "stack": "python",
+      "ci": "inline",
+      "tests": 45,
+      "description": "Verification monorepo: session-claim audit (devin-qa-pack), deterministic eval harness with dream corpus generator (devin-evals), and local session observability (devin-metrics).",
+      "distribution_status": "published",
+      "ownership": "first_party",
+      "job": "verify",
+      "product_id": "devin-assure",
+      "package": {
+        "ecosystem": "pypi",
+        "name": "devin-qa-pack",
+        "path": "packages/qa-pack",
+        "depends_on": [
+          "devin-internals-spec"
+        ]
+      },
+      "entrypoints": [
+        "devin-qa-pack"
+      ],
+      "legacy": {
+        "repo": "devin-qa-pack",
+        "status": "renamed",
+        "redirect": true
+      },
+      "note": "uv workspace monorepo since F4.2: packages/qa-pack (this entry, ex devin-qa-pack), packages/evals, packages/metrics. Package-specific tags: <pkg>-v*."
+    },
+    {
+      "name": "devin-metrics",
+      "url": "https://github.com/Icaro0310/devin-assure",
+      "kind": "project",
+      "artifact": "tool",
+      "interfaces": [
+        "cli",
+        "dashboard"
+      ],
+      "audiences": [
+        "qa",
+        "operations",
+        "data-scientists"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
+      "environments": {
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
+      },
+      "visibility": "public",
+      "wave": 2,
+      "status": "delivered",
+      "public": true,
+      "nature": "product",
+      "track": "assure",
+      "role": "module",
+      "mode": "read",
+      "maturity": "usable",
+      "official_overlap": "none",
+      "overlap_note": null,
+      "version": "0.2.0",
+      "session": "young-quasar",
+      "stack": "python",
+      "ci": "inline",
+      "tests": 70,
+      "description": "Local-only session observability: activity, context size, and token peaks per project/model/day; zero telemetry. Devin does not persist cost fields, so cost is not claimed. Includes an optional dashboard subpackage and command.",
+      "distribution_status": "published",
+      "ownership": "first_party",
+      "job": "verify",
+      "product_id": "devin-assure",
+      "package": {
+        "ecosystem": "pypi",
+        "name": "devin-metrics",
+        "path": "packages/metrics",
+        "depends_on": [
+          "devin-internals-spec"
+        ]
+      },
+      "entrypoints": [
+        "devin-dashboard",
+        "devin-metrics"
+      ],
+      "legacy": null,
+      "local_dir": "devin-assure",
+      "note": "Absorbed into the devin-assure monorepo (F4.2); the devin-metrics PyPI package and CLIs (devin-metrics, devin-dashboard) are unchanged, released from packages/metrics. Original repo archived with MOVED banner."
+    },
+    {
+      "name": "devin-backup",
+      "url": "https://github.com/Icaro0310/devin-state",
+      "kind": "project",
+      "artifact": "tool",
+      "interfaces": [
+        "cli"
+      ],
+      "audiences": [
+        "operations",
+        "security"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
+      "environments": {
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
+      },
+      "visibility": "public",
+      "wave": 2,
+      "status": "delivered",
+      "public": true,
+      "nature": "product",
+      "track": "guard",
+      "role": "module",
+      "mode": "mixed",
+      "maturity": "usable",
+      "official_overlap": "none",
+      "overlap_note": null,
+      "version": "0.1.0",
+      "session": "cactus-warlock",
+      "stack": "python",
+      "ci": "inline",
+      "tests": 48,
+      "description": "Safe snapshot/verify/restore/rotate of Devin stores with schema-version manifests.",
+      "distribution_status": "published",
+      "ownership": "first_party",
+      "job": "control",
+      "product_id": "devin-state",
+      "package": {
+        "ecosystem": "pypi",
+        "name": "devin-backup",
+        "path": "packages/backup",
+        "depends_on": [
+          "devin-internals-spec"
+        ]
+      },
+      "entrypoints": [
+        "devin-backup"
+      ],
+      "legacy": null,
+      "local_dir": "devin-state",
+      "note": "Absorbed into the devin-state monorepo (F4.1); the devin-backup PyPI package and CLI are unchanged, released from packages/backup. Original repo archived with MOVED banner."
+    },
+    {
+      "name": "devin-search",
+      "url": "https://github.com/Icaro0310/devin-explore",
+      "kind": "project",
+      "artifact": "tool",
+      "interfaces": [
+        "cli"
+      ],
+      "audiences": [
+        "developers",
+        "ai-engineers",
+        "data-scientists"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
+      "environments": {
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
+      },
+      "visibility": "public",
+      "wave": 3,
+      "status": "delivered",
+      "public": true,
+      "nature": "product",
+      "track": "observe",
+      "role": "module",
+      "mode": "read",
+      "maturity": "usable",
+      "official_overlap": "none",
+      "overlap_note": null,
+      "version": "0.1.0",
+      "session": "gusty-bite",
+      "stack": "python",
+      "ci": "inline",
+      "tests": 35,
+      "description": "FTS5 full-text search across all Devin sessions, role-tagged and project-filtered.",
+      "distribution_status": "published",
+      "ownership": "first_party",
+      "job": "understand",
+      "product_id": "devin-explore",
+      "package": {
+        "ecosystem": "pypi",
+        "name": "devin-search",
+        "path": "packages/search",
+        "depends_on": [
+          "devin-internals-spec"
+        ]
+      },
+      "local_dir": "devin-explore",
+      "entrypoints": [
+        "devin-search"
+      ],
+      "legacy": null,
+      "note": "Absorbed into the devin-explore monorepo (F4.3); the devin-search PyPI package and CLI are unchanged, released from packages/search. Original repo archived with MOVED banner."
+    },
+    {
+      "name": "devin-graph",
+      "url": "https://github.com/Icaro0310/devin-explore",
+      "kind": "project",
+      "artifact": "tool",
+      "interfaces": [
+        "cli",
+        "library"
+      ],
+      "audiences": [
+        "developers",
+        "ai-engineers",
+        "data-scientists"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
+      "environments": {
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
+      },
+      "visibility": "public",
+      "wave": 3,
+      "status": "delivered",
+      "public": true,
+      "nature": "product",
+      "track": "observe",
+      "role": "module",
+      "mode": "read",
+      "maturity": "usable",
+      "official_overlap": "none",
+      "overlap_note": null,
+      "version": "0.1.0",
+      "session": "flicker-hyacinth",
+      "stack": "python",
+      "ci": "inline",
+      "tests": 57,
+      "description": "Knowledge graph: sessions, projects, files touched, tools used — queryable edges.",
+      "distribution_status": "published",
+      "ownership": "first_party",
+      "job": "understand",
+      "product_id": "devin-explore",
+      "package": {
+        "ecosystem": "pypi",
+        "name": "devin-graph",
+        "path": "packages/graph",
+        "depends_on": [
+          "devin-internals-spec"
+        ]
+      },
+      "local_dir": "devin-explore",
+      "entrypoints": [
+        "devin-graph"
+      ],
+      "legacy": null,
+      "note": "Absorbed into the devin-explore monorepo (F4.3); the devin-graph PyPI package and CLI are unchanged, released from packages/graph. Original repo archived with MOVED banner."
+    },
+    {
+      "name": "devin-evals",
+      "url": "https://github.com/Icaro0310/devin-assure",
+      "kind": "project",
+      "artifact": "tool",
+      "interfaces": [
+        "cli",
+        "library"
+      ],
+      "audiences": [
+        "qa",
+        "ai-engineers"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
+      "environments": {
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
+      },
+      "visibility": "public",
+      "wave": 3,
+      "status": "delivered",
+      "public": true,
+      "nature": "product",
+      "track": "assure",
+      "role": "module",
+      "mode": "read",
+      "maturity": "usable",
+      "official_overlap": "partial",
+      "overlap_note": "Complements official Devin Dreaming with deterministic, seed-controlled synthetic sessions carrying known defects (D01-D10) for reproducibility and agent assurance evaluation.",
+      "version": "0.3.1",
+      "session": "chemical-jury",
+      "stack": "python",
+      "ci": "inline",
+      "tests": 195,
+      "description": "Deterministic eval harness: replay recorded sessions against rubric graders; the `dream` subgroup generates synthetic sessions with known verdicts (D01-D10, absorbs devin-dream).",
+      "distribution_status": "published",
+      "ownership": "first_party",
+      "job": "verify",
+      "product_id": "devin-assure",
+      "package": {
+        "ecosystem": "pypi",
+        "name": "devin-evals",
+        "path": "packages/evals",
+        "depends_on": [
+          "devin-internals-spec",
+          "devin-redact"
+        ]
+      },
+      "entrypoints": [
+        "devin-evals"
+      ],
+      "legacy": null,
+      "local_dir": "devin-assure",
+      "note": "Absorbed into the devin-assure monorepo (F4.2); the devin-evals PyPI package and CLI are unchanged, released from packages/evals. Original repo archived with MOVED banner."
+    },
+    {
+      "name": "devin-brain",
+      "url": "https://github.com/Icaro0310/devin-brain",
+      "kind": "project",
+      "artifact": "tool",
+      "interfaces": [
+        "cli",
+        "library",
+        "mcp",
+        "service"
+      ],
+      "audiences": [
+        "ai-engineers",
+        "developers",
+        "data-scientists"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
+      "environments": {
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
+      },
+      "visibility": "public",
+      "wave": 4,
+      "status": "delivered",
+      "public": true,
+      "nature": "product",
+      "track": "platform",
+      "role": "module",
+      "mode": "mixed",
+      "maturity": "usable",
+      "official_overlap": "partial",
+      "overlap_note": "Complements official Devin Memory with local evidence provenance and quarantine.",
+      "version": "0.3.0",
+      "session": "goldenrod-gadget",
+      "stack": "python",
+      "ci": "inline",
+      "tests": 161,
+      "description": "Anti-poisoning memory store: provenance, versioning, quarantine gate, and session-learning utilities.",
+      "distribution_status": "published",
+      "ownership": "first_party",
+      "job": "build",
+      "product_id": "devin-brain",
+      "package": {
+        "ecosystem": "pypi",
+        "name": "devin-memory",
+        "path": ".",
+        "depends_on": [
+          "devin-internals-spec",
+          "devin-redact"
+        ]
+      },
+      "entrypoints": [
+        "devin-learning",
+        "devin-memory",
+        "devin-memory-mcp"
+      ],
+      "legacy": {
+        "repo": "devin-memory",
+        "status": "renamed",
+        "redirect": true
+      }
+    },
+    {
+      "name": "devin-janitor",
+      "url": "https://github.com/Icaro0310/devin-state",
+      "kind": "project",
+      "artifact": "tool",
+      "interfaces": [
+        "cli",
+        "automation"
+      ],
+      "audiences": [
+        "operations",
+        "security"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
+      "environments": {
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
+      },
+      "visibility": "public",
+      "wave": 5,
+      "status": "delivered",
+      "public": true,
+      "nature": "product",
+      "track": "guard",
+      "role": "module",
+      "mode": "mixed",
+      "maturity": "usable",
+      "official_overlap": "none",
+      "overlap_note": null,
+      "version": "0.1.0",
+      "session": "deluxe-macaroni",
+      "stack": "python",
+      "ci": "inline",
+      "tests": 54,
+      "description": "Session lifecycle janitor: export-then-delete pipeline, tiered classification, pluggable judge, pending-retry for locked stores.",
+      "distribution_status": "published",
+      "ownership": "first_party",
+      "job": "control",
+      "product_id": "devin-state",
+      "package": {
+        "ecosystem": "pypi",
+        "name": "devin-janitor",
+        "path": "packages/janitor",
+        "depends_on": [
+          "devin-internals-spec"
+        ]
+      },
+      "entrypoints": [
+        "devin-janitor"
+      ],
+      "legacy": null,
+      "local_dir": "devin-state",
+      "note": "Absorbed into the devin-state monorepo (F4.1); the devin-janitor PyPI package and CLI are unchanged, released from packages/janitor. Original repo archived with MOVED banner."
+    },
+    {
+      "name": "devin-control",
+      "url": "https://github.com/Icaro0310/devin-control",
+      "kind": "project",
+      "artifact": "tool",
+      "interfaces": [
+        "cli",
+        "bridge"
+      ],
+      "audiences": [
+        "security",
+        "ai-engineers",
+        "devops"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
+      "environments": {
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false,
+          "requirements": [
+            "node>=20",
+            "devin-cli"
+          ]
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false,
+          "requirements": [
+            "node>=20",
+            "devin-cli"
+          ]
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false,
+          "requirements": [
+            "node>=20",
+            "devin-cli"
+          ]
+        }
+      },
+      "visibility": "public",
+      "wave": 4,
+      "status": "delivered",
+      "public": true,
+      "nature": "product",
+      "track": "guard",
+      "role": "module",
+      "mode": "mixed",
+      "maturity": "usable",
+      "official_overlap": "none",
+      "overlap_note": null,
+      "version": "0.1.0",
+      "session": "massive-waltz",
+      "stack": "node",
+      "ci": "inline",
+      "tests": 55,
+      "description": "Control how Devin runs: a policy-gated ACP bridge (Node.js, isolated sessions per repo with allow/deny/ask rules), a deterministic background-worker fan-out planner (devin-fanout), config profile switching with snapshot and rollback, and a live activity board (office, source-only).",
+      "distribution_status": "published",
+      "ownership": "first_party",
+      "job": "control",
+      "product_id": "devin-control",
+      "package": {
+        "ecosystem": "npm",
+        "name": "@icaro0310/devin-bridge",
+        "path": "packages/bridge"
+      },
+      "entrypoints": [
+        "devin-bridge"
+      ],
+      "legacy": {
+        "repo": "devin-bridge",
+        "status": "renamed",
+        "redirect": true
+      },
+      "note": "uv+npm workspace monorepo since F4.4: packages/bridge (this entry, ex devin-bridge repo; npm package @icaro0310/devin-bridge unchanged), packages/orchestrator, packages/switch, packages/office (source-only). Package-specific tags: <pkg>-v*."
+    },
+    {
+      "name": "devin-orchestrator",
+      "url": "https://github.com/Icaro0310/devin-control",
+      "kind": "project",
+      "artifact": "tool",
+      "interfaces": [
+        "cli",
+        "automation"
+      ],
+      "audiences": [
+        "operations",
+        "ai-engineers"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
+      "environments": {
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
+      },
+      "visibility": "public",
+      "wave": 5,
+      "status": "delivered",
+      "public": true,
+      "nature": "product",
+      "track": "guard",
+      "role": "module",
+      "mode": "read",
+      "maturity": "usable",
+      "official_overlap": "none",
+      "overlap_note": null,
+      "version": "0.2.0",
+      "stack": "python",
+      "ci": "inline",
+      "tests": 29,
+      "description": "Background-worker fan-out policy: deterministic planner enforcing worker caps (max 3), no nesting, read-only profiles for review, collect-before-report. Skill + always-on rule.",
+      "note": "PyPI distribution is devin-fanout because devin-orchestrator is occupied; console command remains devin-orchestrator. Absorbed devin-subagent-orchestrator draft (never published). Absorbed into the devin-control monorepo (F4.3-F4.4), released from packages/orchestrator. Original repo archived with MOVED banner.",
+      "distribution_status": "published",
+      "ownership": "first_party",
+      "job": "control",
+      "product_id": "devin-control",
+      "package": {
+        "ecosystem": "pypi",
+        "name": "devin-fanout",
+        "path": "packages/orchestrator"
+      },
+      "local_dir": "devin-control",
+      "entrypoints": [
+        "devin-orchestrator"
+      ],
+      "legacy": null
+    },
+    {
+      "name": "personal-agent-system",
+      "url": "https://github.com/Icaro0310/personal-agent-system",
+      "kind": "system",
+      "artifact": "system",
+      "interfaces": [
+        "service",
+        "automation"
+      ],
+      "audiences": [
+        "maintainers"
+      ],
+      "platforms": [
+        "linux"
+      ],
+      "visibility": "private",
+      "wave": 0,
+      "status": "active",
+      "public": false,
+      "maturity": "usable",
+      "stack": "python",
+      "local_dir": "../personal-agent-system",
+      "tests_dir": "scripts",
+      "tests": 34,
+      "description": "Private maintainer runtime for personal workflows; excluded from public project reports (kind=system).",
+      "ownership": "related",
+      "job": null,
+      "product_id": null,
+      "package": null,
+      "entrypoints": [],
+      "legacy": null
+    },
+    {
+      "name": "devin-dashboard",
+      "url": "https://github.com/Icaro0310/devin-dashboard",
+      "kind": "project",
+      "artifact": "service",
+      "interfaces": [
+        "service",
+        "dashboard"
+      ],
+      "audiences": [
+        "maintainers"
+      ],
+      "platforms": [
+        "linux"
+      ],
+      "visibility": "private",
+      "wave": 0,
+      "status": "active",
+      "public": false,
+      "maturity": "usable",
+      "stack": "python",
+      "session": "gui-dashboard",
+      "description": "Private environment-monitoring deployment for the maintainer; not a public user tool.",
+      "ownership": "related",
+      "job": null,
+      "product_id": null,
+      "package": null,
+      "entrypoints": [],
+      "legacy": null
+    },
+    {
+      "name": "devin-office",
+      "url": "https://github.com/Icaro0310/devin-control",
+      "kind": "project",
+      "artifact": "tool",
+      "interfaces": [
+        "service",
+        "dashboard"
+      ],
+      "audiences": [
+        "operations",
+        "end-users"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
+      "environments": {
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
+      },
+      "visibility": "public",
+      "wave": 0,
+      "status": "active",
+      "public": true,
+      "nature": "product",
+      "track": "guard",
+      "role": "module",
+      "mode": "mixed",
+      "maturity": "experimental",
+      "official_overlap": "none",
+      "overlap_note": null,
+      "stack": "python",
+      "local_dir": "devin-control",
+      "description": "Local-first Devin session and subagent dashboard with standalone and optional split modes.",
+      "version": "0.1.0",
+      "tag": "v0.1.0",
+      "distribution_status": "source_only",
+      "ownership": "first_party",
+      "job": "control",
+      "product_id": "devin-control",
+      "package": {
+        "ecosystem": "internal",
+        "name": "devin-office",
+        "path": "packages/office"
+      },
+      "entrypoints": [],
+      "legacy": null,
+      "note": "Absorbed into the devin-control monorepo (F4.4); stays source-only at packages/office (mode mixed). Original repo archived with MOVED banner."
+    },
+    {
+      "name": "qwenpaw-suite",
+      "url": "https://github.com/Icaro0310/qwenpaw-suite",
+      "kind": "project",
+      "artifact": "suite",
+      "interfaces": [
+        "service",
+        "bridge",
+        "docs"
+      ],
+      "audiences": [
+        "ai-engineers",
+        "operations"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
+      "environments": {
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "supported",
+          "external_dependencies": true
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "supported",
+          "external_dependencies": true
+        },
+        "corporate_windows": {
+          "supported": false,
+          "runtime": "unavailable",
+          "delegation": "forbidden",
+          "external_dependencies": true,
+          "reason": "requires an optional self-hosted model runtime outside the corporate local-only guarantee"
+        }
+      },
+      "visibility": "public",
+      "wave": 0,
+      "status": "active",
+      "public": true,
+      "nature": "product",
+      "track": "related",
+      "role": "module",
+      "mode": "mixed",
+      "maturity": "usable",
+      "official_overlap": "none",
+      "overlap_note": null,
+      "stack": "python",
+      "local_dir": "../qwenpaw-suite",
+      "description": "Optional QwenPaw add-on for self-hosted model operators. Includes the local-model bridge, health checks, and GitHub/local documentation sync.",
+      "distribution_status": "source_only",
+      "ownership": "external",
+      "job": null,
+      "product_id": null,
+      "package": null,
+      "entrypoints": [],
+      "legacy": null
+    },
+    {
+      "name": "devin-judge",
+      "url": "https://github.com/Icaro0310/devin-judge",
+      "kind": "project",
+      "artifact": "tool",
+      "interfaces": [
+        "cli",
+        "library",
+        "mcp",
+        "bridge"
+      ],
+      "audiences": [
+        "ai-engineers",
+        "qa"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
+      "environments": {
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
+      },
+      "visibility": "public",
+      "wave": 0,
+      "status": "active",
+      "public": true,
+      "nature": "product",
+      "track": "guard",
+      "role": "module",
+      "mode": "read",
+      "maturity": "usable",
+      "official_overlap": "none",
+      "overlap_note": null,
+      "stack": "python",
+      "local_dir": "../devin-judge",
+      "description": "Djævin: calibrated local-first decision layer with typed questions and honest confidence. The Devin ACP backend reuses the model your Devin CLI already runs (no extra download, no API key); the local NLI backend stays as a fully-offline fallback.",
+      "version": "0.1.2",
+      "tag": "v0.1.0",
+      "distribution_status": "published",
+      "ownership": "first_party",
+      "job": "control",
+      "product_id": "devin-judge",
+      "package": {
+        "ecosystem": "pypi",
+        "name": "poordjaevin",
+        "path": "."
+      },
+      "entrypoints": [
+        "poordjaevin"
+      ],
+      "legacy": {
+        "repo": "poordjaevin",
+        "status": "renamed",
+        "redirect": true
+      }
+    },
+    {
+      "name": "awesome-devin",
+      "url": "https://github.com/Icaro0310/awesome-devin",
+      "kind": "project",
+      "artifact": "resource",
+      "interfaces": [
+        "docs"
+      ],
+      "audiences": [
+        "developers",
+        "end-users"
+      ],
+      "visibility": "public",
+      "wave": 99,
+      "status": "active",
+      "public": true,
+      "nature": "surface",
+      "track": "navigation",
+      "role": "surface",
+      "mode": "read",
+      "maturity": "usable",
+      "official_overlap": "none",
+      "overlap_note": null,
+      "description": "Curated awesome-list of Devin tooling and resources (CC0).",
+      "ownership": "external",
+      "job": null,
+      "product_id": null,
+      "package": null,
+      "entrypoints": [],
+      "legacy": null
+    },
+    {
+      "name": "devin-switch",
+      "url": "https://github.com/Icaro0310/devin-control",
+      "kind": "project",
+      "artifact": "tool",
+      "interfaces": [
+        "cli"
+      ],
+      "audiences": [
+        "operations",
+        "maintainers",
+        "devops"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
+      "environments": {
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
+      },
+      "visibility": "public",
+      "wave": 2,
+      "status": "active",
+      "public": true,
+      "nature": "product",
+      "track": "guard",
+      "role": "module",
+      "mode": "mixed",
+      "maturity": "usable",
+      "official_overlap": "none",
+      "overlap_note": null,
+      "version": "0.1.0",
+      "stack": "python",
+      "ci": "inline",
+      "tests": 70,
+      "description": "Switch between Devin configuration profiles (hooks, MCP, models) with snapshot, sha256 verify, atomic write, journal and rollback. Dry-run by default; secrets never printed.",
+      "distribution_status": "published",
+      "ownership": "first_party",
+      "job": "control",
+      "product_id": "devin-control",
+      "package": {
+        "ecosystem": "pypi",
+        "name": "devin-switch",
+        "path": "packages/switch"
+      },
+      "local_dir": "devin-control",
+      "entrypoints": [
+        "devin-switch"
+      ],
+      "legacy": null,
+      "note": "Absorbed into the devin-control monorepo (F4.4); the devin-switch PyPI package and CLI are unchanged, released from packages/switch. Original repo archived with MOVED banner."
+    },
+    {
+      "name": "devin-skill-catalog",
+      "url": "https://github.com/Icaro0310/devin-devkit",
+      "kind": "project",
+      "artifact": "tool",
+      "interfaces": [
+        "cli",
+        "registry"
+      ],
+      "audiences": [
+        "maintainers",
+        "ai-engineers",
+        "developers"
+      ],
+      "platforms": [
+        "windows",
+        "linux"
+      ],
+      "environments": {
+        "linux": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "personal_windows": {
+          "supported": true,
+          "runtime": "extended",
+          "delegation": "optional",
+          "external_dependencies": false
+        },
+        "corporate_windows": {
+          "supported": true,
+          "runtime": "local-only",
+          "delegation": "forbidden",
+          "external_dependencies": false
+        }
+      },
+      "visibility": "public",
+      "wave": 2,
+      "status": "active",
+      "public": true,
+      "nature": "product",
+      "track": "platform",
+      "role": "catalog",
+      "mode": "mixed",
+      "maturity": "usable",
+      "official_overlap": "partial",
+      "overlap_note": "Complements official Devin Skills with local inventory, lint, quarantine and promotion gates for skills and rules. It does not define or run skills.",
+      "version": "0.1.0",
+      "stack": "python",
+      "local_dir": "devin-devkit",
+      "ci": "inline",
+      "tests": 68,
+      "note": "Absorbed into the devin-devkit monorepo (F4.5); the devin-skill-catalog PyPI package and CLI are unchanged, released from packages/skill-catalog. Original repo archived with MOVED banner.",
+      "description": "Lifecycle + quality gates for .devin skills/rules: scan, lint, diff, G1/G2 gates, quarantined→approved→active lifecycle, sha256-verified export/import bundles (imports land quarantined).",
+      "distribution_status": "published",
+      "ownership": "first_party",
+      "job": "build",
+      "product_id": "devin-devkit",
+      "package": {
+        "ecosystem": "pypi",
+        "name": "devin-skill-catalog",
+        "path": "packages/skill-catalog"
+      },
+      "entrypoints": [
+        "devin-skill-catalog"
+      ],
+      "legacy": null
+    },
+    {
+      "name": "devin-learning",
+      "url": "https://github.com/Icaro0310/devin-powerups",
+      "kind": "system",
+      "artifact": "system",
+      "interfaces": [
+        "automation"
+      ],
+      "audiences": [
+        "maintainers"
+      ],
+      "visibility": "private",
+      "wave": 0,
+      "status": "delivered",
+      "public": false,
+      "maturity": "usable",
+      "description": "Learning-loop runtime (SessionEnd hooks → .devin/skills/learned-*, hook-fires.jsonl). Absorbed into devin-powerups — never had its own repo; entry exists so devin-pm verify reconciles session history.",
+      "ownership": "related",
+      "job": null,
+      "product_id": null,
+      "package": null,
+      "entrypoints": [],
+      "legacy": null
+    }
+  ],
+  "journeys": {
+    "ai-engineers": [
+      {
+        "repo": "devin-control",
+        "why": "Drive ACP sessions programmatically with a permission policy"
+      },
+      {
+        "repo": "devin-orchestrator",
+        "why": "Fan out workers deterministically inside the policy caps"
+      },
+      {
+        "repo": "devin-brain",
+        "why": "Persist memory with provenance and quarantine gates"
+      }
+    ],
+    "data-scientists": [
+      {
+        "repo": "devin-graph",
+        "why": "Build the knowledge graph of sessions, projects and tools"
+      },
+      {
+        "repo": "devin-search",
+        "why": "Run FTS5 full-text queries across every session"
+      },
+      {
+        "repo": "devin-history",
+        "why": "Export session history to Markdown, JSON and CSV datasets"
+      },
+      {
+        "repo": "devin-metrics",
+        "why": "Measure activity and context growth over time"
+      }
+    ],
+    "developers": [
+      {
+        "repo": "devin-devkit",
+        "why": "Install a profile and get working CLIs fast"
+      },
+      {
+        "repo": "devin-skill-catalog",
+        "why": "Browse the skills shipped with each profile"
+      },
+      {
+        "repo": "devin-internals-spec",
+        "why": "Understand the stores before reading or writing them"
+      },
+      {
+        "repo": "devin-powerups",
+        "why": "Registry, scaffolder and conventions for extending the ecosystem"
+      }
+    ],
+    "devops": [
+      {
+        "repo": "devin-state",
+        "why": "Own the store lifecycle — snapshot, redact, clean up"
+      },
+      {
+        "repo": "devin-control",
+        "why": "Drive sessions through the policy-gated ACP bridge",
+        "label": "devin-bridge",
+        "url": "https://github.com/Icaro0310/devin-control/tree/main/packages/bridge"
+      },
+      {
+        "repo": "devin-switch",
+        "why": "Swap configuration profiles with snapshot and rollback"
+      }
+    ],
+    "operations": [
+      {
+        "repo": "devin-explore",
+        "why": "Check store health first — schema, locks, disk"
+      },
+      {
+        "repo": "devin-pm",
+        "why": "Roll sessions into per-repo milestones and status reports"
+      },
+      {
+        "repo": "devin-office",
+        "why": "Watch live session and subagent activity on the dashboard"
+      },
+      {
+        "repo": "devin-backup",
+        "why": "Snapshot before any destructive or cleanup operation"
+      },
+      {
+        "repo": "devin-janitor",
+        "why": "Run lifecycle cleanup only with a verified fresh snapshot"
+      }
+    ],
+    "qa": [
+      {
+        "repo": "devin-assure",
+        "why": "Audit what a session actually delivered vs claimed"
+      },
+      {
+        "repo": "devin-evals",
+        "why": "Replay sessions against rubric graders to lock the behavior"
+      },
+      {
+        "repo": "devin-judge",
+        "why": "Get calibrated yes/no judgments when the verdict is fuzzy"
+      }
+    ]
+  }
+}

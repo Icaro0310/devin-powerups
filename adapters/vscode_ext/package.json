@@ -1,0 +1,60 @@
+{
+  "name": "<pkg>",
+  "displayName": "<pkg>",
+  "description": "<one line — thin adapter: renders <pkg-cli> output; no logic reimplemented here>",
+  "version": "0.1.0",
+  "publisher": "icaro0310",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Icaro0310/<product-repo>.git",
+    "directory": "packages/<pkg>/adapters/vscode"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "devin"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "<pkg>.check",
+        "title": "<pkg>: Run check"
+      },
+      {
+        "command": "<pkg>.report",
+        "title": "<pkg>: Open report"
+      }
+    ],
+    "configuration": {
+      "title": "<pkg>",
+      "properties": {
+        "<pkgCamel>.executable": {
+          "type": "string",
+          "default": "<pkg-cli>",
+          "description": "<pkg-cli> executable (name or absolute path)"
+        },
+        "<pkgCamel>.extraArgs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Extra CLI args appended to every <pkg-cli> call"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "devDependencies": {}
+}

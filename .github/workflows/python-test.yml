@@ -10,8 +10,10 @@ on:
         type: string
         default: "."
       pre-install:
-        description: Extra pip install args run before the package install
-          (e.g. "-e shared/install-scheduler" for workspace deps not yet on PyPI)
+        description: >-
+          Extra pip install args run before the package install
+          (e.g. "-e shared/install-scheduler" for workspace deps not yet on PyPI).
+          Contract: space-separated args, no quoting — paths with spaces are unsupported
         type: string
         default: ""
       skip-install:
@@ -37,13 +39,61 @@ jobs:
         with:
           python-version: ${{ inputs.python-version }}
 
+      - name: Version lockstep (pyproject vs __version__)
+        if: ${{ !inputs.skip-install }}
+        working-directory: ${{ inputs.package-dir }}
+        shell: bash
+        # PR-time twin of the publish gate: drift between pyproject
+        # [project].version and the package's __version__ must fail here,
+        # not at release (verify-wheel-version). Resolved strictly by
+        # project.name — a workspace-root or shim pyproject without the
+        # module dir is skipped, never falsely flagged.
+        run: |
+          [ -f pyproject.toml ] || exit 0
+          python - <<'PY'
+          import pathlib, re, sys, tomllib
+          meta = tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]
+          ver, mod = meta["version"], meta["name"].replace("-", "_")
+          # Candidate __init__.py files: the module derived from
+          # project.name (src/ and flat layouts) plus every direct module
+          # dir under this package's own src/. Name normalization misses
+          # dist-name != module-name cases (devin-internals-spec ships
+          # devin_internals; devin-judge ships poordjaevin). One level
+          # deep only: rglob would descend into monorepo siblings and
+          # flag a workspace-root pyproject against a package's version.
+          cands = sorted(pathlib.Path("src").glob("*/__init__.py"))
+          cands += [pathlib.Path(mod) / "__init__.py"]
+          init = next((p for p in cands
+                       if p.is_file() and "__version__" in p.read_text()), None)
+          if init is None:
+              print(f"::notice::{meta['name']}: no module __init__ with __version__ "
+                    "under package-dir — lockstep skipped")
+              sys.exit(0)
+          m = re.search(r'__version__\s*=\s*["\']([^"\']+)', init.read_text())
+          if m.group(1) != ver:
+              print(f"::error::{init}: __version__ {m.group(1)} != pyproject {ver} "
+                    "— the publish gate would reject this wheel; sync before merge")
+              sys.exit(1)
+          print(f"version lockstep ok: {ver}")
+          PY
+
       - name: Pre-install workspace deps
         if: inputs.pre-install != ''
-        run: pip install ${{ inputs.pre-install }}
+        shell: bash
+        env:
+          # caller-provided input must not reach the shell via inline
+          # interpolation — env values are never re-parsed
+          PRE_INSTALL: ${{ inputs.pre-install }}
+        # unquoted: the input is a space-separated args string — word
+        # splitting is intended, quote chars pass through literally
+        run: pip install $PRE_INSTALL
 
       - name: Install
         if: ${{ !inputs.skip-install }}
-        run: pip install -e "${{ inputs.package-dir }}[dev]"
+        shell: bash
+        env:
+          PACKAGE_DIR: ${{ inputs.package-dir }}
+        run: pip install -e "${PACKAGE_DIR}[dev]"
 
       - name: Test
         run: pytest -q

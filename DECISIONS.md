@@ -4,6 +4,133 @@ Structural decisions about the ecosystem, newest first. Format per
 `GOVERNANCE.md`: Decision / Date / Reason / Evidence / Expected outcome /
 Result. Records are not eternal — revisit when new evidence arrives.
 
+## D-2026-10-10 — Out-of-diff findings: sanctioned clearance path
+
+- **Decision:** Devin Review does not re-resolve findings whose flagged
+  code lives **outside the PR diff** (e.g. a caller PR that pins
+  `uses: .../pr-approve.yml@v1.1` gets findings about the reusable
+  workflow's code; fixing that code in devin-powerups does not clear the
+  caller's threads, because re-review only diffs the PR itself). Neither
+  waiting nor a new `synchronize` clears them. The sanctioned
+  alternatives, in order:
+  1. make the fix part of the PR's own diff when feasible;
+  2. if the code legitimately lives elsewhere, merge with
+     `gh pr merge --squash --admin` **only after** every blocking finding
+     carries an explicit refutation — file:line + commit that fixes it —
+     or a maintainer-accepted limitation with its own D-record; post the
+     per-finding proof list as a PR comment before merging.
+     **Guardrail, written before it is needed:** the admin path requires
+     a complete per-finding pair (file:line + commit) for *every*
+     blocking thread, or a maintainer-accepted limitation with its own
+     D-record — never "the reviewer stayed silent", never "close
+     enough". One finding without a pair converts the whole PR back to
+     unanalysed, and it does not merge.
+- **Reason:** Devin Review exposes no programmatic dismiss for review
+  findings (no public API endpoint; `resolveReviewThread` by the author
+  still counts as blocking under the gate's anti-bypass rule — resolver
+  must be the bot). Manual resolution is therefore not a clearance path,
+  and stale out-of-diff threads would hold the PR forever.
+- **Evidence:** auto-approve rollout PRs (`Icaro0310#22`,
+  `devin-assure#43`, `devin-control#37`, `devin-brain#38`,
+  `devin-judge#28`, `Icaro0310.github.io#43`, `qwenpaw-suite#4`): 8
+  unresolved `bug|security` threads, all refuted by
+  `devin-powerups@8b220c9` lines or the fork limitation record —
+  current heads carry `Devin Review: success` and green CI, yet the gate
+  correctly stays fail-closed. Counter-evidence that this is a
+  pathological case, not a weak gate: two consecutive devin-powerups
+  PRs (#102 and #103) merged through the natural loop — Devin reviewed,
+  the gate counted the `kind: analysis` threads as non-blocking and
+  approved without intervention — the same system that held the 7
+  caller PRs. Read the history as "the reviewer cannot clear
+  out-of-diff findings", not as "the gate is fragile". Additional
+  enforcement evidence (2026-10-10, docker-publish PRs devin-assure#44
+  and devin-judge#29): a session attempted `resolveReviewThread` on two
+  stale-but-fixed blocking threads as `Icaro0310`; the gate kept
+  counting them ("resolved by anyone other than the Devin bot" still
+  blocks) and held both PRs until the threads were unresolved and
+  Devin's own re-review resolved them. The anti-bypass rule is
+  enforced in code, not just documented — a human resolving a finding
+  does not clear it, which is exactly the property the rule exists
+  for. Third
+  datapoint (2026-10-10, devin-assure#45 / devin-control#38): merging
+  `main` into a PR branch to bring the refuting fix into the diff base
+  does not trigger a Devin re-review on the merge head — no analysis
+  posted at all. So "make the fix part of the PR's diff" (sanctioned
+  alternative 1) only helps when the fix is authored in the PR, not
+  when it arrives via merge; in the latter case the per-finding proof
+  comment + admin merge remains the path, which is what both PRs used. Fourth
+  datapoint and a class distinction (2026-10-11): the count keeps two
+  different failure modes under one number. (a) out-of-diff — flagged
+  code lives outside the PR diff (caller-pinned reusables); (b)
+  in-diff-stale — flagged code WAS in the diff and got fixed, but no
+  re-review posted on the new head, so the thread never got
+  bot-resolved (devin-assure#45, devin-control#38 via merge commits;
+  devin-assure#47 via a real commit Devin never analyzed). Both funnel
+  to the same escape hatch with per-finding proof, but they are not
+  the same bug: (a) is a review-scope limit, (b) is a re-trigger gap.
+  If (b) keeps growing while (a) stays rare, the right fix is a
+  re-review trigger mechanism, not just the dismiss API — the backlog
+  item should name both.
+- **Expected outcome:** admin merges on this class are audited by the
+  per-finding proof comment; the root cause is backlog (see
+  `BACKLOG.md` — "findings-clearance mechanism (two classes)", which
+  carries an expiry clause: the workaround is deleted once a delivery
+  path exists that clears stale anchors of both classes — Devin-side
+  dismiss/re-check, or the gate-side signed dismiss list — and the
+  item closes when the workaround is gone). Check-in point is the next
+  corporate validation window (the Zscaler-verification pass), not a
+  quarterly tick — an event someone will actually be inside, not a
+  date nobody reads.
+- **Result:** recorded; first application is the auto-approve rollout
+  tail (7 PRs, each with per-finding proof comment + `--admin`).
+- **Addendum (2026-10-11) — distinct category: generator merges.**
+  Audit of the 15 admin merges found a class the pair-per-finding
+  vocabulary does not describe: the journey-recuration batch
+  ("refresh generated ecosystem blocks", 7 PRs across the repos; 2
+  merged APPROVED, 5 under REVIEW_REQUIRED). Verified per-PR: zero
+  blocking findings — review threads were `kind: analysis`, resolved;
+  `REVIEW_REQUIRED` persisted only because gate-bot approvals were
+  auto-dismissed when new commits pushed, i.e. approval churn, not
+  findings. Forcing those merges into per-finding language would
+  fabricate pairs for findings that never existed. The category,
+  named here: **generator merge** — generated output, identical across
+  repositories, review-exempt by nature. It does not need per-finding
+  pairs; it needs (a) a diff that is verifiably generator output
+  (`--check` clean or the generator's own render diffed), and (b) the
+  generator PR carrying the why. Admin path is acceptable on this
+  class for approval-dismissal churn alone, but only when the
+  blocking state is review-churn — if a real `bug|security` thread
+  exists, this record's main rule applies unchanged and the merge is
+  NOT a generator merge. Same-day PyPI wave note: the 8 token-removal
+  PRs merged naturally, which is the stronger signal — the class that
+  historically forced bypass went through the loop.
+
+## D-2026-10-10 — Fork PRs are out of scope for the approval gate
+
+- **Decision:** the `pr-approve` gate intentionally cannot approve
+  fork-authored PRs, and this is accepted policy, not a defect to fix.
+- **Reason:** GitHub grants a read-only `GITHUB_TOKEN` to
+  `pull_request_review`/`pull_request` runs sourced from forks, so no
+  workflow change can make a fork-sourced run submit an approval; and
+  the trusted-author list (`Icaro0310`, `dependabot[bot]`,
+  `github-actions[bot]`) is base-repo only — a fork author can never be
+  trusted, so the path is unreachable in this fleet. The observed
+  behavior (run executes, approve step fails on a read-only token,
+  approval skipped) is the designed fail-closed outcome.
+- **Evidence:** Devin Review findings "Late fork reviews cannot
+  trigger/grant/submit approval" on `devin-assure#43`,
+  `devin-control#37`, `devin-judge#28`; GitHub token-permission docs for
+  forked PRs; gate code `pr-approve.yml@8b220c9` (status branch filters
+  authors before any approval attempt).
+- **Expected outcome:** any PR that needs fork contributions approved
+  requires a maintainer review, not a gate change; recurring
+  fork-finding threads cite this record. Audit comments name the track:
+  findings covered by this limitation are referenced as
+  `limitation:fork-read-only`, not as `verified:stale` — the two tracks
+  (per-finding proof pair vs accepted policy) must not be conflated in
+  the same "verified" bucket.
+- **Result:** accepted limitation — active.
+
 ## D-2026-10-09 — F4.5: devin-devkit absorbs devin-skill-catalog
 
 - **Decision:** `devin-devkit` became a uv workspace with
@@ -635,3 +762,524 @@ contact are the target.
   (0.1.0, uploaded same-day by the retried workflows) with a version
   bump. None were action errors; all were reporting errors. The fix is
   the control above, not more checkpoints.
+
+## D-2026-10-10d — Explicit `--environment` required on Windows hosts
+
+- **Decision:** on `windows` hosts, `devin-devkit install`, `update` and
+  `outdated` must not guess the environment. Passing `--environment`
+  (`personal-windows` or `corporate-windows`) becomes mandatory; omitting
+  it exits with an error naming the two choices instead of silently
+  selecting `personal_windows`. Linux keeps the host-derived default
+  (`linux`) because it is the only Linux environment. The `windows`
+  alias in `_ENVIRONMENT_ALIASES` is **deprecated, then removed** — an
+  ambiguous name is not a decision, but it is already released surface
+  (shipped in `devin-devkit 0.1.0` on PyPI), so direct removal would
+  break consumers of the published version. Sequence: the release that
+  lands this change keeps `--environment windows` resolving to
+  `personal_windows` but emits a deprecation warning that names the
+  exit — `use --environment personal-windows or corporate-windows`
+  (not merely "windows is deprecated", or users drop the flag and fall
+  into the new required-flag error by accident). Removal at the next
+  breaking release (batching with whatever breaking change comes next);
+  this clause closes when the alias is gone, not before.
+- **Reason:** the previous default violated the ecosystem rule recorded
+  when the brain flipped to "safe by default, permissive is opt-in":
+  the least restrictive environment captured whoever did not specify
+  one, on the host where the mistake is most expensive (a corporate
+  machine could install tools its policy forbids). Requiring the flag
+  is more honest than defaulting to `corporate_windows` (which would
+  silently disable legitimate personal capability on personal machines)
+  and strictly more honest than defaulting to `personal_windows`.
+- **Evidence:** environment-boundary audit, 2026-10-10 — see
+  `docs/audits/2026-10-10/REPORT.md` (the same class of gap as the
+  missing env gate on `update`, PR devin-devkit#36).
+- **Expected outcome:** no code path can reach a Windows install/update
+  without an explicit environment decision; `normalize_environment`
+  raises instead of defaulting when `host == "windows"` and
+  `environment is None`. Validation order: argparse stops checking
+  `--environment` choices so consumers own the message, but each
+  consumer validates **before** building its plan — a user-input error
+  surfaces first, never interleaved with plan-level failures. The PR
+  should also land the install↔update **parity test**: run
+  `build_plan` and `build_update_plan` over the same tool matrix and
+  assert the same canonical gate per case. Shared `evaluate_*`
+  evaluators close the "gate missing" axis; only the parity test locks
+  the "gate in wrong position" axis (the 7th case of this audit),
+  which no amount of green tests on the installer alone can prove.
+  Help text, platform guides and the bootstrap guide state the
+  requirement.
+- **Result:** decision recorded; implementation follows in a dedicated
+  devkit PR after the in-flight updater gate lands.
+- **Deferred:** the shared evaluators (`evaluate_target`,
+  `evaluate_requirements`) live in `installer.py` today and `updater.py`
+  imports them — extraction into a `gates.py`/`plan.py` imported by
+  both is the clean end-state, postponed to avoid inflating the gate
+  PR. Named debt, not a bug; the parity test
+  (`tests/test_gate_parity.py`) is what makes the shared pipeline
+  enforceable regardless of where it lives — and it imports only the
+  caller modules (`installer`, `updater`), never the evaluators
+  directly, so the extraction cannot break its imports.
+
+## D-2026-10-11 — Publish workflow hardening: one verifier, verified=shipped, no-branch-publish
+
+- **Decision:** all seven `pypi-publish.yml` workflows converge on one
+  structure: a `resolve` job maps the released package to its
+  directory/module; a `verify` job calls the single shared reusable
+  `Icaro0310/devin-powerups/.github/workflows/verify-wheel-version.yml`
+  **pinned by SHA** (`61bf0b6`, tagged `v1.3`) — never floating `@v1`
+  on a publish gate; `publish` downloads the `dist` artifact the
+  verifier uploaded and pushes those exact bytes to PyPI — it does
+  not rebuild; a merged-into-main guard (`compare main...$GITHUB_SHA`
+  must report `behind|identical`) aborts before upload. Packages with
+  no `__version__` (install-scheduler) skip the gate explicitly by
+  resolving `mod=""`, and a failed `resolve` skips the publish leg
+  rather than starting it.
+- **Guarantee that must be stated, not implied:** **verified=shipped** —
+  the verified bytes are the shipped bytes, carried through the `dist`
+  artifact; no second build exists between verify and upload, so
+  substitution by an attacker or a nondeterministic build is
+  impossible. Scope of the guarantee, precisely: it covers byte
+  identity between what the gate inspected and what PyPI received.
+  It does NOT assert that the check itself was correct, that the
+  wheel's contents are safe, or that the verify policy was right —
+  those remain separate, human-verified properties.
+- **Reason:** three real events drove it — `devin-redact 0.2.1` and
+  `devin-evals 0.3.x` reached PyPI via dispatch from unmerged branches
+  (index ahead of main, unreproducible from the canonical tree);
+  `devin_metrics`/`devin_orchestrator`/`devin_memory` shipped wheels
+  self-reporting stale `__version__` (drift detected by hand, after
+  release); and a caller-side `@v1` floating reference would let a
+  later tag move silently alter what a publish gate enforces.
+- **Exception policy (named):** the merged-into-main guard has **no
+  bypass flag**. A hotfix goes through a normal main PR first; a
+  documented escape would become a permanent convenience hole. If a
+  real scenario ever forces a branch publish, this record is revisited
+  then — the flag is not added preemptively.
+- **Expected outcome:** `__version__` drift is caught before upload
+  everywhere the gate runs; packages born without `__version__` fail
+  loudly rather than silently skip; branch-publish cannot desync the
+  index again; and the next stale-template copy fails at the meta-check
+  (BACKLOG) rather than at a human remembering. Review convergence
+  expectation, made falsifiable: N=3 rounds of findings for a new
+  workflow surface plus M per fix round the review forces (corrections
+  to gates are themselves finding-prone — observed three times this
+  round alone). Adjust N and M with data when the next surface lands;
+  the estimate exists to be compared against, not to sound right.
+
+## D-2026-10-11b — Publish auth: OIDC-only, token path removed
+
+- **Decision:** the six `pypi-publish.yml` workflows that passed
+  `password: secrets.PYPI_API_TOKEN` no longer do (state#45,
+  explore#47, devkit#39, control#42, brain#44, judge#33). With the
+  input set, `pypa/gh-action-pypi-publish` authenticated every upload
+  with the account token and silently disabled Trusted Publishing —
+  each run produced PyPI's "API token was used ... even though the
+  project has a Trusted Publisher configured" email. OIDC is now the
+  only auth path; there is no code path left that can fall back to
+  the token without a workflow edit.
+- **Verification:** one `workflow_dispatch` per package (skip-existing
+  makes uploads no-ops; the OIDC exchange is what is exercised). OIDC
+  green for **12/14 tuples** — redact/backup/janitor, doctor/graph/
+  history/pm/search, orchestrator/switch, devin-memory, poordjaevin —
+  zero "disabling Trusted Publishing" warnings. The two failures are
+  `devin-devkit` and `devin-skill-catalog`: `invalid-pending-publisher:
+  valid token, but project already exists` — their **pending** TPs were
+  registered before first upload and became invalid when the account
+  token created the projects. Fix is PyPI-side (owner): remove the stale
+  pending publishers, add active TPs on each project's publishing
+  settings (`Icaro0310/devin-devkit` + `pypi-publish.yml` + env
+  `pypi-devkit`/`pypi-skill-catalog`).
+- **Token disposition:** `PYPI_API_TOKEN` stays dormant in the six repos
+  as rollback until the devkit pair is green on OIDC; then delete the
+  repo secrets and revoke the account token on PyPI — an unused account
+  token uploadable to every project is pure attack surface. The earlier
+  "empty password → OIDC fallback" policy is superseded: a populated
+  secret made the fallback unconditional, which is exactly what
+  generated the repeated warnings.
+  **(Revocation framing retracted — see Addendum 3. The token is a
+  deliberate account-level fallback, not a surface to eliminate.)**
+- **Expected outcome:** every publish authenticates via OIDC with zero
+  "API token was used" warnings; once the devkit pair is green, the
+  `PYPI_API_TOKEN` repo secrets and the account token are deleted —
+  the token path is gone, not just unused.
+  **(Revised by Addendum 3: the repo secrets stay deleted because the
+  workflows carry no `password:` code path; the account token is not
+  deleted — it remains an owner-held fallback.)**
+- **Result:** partial — OIDC green for 12/14 tuples at record time;
+  `devin-devkit` and `devin-skill-catalog` remain blocked on stale
+  pending publishers (PyPI-side owner action tracked in BACKLOG).
+  Token secrets stay dormant until then, so the record closes only
+  when the revocation step completes.
+  **(Closure criterion revised by Addendum 3: the record closes when
+  the TP cleanup lands and the re-dispatches prove OIDC green — no
+  revocation step exists.)**
+- **Addendum (2026-10-11, owner review):** the "dormant rollback"
+  disposition was overruled — a rollback that requires editing the
+  workflow anyway is dead weight, not a safety net. Corrected order:
+  revoke the account token and delete all repo secrets FIRST, close
+  the pending-TP cleanup, then re-dispatch; nothing depends on the
+  token existing. Execution so far: `PYPI_API_TOKEN` deleted from all
+  **seven** repos that held it (the six above plus
+  `devin-internals-spec`, missed by the per-repo check — grep, not
+  enumeration, is the proof: `grep -rn 'PYPI_API_TOKEN'
+  **/.github/workflows/`). The same grep caught two workflows the six
+  PRs missed: the reusable `devin-powerups/pypi-publish.yml` (token
+  input + password removed, header now documents
+  active-publisher-before-first-upload) and `devin-assure`. It also
+  surfaced that `devin-internals-spec`'s publish only ever worked via
+  token (it `uses:`-called the reusable workflow, which TP always
+  rejects) — fixed by giving it an inline `pypi-publish.yml`
+  (internals-spec#35) like every other product repo. Remaining owner
+  steps, unchanged: revoke the account token; remove the stale
+  pending publishers and add active TPs for devkit + skill-catalog
+  (and now internals-spec); then the re-dispatches verify OIDC.
+  **(Addendum 3: "revoke the account token" is retracted — not
+  policy. The remaining owner steps are the TP cleanup only.)**
+- **Addendum 2 (2026-10-11):** the publish-auth meta-check now rides
+  the required `secrets-scan` job (step "Assert publish workflows are
+  OIDC-only") in every caller, plus a self-scan `ci.yml` on the hub —
+  token-auth drift fails the required check at commit time, where the
+  author still has context, instead of surfacing in a nightly audit.
+  Callers pin `secrets-scan.yml@v1`, so the guard only propagates when
+  the floating `v1` tag is re-pointed after this branch merges.
+
+- **Addendum 3 (2026-10-11, owner — policy correction, supersedes the
+  revocation framing above):** the framing that accumulated on this
+  record — "close the account-token surface", "revoke the token",
+  "eliminate `PYPI_API_TOKEN` as attack surface", "revocation order is
+  critical" — is **retracted**. It was generic credential-hygiene
+  reasoning applied without knowing this ecosystem's actual policy.
+
+  **Authoritative credential policy:** OIDC is the primary path
+  (scope-per-workflow, granular); the token is a deliberate,
+  account-wide fallback for when the OIDC path is unavailable or not
+  viable. Devin holds credentials by decision, not by accident —
+  autonomy via tokens and access is part of the owner's operational
+  strategy, not a risk to mitigate. A token that exists and is not on
+  the normal code path is fallback, not surface.
+
+  **The missing distinction:** "token exists" ≠ "workflow uses token".
+  What generated the PyPI emails was the second — workflows passed
+  `password:` and disabled an already-configured TP, so the weaker
+  path was the default while the stronger existed. The cure removes
+  the wrong *code path*; it does not remove the *capability*.
+
+  **What stands:** `password:` removed from the active
+  `pypi-publish.yml`s (OIDC is the only path in workflow code);
+  the `devin-internals-spec` `uses:` finding (TP could never match a
+  caller `job_workflow_ref` — inline workflow was the correct fix,
+  single-update-point loss noted as low backlog); the corrected count
+  of 7 token-holding repos (grep, not enumeration); the PyPI-side TP
+  cleanup (delete stale pending publishers for devkit/skill-catalog;
+  activate TPs for devkit env `pypi-devkit`, skill-catalog env
+  `pypi-skill-catalog`, internals-spec env `pypi`) — goal: make OIDC
+  viable, not disable the token; the re-dispatch of the 3, which
+  tests "the primary path works alone", not "the fallback is gone";
+  the HEARTBEAT rule "PyPI/GitHub security email → ticket same-day",
+  with objective adjusted to *detecting bypass of the primary path*,
+  not detecting that a credential exists.
+
+  **Retracted:** revoking the account token on PyPI; deleting
+  `PYPI_API_TOKEN` as attack surface; any "revocation order"
+  language — there is no revocation; any reading that treats owner
+  credentials as a security problem rather than operational policy.
+  No revocation, no rotation, no access restriction in this round or
+  any future one without an explicit owner decision.
+
+  **Optional observability (non-blocking, owner-approved only):** an
+  `echo "auth=token"` line in the `pypi-publish.yml` step summary when
+  a publish ever runs via token instead of OIDC — auditable, same
+  pattern as the sanctioned git-main-push-bypass. Do not implement
+  without explicit approval.
+
+  **Note to future readers:** do not reopen this as "security
+  hygiene". OIDC-primary + token-fallback is a deliberate decision
+  aligned with Devin autonomy. A future record proposing to revoke or
+  rotate credentials in this ecosystem contradicts this addendum and
+  requires an explicit owner decision first.
+
+## D-2026-10-11c — VS Code extension: container-is-not-local-only + CLI↔extension contract
+
+- **Decision:** the `icaro0310.devin-doctor` VS Code adapter is a new
+  surface class: the extension itself is local-only (thin shell over
+  `devin-doctor check --json`), but it runs inside an editor container
+  that makes network calls by design — marketplace auto-update,
+  telemetry, extension host. Two consequences, both shipped:
+  (a) the corporate-Windows coverage lands as a **section inside the
+  package's guide** (`_PLATFORM_EXTRAS` keyed to `devin-explore`, the
+  registry entry that renders the doctor guide), not as a 21st guide
+  file — every future `adapters/vscode/` gets the same treatment in its
+  own package's guide; (b) `check --json` is treated as a versioned
+  contract: the extension declares `"devin-doctor-cli": ">=0.1,<0.2"`
+  in `package.json`, enforces it at runtime against `payload.version`,
+  and validates the rendered shape (`overall`, `version`,
+  `summary.{pass,warn,fail}`, `findings[].{check,status,message,fix?}`)
+  — drift fails loudly or flags the badge instead of rendering garbage.
+- **Date:** 2026-10-11.
+- **Reason:** the `local_only: true` registry contract was written for
+  Python CLIs; claiming it for an editor-hosted surface would have
+  produced the "editor makes external calls on a local-first request"
+  helpdesk ticket. And the extension/CLI pair versions independently —
+  the same drift class as the `__version__` incident, in the opposite
+  direction.
+- **Evidence:** generated section in devin-explore
+  `packages/doctor/README.corporate-windows.md` (marketplace
+  auto-update, VS Code telemetry, extension host, sideload-vs-
+  marketplace IT policy, workspace trust); contract enforcement +
+  tests in `devin-explore#55`; Python-side schema assertions in
+  `test_check_json_schema`. Verified fact discovered while wiring the
+  extras key: the registry has **no `devin-doctor` tool name** —
+  `devin-explore`'s entry renders `packages/doctor`.
+- **Expected outcome:** corporate rollout of the extension carries the
+  container caveats with it; a CLI schema change or a version outside
+  the pinned range surfaces as a named warning, never silent drift.
+- **Result:** shipped — generator section + guide regen wave (10 PRs,
+  powerups#121 stacked on #120), extension contract PR devin-explore#55
+  (0.2.0, stacked on #53). Observed side-finding logged separately:
+  `check --json` on a populated data dir exceeds the extension's 120 s
+  subprocess cap (disk-usage walk) — a CLI-latency property, not
+  contract drift.
+
+## D-2026-10-13 — External skills enter through the governed catalog, not file copies
+
+- **Decision:** third-party skills are adopted as **governed catalog
+  entries** (scan → quarantine → G1 → approve) with provenance pinned
+  in `skill-vendor/VENDORS.md` (upstream repo, path, license, commit
+  SHA) and a `corporate_scope` marker field on the registry entry:
+  `external` (third-party fetch — blocked where `external_compute:
+  false`), `optional-selfhosted` (works corporate only via a reachable
+  self-hosted backend, must degrade gracefully), `conditional` (needs
+  a separate local runtime/index). The registry writes its whole data
+  map, so the field survives future transitions. License classes:
+  MIT → file-vendorable; AGPL-3.0 → governed pointers/thin skills, no
+  code copy; unverified source → no vendor at all.
+- **Date:** 2026-10-13.
+- **Reason:** the catalog was built for "when do I trust a third-party
+  or learned skill" — external adoption is its designed use, and the
+  alternative (forking skills into repos) creates maintenance debt and
+  license exposure. The corporate mark exists because two of this
+  wave's adoptions (Agent-Reach, OpenMontage) reach third-party
+  platforms by design — without the mark a corporate install would
+  silently inherit external calls.
+- **Evidence:** 9 entries approved today — `agent-reach` (MIT,
+  `external`), `openmontage` (AGPL pointer, `external` + dependent on
+  Brag), `searxng-websearch` (`optional-selfhosted`),
+  `repowise-*` ×6 (AGPL skills, `conditional` on a RepoWise index).
+  Quarantine copies + SHA-256 in the catalog registry; activation is a
+  deliberate second step — `searxng-websearch` is the only one
+  installed live (`~/.devin/skills/`), because its backend exists.
+- **Expected outcome:** "always-active vs outside-corporate" is a
+  registry fact, not tribal knowledge; AGPL material stays governed
+  pointers; adoption ≠ activation — a skill only goes live when its
+  runtime exists.
+- **Result:** shipped — catalog entries + VENDORS.md provenance;
+  activation discipline recorded.
+
+## D-2026-10-13b — SearXNG is the canonical web-search backend (service + skill contract)
+
+- **Decision:** web search lands as **option (c)**: a self-hosted
+  SearXNG instance consumed as a plain local HTTP service, with the
+  `searxng-websearch` catalog skill as the agent-facing contract —
+  not a `devin-search` subcommand (a) and not a bundled MCP tool (b).
+  Agent-Reach stays cataloged as the **optional external fallback**
+  (`corporate_scope: external`).
+- **Date:** 2026-10-13.
+- **Reason:** no container runtime exists on this host (no
+  docker/podman), so SearXNG runs from source (uv venv, CPython 3.12)
+  under a user systemd unit — which is also the distribution shape
+  that survives `external_compute: false`: the instance is localhost
+  infrastructure, not an agent dependency. A `devin-search web`
+  subcommand would be a publishable-package change inside the
+  governance freeze for zero added logic — the "business rule"
+  (metasearch) lives entirely in SearXNG; uma lógica, muitas faces
+  means the adapter would be a 30-line curl wrapper with nothing to
+  wrap.
+- **Evidence:** `devin-searxng.service` (user unit, enabled,
+  Restart=on-failure) serving `http://127.0.0.1:8888` with
+  `formats: [html, json]`; live query returns 20-28 results across
+  engines. Graceful failure verified both directions: engines
+  suspended → HTTP 200 + `results: []` + `unresponsive_engines`
+  (observed: brave rate-limited, duckduckgo CAPTCHA — the instance
+  degrades per-engine, no crash); instance unreachable → curl fails
+  closed (exit 7). Source checkout `~/devin/searxng`, instance config
+  `instance/settings.yml`.
+- **Expected outcome:** agents gain web search that works behind a
+  corporate proxy when the instance is local; when engines or the
+  instance are unreachable the skill reports and falls back to
+  internal knowledge instead of fabricating. If usage proves out, a
+  post-freeze `devin-search web` convenience wrapper can be filed as
+  `[estender]`.
+- **Result:** shipped — service live and persistent; skill active;
+  Research Agent skill registered in DIRECTIONS as a dependent
+  candidate pending a verifiable source.
+
+## D-2026-10-13c — devin-graph stays a session graph; RepoWise stays an external sibling
+
+- **Decision:** `devin-graph` is **not** extended into code indexing.
+  RepoWise remains an external MCP sibling; integration, when pain is
+  felt, is by reference keys — repository, path, symbol, commit SHA —
+  not by embedding.
+- **Date:** 2026-10-13.
+- **Reason:** the two graphs are orthogonal: devin-graph answers
+  "which sessions touched X / what did the agent do"; RepoWise
+  answers "how does the code fit together / what is risky to change"
+  across five layers (dependency graph, git history, docs, decisions,
+  health). Merging them would mean vendoring an AGPL-3.0 codebase and
+  doubling devin-graph's scope for an unproven join. The 6 governed
+  `repowise-*` skills already route agents when a `.repowise/` index
+  exists.
+- **Evidence:** RepoWise persists to SQL with NetworkX in memory (no
+  graph DB), exposes `get_context`/`get_risk`/`get_why`/`get_dead_code`
+  MCP tools; devin-graph edges are session↔artifact. No session ever
+  needed a code↔session edge — the DIRECTIONS `devin-codegraph` line
+  stays unconverted for the same reason.
+- **Expected outcome:** if a task ever needs "the session that changed
+  this function", the join key is commit SHA + path — cheap to bridge
+  read-only, no schema marriage required.
+- **Result:** decided — external-sibling architecture recorded; no
+  code written (spec, not implementation, per the task gate).
+
+## D-2026-10-13d — Laya rejected as a poordjaevin backend on CPU (measured, not claimed)
+
+- **Decision:** Laya (`convaiinnovations/laya` 0.4.6) is **not adopted**
+  as a `devin-judge`/`poordjaevin` backend. Revisit only if (a) a GPU
+  host exists AND (b) calibration is verified on a local eval set.
+- **Date:** 2026-10-13.
+- **Reason:** the marketing numbers (~33 ms, calibrated confidence) do
+  not survive contact with this hardware or the shipped checkpoint.
+  Measured: **15–24 s per question, warm, on CPU** — three orders of
+  magnitude off the claimed 33 ms, and worse than the incumbent
+  mDeBERTa NLI backend which scores a batch of hypotheses in a single
+  sub-second forward pass. Footprint ~2.6 GB vs ~280 MB. And the
+  library itself warns at load: *"this checkpoint ships invalid
+  temperatures or values outside [0.5, 5] … Treat confidence from the
+  affected entries as uncalibrated"* — the one property poordjaevin
+  sells (honest calibration) is the one the checkpoint flags broken.
+- **Evidence:** functional probe in `~/laya-eval` (venv, torch CPU
+  wheel): `Router.predict(state, questions)` works — `noul` returned
+  0.745 for "touches payment code" on a Stripe-webhook state, the
+  typed-decision API maps cleanly to `entail_probs` semantics
+  (`noul`→P(entailment), `choice`, `score`). Qtype schema verified:
+  `instructions` + `criteria` (list for score, dict for choice).
+  Latency measured across 3 warm calls: 24177 / 21330 / 14920 ms.
+- **Expected outcome:** no backend swap; the plugable-backend
+  architecture stays validated by a real (rejected) candidate, and the
+  adoption path is documented if a GPU host + local ECE check ever
+  clears.
+- **Result:** rejected — decision recorded with measured numbers;
+  `~/laya-eval` kept for a future re-run.
+
+## D-2026-10-13e — Catalog axes: adoption_mode (license) vs corporate_scope (runtime) + activation needs runtime proof
+
+- **Decision:** two orthogonal axes now govern catalog entries —
+  `adoption_mode` (license-driven: `vendored-file` = upstream files
+  copied in, MIT-class licenses only; `governed-pointer` = the tool is
+  used but no upstream content is copied, mandatory for AGPL and
+  unverified sources; `local-authored` = written here for local
+  infrastructure) and `corporate_scope` (runtime reachability, from
+  D-2026-10-13). Separately: **`active` state requires runtime proof**
+  — service running, skill installed in a live `.devin/` dir, or
+  backend reachable. `approved` is not a resting state; entries
+  without runtime stay `approved`, and `retire` covers abandonment.
+- **Date:** 2026-10-13.
+- **Reason:** owner correction — the first pass copied RepoWise
+  SKILL.md files (AGPL-3.0) into the staging dir, conflating "the
+  catalog governs it" with "the code is ours to copy". The license
+  axis prevents exactly that class of error at registration time. And
+  without runtime proof on `active`, `approved` becomes the cemetery:
+  approved-but-never-running entries silently decay the signal.
+- **Evidence:** repowise-* converted to governed-pointer SKILL.md files
+  (routing intent → the external RepoWise MCP; zero upstream prose),
+  re-gated and re-approved with new SHAs; `adoption_mode` applied to
+  all 41 registry entries (33 vendored-file, 7 governed-pointer,
+  1 local-authored); `searxng-websearch` is the only `active` new
+  entry because its backend is verifiably running.
+- **Expected outcome:** the next agent registering a skill answers two
+  questions at write time — *can we copy it?* (license →
+  adoption_mode) and *where can it run?* (reachability →
+  corporate_scope) — and activation is auditable against a named
+  runtime, not an aspiration.
+- **Result:** shipped as catalog data + this record; a schema-level
+  enforcement (gate check on adoption_mode, `active` requiring a
+  `runtime_proof` field) is named debt for a post-freeze catalog
+  release.
+
+## D-2026-10-13f — Version-drift detection moves to PR time; PyPI CDN lag is a documented contract
+
+- **Context:** the `verify-wheel-version` gate caught real drift on the
+  `devin-internals-spec` v0.3.1 publish (`__version__` 0.3.0 vs
+  pyproject 0.3.1) — the fifth instance of this class in ~3 weeks
+  (redact, evals, search, poordjaevin, internals). The sensor sat at the
+  end of the tunnel: nothing at PR time compared
+  `pyproject.toml [project].version` with the package `__version__`.
+- **Decision:** a `Version lockstep` step now runs inside the reusable
+  `python-test.yml` (every caller gets it via `@v1`, monorepo
+  package-dirs included). It resolves the module by scanning the
+  package's own `src/*/__init__.py` plus the name-normalized flat
+  layout — dist-name != module-name cases (`devin-internals-spec` →
+  `devin_internals`, `devin-judge` → `poordjaevin`) are caught; roots
+  and shims without a module `__init__` skip, never falsely flag.
+  Missing `__version__` is a notice, not a failure.
+- **Second class closed by policy, not code:** PyPI CDN propagation
+  (~2-5 min) made an immediate downstream CI re-run see only 0.3.0.
+  Publish workflows do not consume their own upload, so there is no
+  internal site for a retry loop; the rule lives in
+  `docs/publish-checklist.md` — a `from versions: <old-only>` failure
+  right after a sibling publish means wait and re-run, not patch.
+  Future fan-outs that poll PyPI must retry 3× with 30-60s backoff.
+- **Known drift left standing:** `devin-metrics` standalone repo has
+  pyproject 0.2.0 vs `__version__` 0.1.0, but the repo is absorbed into
+  the devin-assure monorepo (`MOVED` banner) and never publishes again;
+  the lockstep would flag it only if its CI ran — correct behavior.
+- **Expected outcome:** this drift class fails on the PR that introduces
+  it, in every repo sharing the reusable CI — 0 per release instead of
+  ~1.
+
+## D-2026-10-13g — devin-memory repositioned: memory governance layer, not "Devin's memory"
+
+- **Context:** Cognition shipped official Devin Memory + Dreaming
+  (2026-10-05/06, `Customize → Memory`, no extra cost) and open-sourced
+  the substrate as the Agent Memory Repo spec (MIT,
+  `AgentMemoryRepo/agentmemoryrepo`): a personal Git repo of Markdown
+  notes, `MEMORY.md` entry point, per-session checkouts, a nightly
+  dreaming pass that dedupes and resolves conflicts.
+- **Decision:** `devin-memory`/`devin-brain` is repositioned from "the
+  Devin's memory" (the official feature now covers that: automatic
+  learning, native dreaming, zero-config) to **the memory-governance
+  layer for any agent**: human quarantine before memories become durable
+  truth, explicit provenance with versioning and retraction, strictly
+  local storage (JSONL, zero network calls), and multi-agent consumption
+  via `devin-memory-mcp` (Claude Code, Cursor, etc. — the official
+  feature is Devin-only). Complementary layers, not competitors; no
+  competing memory store will be built.
+- **Second-order effects:** the official launch *validates* the
+  Git+Markdown substrate choice the ecosystem already made. The
+  Agent Memory Repo spec entered `devin-skill-catalog` as a
+  `governed-pointer` entry (`agent-memory-repo`, MIT, approved —
+  activation stays opt-in via `devin plugins install`/`npx skills add`).
+  `devin-skill-catalog` gains relevance: it can now govern specs, not
+  just skills. Name collision noted in DIRECTIONS.md: Cognition
+  "Dreaming" != `devin-dream`.
+- **Not affected:** history, search, graph, evals, redact, learning —
+  the official feature overlaps only the memory-governance domain.
+  `devin-learning` stays (structured metadata extraction vs Dreaming's
+  note consolidation).
+- **Human checkpoint:** enabling official Memory is a web-UI toggle
+  (`Customize → Memory`) — owner action, no CLI path.
+
+## D-2026-10-13h — Merged-into-main guard moves up to the shared verify gate
+
+- **Context:** the "refuse to publish an unmerged commit" guard lived
+  only in the per-repo `pypi-publish.yml` publish job. `devin-doctor`
+  0.1.1 reached Open VSX while `main` was still 0.1.0 — investigation
+  showed it was a *manual* publish from the unmerged bump branch (no CI
+  release ran on 2026-10-11; only tag is v0.1.0), so no workflow guard
+  would have caught this instance — but the reusable `release.yml` legs
+  (vscode-ext/OVSX, docker, gh-marketplace) had no guard either, an
+  asymmetry of the same class as the `job_workflow_ref` one.
+- **Decision:** the check moved into `verify-wheel-version.yml` — the
+  single job every publish path already needs. All `release.yml` legs
+  and all standalone `pypi-publish.yml` callers inherit it; manual
+  publishes are a documented self-check in `docs/publish-checklist.md`.
+- **The live drift:** closing symptom is merging devin-explore#53 (the
+  0.1.1 bump), which restores `main` to the published version.

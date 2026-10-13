@@ -1,0 +1,31 @@
+# Skeleton — editable source: packages/<pkg>/adapters/precommit/
+#
+# IMPORTANT: pre-commit only discovers manifests at the repository ROOT.
+# The published `.pre-commit-hooks.yaml` must live at the product repo's
+# root (see devin-state/devin-assure/devin-devkit/devin-control — all
+# ship it at root). This file is the template for that root manifest;
+# hook.py and its test stay under adapters/precommit/.
+#
+# Thin hook over the package CLI: the verdict and the exit code are the
+# CLI's, nothing is recomputed here. Consumers wire it with:
+#
+#   - repo: https://github.com/Icaro0310/<product-repo>
+#     rev: v<x.y.z>
+#     hooks:
+#       - id: <pkg>-check
+#
+# `language: system` is honest for a thin adapter: it requires <pkg-cli>
+# to already be installed, exactly like the skill/plugin faces require it.
+- id: <pkg>-check
+  name: <pkg> check
+  description: Runs `<pkg-cli> check --json` and fails when the CLI does.
+  entry: <pkg-cli> check
+  language: system
+  pass_filenames: false
+  stages: [pre-commit]
+
+# When the CLI's exit codes need remapping for hook semantics, point the
+# entry at the bundled wrapper instead — still `language: system`, still
+# zero logic of its own:
+#
+#   entry: python3 hook.py
