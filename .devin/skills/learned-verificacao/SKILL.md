@@ -31,12 +31,20 @@ muitos ficheiros, superficies geradas, ou merges sob guardrails.
   branch certo: `DEVIN_DEVKIT_OFFLINE` existia no branch do PR #36 mas
   nao em main/published — afirmar "existe" ou "nao existe" sem dizer o
   branch e factualmente incompleto.
-- (2026-10-13) "parece coberto" != "esta coberto": antes de classificar
-  trabalho como superseded, grep em `main` — a camada MCP+skill+plugin
-  parecia shipped (vscode/daemon estavam) mas nunca entrou em
-  assure/control/devkit. Mesmo padrao do `--environment` so em install
-  e do `merged-into-main` so no PyPI: superficie parcial le como
-  cobertura total. Verificar o artefacto, nao a aparencia.
+- (2026-10-13) "parece coberto" != "esta coberto" — DEFAULT INVERTIDO:
+  quando um PR parece superseded, assume que NAO esta, verifica, depois
+  decide. Sweep de 20 PRs pre-vaga: zero superseded reais — a camada
+  MCP+skill+plugin parecia shipped (vscode/daemon estavam) mas nunca
+  entrou em assure/control/devkit. Mesmo padrao do `--environment` so
+  em install e do `merged-into-main` so no PyPI: superficie parcial le
+  como cobertura total, e o reflexo natural e fechar sem verificar.
+  grep em `main` e o unico juiz; nunca a aparencia.
+- (2026-10-13) classe nomeada: `approve-job flake` — check
+  `approve / approve` falha em <10s com `gh: Resource not accessible
+  by integration (HTTP 403)` + `jq: Cannot iterate over null`. E flake
+  de permissao do GITHUB_TOKEN, nao falha real — visto em
+  dashboard#9, state#37, PAS#26/27/28. Sintoma reconhecido => retry ou
+  ignora; nao diagnosticar como regressao.
 - (2026-10-13) teste que pina marcadores de conteudo testa o snapshot,
   nao o contrato: `test_skill_policy.py` ficou verde enquanto pinava
   strings que o SKILL.md ja nao tinha — so falhou quando um PR reescreveu
@@ -54,3 +62,5 @@ muitos ficheiros, superficies geradas, ou merges sob guardrails.
 - v1 (2026-10-11): criada na onda corporate-docs + devkit extras target
 - v2 (2026-10-13): +3 licoes do PR-sweep (parece-coberto, pins de teste,
   lockfile drift)
+- v3 (2026-10-13): default invertido em superseded (assume que nao esta),
+  classe `approve-job flake` nomeada
