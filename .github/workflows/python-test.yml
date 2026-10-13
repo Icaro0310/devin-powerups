@@ -77,6 +77,17 @@ jobs:
           print(f"version lockstep ok: {ver}")
           PY
 
+      - name: Lockfile freshness (uv.lock vs pins)
+        shell: bash
+        # uv.lock lives at the repo/workspace root, not in package-dir.
+        # CI installs via pip and never reads the lock — without this
+        # step a pin bump can drift from the lock silently (seen:
+        # devin-explore internals-spec >=0.3.1 pin vs 0.3.0 lock).
+        # Repos that don't track uv.lock skip cleanly (e.g. devin-brain).
+        run: |
+          [ -f uv.lock ] || { echo "::notice::no uv.lock — skipped"; exit 0; }
+          pipx run uv lock --check
+
       - name: Pre-install workspace deps
         if: inputs.pre-install != ''
         shell: bash
