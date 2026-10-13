@@ -54,6 +54,12 @@ and the PyPI cross-repo caveat.
   case and skips with a warning rather than failing.
 - The wheel's `__version__` must equal the pyproject `version` — the
   verify gate blocks the release otherwise.
+  A `Version lockstep` step in the shared `python-test.yml` catches the
+  same drift at PR time; a FAIL on an **archived/absorbed** repo (e.g.
+  standalone `devin-metrics`, superseded by the assure monorepo) is
+  informative, not blocking — the sensor measures state, not intent;
+  the maintainer decides whether the dead repo is worth the sync.
+
 - Re-publishing the same version fails at upload with
   **"file already exists"** — and that failure is *good news*: it
   proves the OIDC exchange worked (an auth failure is a **403** during
