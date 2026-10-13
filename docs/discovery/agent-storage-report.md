@@ -162,7 +162,10 @@ hosts where scripts cannot execute. Gap 2 is the exception: the scripts
 count rollout files without reading `threads` rows, so an install that
 has sessions needs a separate `rollout_path` liveness probe (e.g. a
 read-only sqlite query over `state_*.sqlite`) — the tools would have to
-be extended to cover it.
+be extended to cover it. Gap 5 is also not closable by the shipped
+tools: they read only the default `Code/User/settings.json`, so a
+per-profile verdict needs a probe over `Code/User/profiles/*/settings.json`
+(tool extension or a manual `jq`/editor inspection of each profile).
 
 ## What this report never contains
 

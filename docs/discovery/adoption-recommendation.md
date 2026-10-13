@@ -8,7 +8,9 @@ of them may be reverted when the owner writes G1. Decisions assumed:
 copilot-cli → codex-cli → vscode-chat, (c) vendored TS redact port,
 (e) files as copilot-cli primary — the last two are settled by 2a
 evidence; (d) session-vault as UI: no; (f) corporate restrictions:
-unresolved — the corporate run is still owed.
+unresolved — the corporate run is still owed; (g) codex-cli dual-source
+per recommendation (iii) thin below — sqlite probe first when present,
+rollout scan as fallback and legacy coverage.
 
 Status note: every claim carries its evidence label; nothing here is
 product code.
@@ -174,7 +176,10 @@ drift class: the TS port and the Python reference can diverge** — same
 class as the `plugin.json`/`pyproject` lockstep fix.
 
 **Parity test location (G1 must pin this)**: the parity test does not
-exist yet — no TS may be written before G1. When written it lives **in
+exist yet. G1 was deferred by owner instruction, so 2b writes the port
+under provisional decision (c) — the parity harness ships *with* the
+port in the same change, and G1 still owes the pin approval. When
+written it lives **in
 the repo that hosts the port** (the extension's repo — devin-powerups
 unless the owner places the extension elsewhere; the freeze forbids new
 repos until 2026-12-03) and runs in two places:
