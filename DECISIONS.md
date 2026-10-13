@@ -1080,3 +1080,20 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   note consolidation).
 - **Human checkpoint:** enabling official Memory is a web-UI toggle
   (`Customize → Memory`) — owner action, no CLI path.
+
+## D-2026-10-13h — Merged-into-main guard moves up to the shared verify gate
+
+- **Context:** the "refuse to publish an unmerged commit" guard lived
+  only in the per-repo `pypi-publish.yml` publish job. `devin-doctor`
+  0.1.1 reached Open VSX while `main` was still 0.1.0 — investigation
+  showed it was a *manual* publish from the unmerged bump branch (no CI
+  release ran on 2026-10-11; only tag is v0.1.0), so no workflow guard
+  would have caught this instance — but the reusable `release.yml` legs
+  (vscode-ext/OVSX, docker, gh-marketplace) had no guard either, an
+  asymmetry of the same class as the `job_workflow_ref` one.
+- **Decision:** the check moved into `verify-wheel-version.yml` — the
+  single job every publish path already needs. All `release.yml` legs
+  and all standalone `pypi-publish.yml` callers inherit it; manual
+  publishes are a documented self-check in `docs/publish-checklist.md`.
+- **The live drift:** closing symptom is merging devin-explore#53 (the
+  0.1.1 bump), which restores `main` to the published version.
