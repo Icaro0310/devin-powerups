@@ -67,6 +67,13 @@ and the PyPI cross-repo caveat.
   publisher on the project's own Publishing settings.
 - Smoke: `pip index versions <pkg>` or `pip install <pkg>==<ver>` in a
   fresh venv, then `python -c "import <mod>; print(<mod>.__version__)"`.
+- **Index propagation lag**: after a successful upload, PyPI's CDN can
+  serve the old file/version list for ~2-5 minutes. A downstream CI run
+  (or `pip install <pkg>==<new>`) started in that window can fail with
+  `from versions: <old-only>` — that is a **stale index, not a real
+  failure**. Wait ~5 min and re-run; do not "fix" the code. If a
+  workflow ever needs to poll for availability, retry 3× with 30-60s
+  backoff rather than a single read.
 
 ## VS Code Marketplace
 

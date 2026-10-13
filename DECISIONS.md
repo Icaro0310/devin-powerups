@@ -1017,3 +1017,34 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   enforcement (gate check on adoption_mode, `active` requiring a
   `runtime_proof` field) is named debt for a post-freeze catalog
   release.
+
+## D-2026-10-13f — Version-drift detection moves to PR time; PyPI CDN lag is a documented contract
+
+- **Context:** the `verify-wheel-version` gate caught real drift on the
+  `devin-internals-spec` v0.3.1 publish (`__version__` 0.3.0 vs
+  pyproject 0.3.1) — the fifth instance of this class in ~3 weeks
+  (redact, evals, search, poordjaevin, internals). The sensor sat at the
+  end of the tunnel: nothing at PR time compared
+  `pyproject.toml [project].version` with the package `__version__`.
+- **Decision:** a `Version lockstep` step now runs inside the reusable
+  `python-test.yml` (every caller gets it via `@v1`, monorepo
+  package-dirs included). It resolves the module by scanning the
+  package's own `src/*/__init__.py` plus the name-normalized flat
+  layout — dist-name != module-name cases (`devin-internals-spec` →
+  `devin_internals`, `devin-judge` → `poordjaevin`) are caught; roots
+  and shims without a module `__init__` skip, never falsely flag.
+  Missing `__version__` is a notice, not a failure.
+- **Second class closed by policy, not code:** PyPI CDN propagation
+  (~2-5 min) made an immediate downstream CI re-run see only 0.3.0.
+  Publish workflows do not consume their own upload, so there is no
+  internal site for a retry loop; the rule lives in
+  `docs/publish-checklist.md` — a `from versions: <old-only>` failure
+  right after a sibling publish means wait and re-run, not patch.
+  Future fan-outs that poll PyPI must retry 3× with 30-60s backoff.
+- **Known drift left standing:** `devin-metrics` standalone repo has
+  pyproject 0.2.0 vs `__version__` 0.1.0, but the repo is absorbed into
+  the devin-assure monorepo (`MOVED` banner) and never publishes again;
+  the lockstep would flag it only if its CI ran — correct behavior.
+- **Expected outcome:** this drift class fails on the PR that introduces
+  it, in every repo sharing the reusable CI — 0 per release instead of
+  ~1.
