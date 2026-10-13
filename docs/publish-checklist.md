@@ -80,6 +80,15 @@ and the PyPI cross-repo caveat.
   failure**. Wait ~5 min and re-run; do not "fix" the code. If a
   workflow ever needs to poll for availability, retry 3× with 30-60s
   backoff rather than a single read.
+- **Publish only from merged `main`** — this applies to manual publishes
+  too (`ovsx publish`, `vsce publish`, portal upload). A publish run
+  from an unmerged branch leaves the registry ahead of `main`; the next
+  tag then either downgrades (rejected) or ships metadata that does not
+  match the code. CI guards this via `verify-wheel-version`'s
+  merged-into-main check; manual runs must self-check
+  (`git merge-base --is-ancestor HEAD origin/main`) before uploading.
+  Seen live: `devin-doctor` 0.1.1 reached Open VSX while `main` was 0.1.0.
+
 
 ## VS Code Marketplace
 
