@@ -1,7 +1,7 @@
 // Minimal 'vscode' runtime stub — activation smoke tests only (test/, never shipped).
 // Records every registration; exercises providers once so wiring bugs surface.
 
-export const registered = { views: [], commands: [], providers: [], participants: [] };
+export const registered = { views: [], commands: [], providers: [], participants: [], docs: [] };
 
 export class EventEmitter {
   constructor() { this.listeners = []; }

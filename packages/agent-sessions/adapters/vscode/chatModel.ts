@@ -32,20 +32,24 @@ export function renderOverview(results: SourceResult[]): string {
   const lines: string[] = [];
   for (const r of results) {
     const warnings = allWarnings(r);
+    const total = r.warnings.length + r.sessions.reduce((sum, s) => sum + s.parse_warnings.length, 0);
     const n = r.sessions.length;
     let line = `- **${r.surface}**: ${r.state} — ${n} session${n === 1 ? '' : 's'}`;
-    if (warnings.length > 0) line += ` · ${warnings.length} warning${warnings.length === 1 ? '' : 's'}`;
+    if (total > 0) line += ` · ${total} warning${total === 1 ? '' : 's'}`;
     lines.push(line);
-    for (const w of warnings.slice(0, WARNING_CAP)) lines.push(`  - ${w.message}`);
+    for (const { w, count } of warnings.slice(0, WARNING_CAP)) {
+      lines.push(`  - ${w.message}${count > 1 ? ` (×${count})` : ''}`);
+    }
     const extra = warnings.length - WARNING_CAP;
-    if (extra > 0) lines.push(`  - _…${extra} more_`);
+    if (extra > 0) lines.push(`  - _…${extra} more kinds_`);
   }
   lines.push('_metadata-only view — session titles and message content are suppressed by policy_');
   return lines.join('\n');
 }
 
 /** Sessions whose surface, display_key, canonical id or workspace
- *  hash contains the query (case-insensitive). Collect order kept. */
+ *  hash contains the query (case-insensitive). Newest first — same
+ *  ordering as the tree, so a capped answer keeps the recent rows. */
 export function matchSessions(query: string, results: SourceResult[]): SessionMeta[] {
   const q = query.toLowerCase();
   const out: SessionMeta[] = [];
@@ -59,6 +63,7 @@ export function matchSessions(query: string, results: SourceResult[]): SessionMe
       if (hit) out.push(s);
     }
   }
+  out.sort((a, b) => (b.started_at ?? '').localeCompare(a.started_at ?? ''));
   return out;
 }
 
@@ -81,16 +86,14 @@ export function tail(value: string, n: number): string {
   return value.length > n ? `…${value.slice(-n)}` : value;
 }
 
-/** Source-level + session-level warnings, deduped by code+message. */
-function allWarnings(r: SourceResult): ParseWarning[] {
-  const seen = new Set<string>();
-  const out: ParseWarning[] = [];
+/** Source-level + session-level warnings, deduped by code+message,
+ *  with each distinct kind carrying its occurrence count. */
+function allWarnings(r: SourceResult): { w: ParseWarning; count: number }[] {
+  const seen = new Map<string, { w: ParseWarning; count: number }>();
   for (const w of [...r.warnings, ...r.sessions.flatMap(s => s.parse_warnings)]) {
     const k = `${w.code} ${w.message}`;
-    if (!seen.has(k)) {
-      seen.add(k);
-      out.push(w);
-    }
+    const e = seen.get(k);
+    if (e) e.count++; else seen.set(k, { w, count: 1 });
   }
-  return out;
+  return [...seen.values()];
 }

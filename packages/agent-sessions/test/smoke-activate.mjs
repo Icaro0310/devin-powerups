@@ -42,3 +42,10 @@ const doc = r.providers[0].provider.provideTextDocumentContent(
 assert.match(doc, /Session not found/);
 
 console.log('smoke-activate: OK — views, participant, details provider, commands wired');
+
+// openDetails accepts both invocation shapes: row click passes the display
+// key string; the context menu passes the SessionNode. Both must open a doc.
+const openDetails = r.commands.find((c) => c.id === 'agentSessions.openDetails');
+await openDetails.fn('copilot-cli:ephemeral:0');
+await openDetails.fn({ kind: 'session', meta: { display_key: 'copilot-cli:ephemeral:0' } });
+assert.ok(vscode.registered.docs.length >= 2, 'openDetails opened docs for both arg shapes');

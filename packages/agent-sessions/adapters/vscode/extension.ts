@@ -13,6 +13,7 @@ import * as vscode from 'vscode';
 import type { CollectEnv, SourceResult } from '../../src/model.ts';
 import { collectAll } from '../../src/sources/index.ts';
 import { SessionsTreeProvider } from './tree.ts';
+import type { SessionNode } from './treeModel.ts';
 import { createSessionsParticipant } from './chat.ts';
 import { SessionDetailsProvider, detailsUri } from './details.ts';
 
@@ -38,6 +39,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const refresh = (): void => {
     results = collectAll(collectEnvForHost(), 'metadata');
     treeProvider.refresh();
+    detailsProvider.refresh(); // re-render open details docs — ephemeral keys are positional
   };
 
   const treeProvider = new SessionsTreeProvider(getResults);
@@ -59,8 +61,11 @@ export function activate(context: vscode.ExtensionContext): void {
     detailsReg,
     participant,
     vscode.commands.registerCommand('agentSessions.refresh', refresh),
-    vscode.commands.registerCommand('agentSessions.openDetails', async (key?: string) => {
-      const displayKey = typeof key === 'string' ? key : undefined;
+    vscode.commands.registerCommand('agentSessions.openDetails', async (arg?: string | SessionNode) => {
+      // Row click passes the display key; the context menu passes the node.
+      const displayKey = typeof arg === 'string'
+        ? arg
+        : arg?.kind === 'session' ? arg.meta.display_key : undefined;
       if (!displayKey) return;
       const doc = await vscode.workspace.openTextDocument(detailsUri(displayKey));
       await vscode.window.showTextDocument(doc, { preview: true, viewColumn: vscode.ViewColumn.Beside });

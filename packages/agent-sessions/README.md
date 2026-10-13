@@ -14,8 +14,8 @@ persisted sessions from three surfaces — **VS Code Copilot Chat**,
 
 ## Surfaces
 
-| Surface | TreeView | `@sessions` chat |
-|---|---|---|
+| TreeView | `@sessions` chat |
+|---|---|
 | Primary UI — activity-bar view listing sessions grouped by agent, newest first, with parse-warning badges. | Secondary — ask `@sessions` for an overview or filter (`@sessions copilot-cli`, a workspace hash, an ID fragment). |
 
 Commands: **Agent Sessions: Refresh** (view title / command palette),
