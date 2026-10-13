@@ -2,8 +2,10 @@
 
 Status: recommendation only. The owner decides each item in writing at
 G1. Every claim carries its evidence label; nothing here is product code.
-Blocked until `agent-storage-report.md` reaches `owner-output-received`
-or each gap is explicitly accepted in writing.
+`agent-storage-report.md` is now `owner-output-received` (collected
+offline via read-only NTFS mount + native Linux run); the remaining
+evidence gaps are listed at the end of that report and in the final
+section below.
 
 ## (a) Per-surface strategy
 
@@ -29,20 +31,37 @@ or each gap is explicitly accepted in writing.
 - Fixtures: **do not vendor** SessionsAI's `test/fixtures/` — they embed
   a real username `[LOCAL]`. Generate synthetic fixtures.
 
-### `codex-cli` — **build fresh in TS**
+### `codex-cli` — **build fresh in TS — now dual-source**
 
 No TS coverage exists anywhere; all candidates are Go or Python.
+**New owner-machine evidence** (storage report): this install has **no**
+`~/.codex/sessions/` at all — Codex migrated to sqlite
+(`state_5.sqlite`, `threads` table with 41 cols incl. `rollout_path`,
+`cli_version`; `rollout_migration_state`/`rollout_migration_skipped_rollouts`
+prove the JSONL→sqlite transition) `[LOCAL]`. With 0 threads observed,
+neither source yields sessions *on this machine today*; the decision is
+about which formats the parser must support for correctness.
+
+- **G1 decision needed — Codex source(s)**: (i) `rollout-*.jsonl` only
+  (spec text; covers pre-migration installs), (ii) `state_*.sqlite`
+  `threads` only (covers migrated installs; `mode=ro`; metadata columns
+  rich — title, model, tokens, git refs), or (iii) both with deterministic
+  precedence. Recommendation: **(iii) thin** — sqlite probe first
+  (authoritative when present), rollout scan as fallback + legacy
+  coverage; ≤250-line budget still holds because the sqlite leg is a
+  schema-probed SELECT of metadata columns, never content.
 - Schema source: cc-session-core's discriminated-union models (port the
   *type list*, keep its `extra="allow"`/Unknown-record posture → unknown
   records become `unsupported-format`-adjacent warnings, not failures)
-  `[LOCAL]`.
+  `[LOCAL]` — valid for the rollout leg.
 - Operational semantics from AgentsView `[LOCAL]`: `session_meta`/
   `turn_context`/`response_item`/`event_msg` envelopes; `call_id`
   pairing; `token_count`; `task_started`/`task_complete`; fork
   suppression via `forked_from_id`; revert pages `<thread>_<rollout>`;
   `archived_sessions/`; `session_index.jsonl` titles. Only implement
   what the storage report confirms exists — the rest is backlog.
-- Cost/`files_touched`: only if 2a confirms the fields exist (spec rule).
+- Cost/`files_touched`: `threads.tokens_used` exists in sqlite `[LOCAL]`;
+  rollout-side fields still unconfirmed → spec rule applies per leg.
 
 ### `copilot-cli` — **vendor SessionsAI parser + widen event catalog**
 
@@ -143,10 +162,24 @@ agent storage — the plan is corporate-compatible as proposed.
 
 ## What G1 must still supply that 2a cannot
 
-- Which discovery roots actually exist on owner machines (storage
-  report) — final authority on `COPILOT_DIR` vs `COPILOT_HOME`, flat vs
-  dir layouts, vscdb presence.
+- **Codex source decision** — rollout-JSONL vs `state_*.sqlite` vs both
+  (new evidence; see (a)).
+- `copilot`/`codex` **CLI versions** — binaries unlocatable offline;
+  owner may accept the gap or supply `copilot --version` /
+  `codex --version` output. `[NÃO VERIFICADO]`
+- Whether env roots (`COPILOT_DIR`/`COPILOT_HOME`, `CODEX_HOME`,
+  `CODEX_SESSIONS_DIR`) are set on any owner machine — not observable
+  offline; default `~/.copilot`/`~/.codex` confirmed sufficient on the
+  observed install `[LOCAL]`.
+- `managed-settings/` exists under `AppData/Local/copilot` `[LOCAL]` —
+  owner should confirm whether corporate Copilot policy applies (G1-f).
 - Whether `sql.js` (WASM) is acceptable as a bundled dependency if vscdb
   indexing is wanted later.
-- Written acceptance of each `not-verified` cell the owner chooses to
-  waive — or the decision to keep them blocking.
+- Written acceptance of each remaining `not-verified` cell the owner
+  chooses to waive — or the decision to keep them blocking.
+- **Post-MVP backlog surfaced by evidence**: per-session
+  `session.db` (`todos`/`inbox_entries`) under Copilot CLI session dirs;
+  `chatEditingSessions/` state; `github.copilot-chat` globalStorage
+  agent dirs (`ask-agent`, `plan-agent`, `explore-agent`, `copilotCli`);
+  `transferredChatSessions`. All `[LOCAL]` — none is required for MVP
+  listing.
