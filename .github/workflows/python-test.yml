@@ -1,5 +1,13 @@
 name: python-test (reusable)
 
+# Pin policy (D-2026-10-13i): callers reference this workflow via the
+# floating `@v1` tag ON PURPOSE — it runs with `contents: read` only, so
+# tag moves propagate fixes (version lockstep, uv lock --check) to all
+# callers with zero rollout. Elevated-permission publish-path workflows
+# (verify-wheel-version, pypi-publish) are SHA-pinned instead, and pay
+# the per-repo pin-bump rollout. Do not "fix" @v1 to a SHA here by
+# analogy — that buys a 15-repo rollout for a gain this job doesn't need.
+
 on:
   workflow_call:
     inputs:
