@@ -19,9 +19,10 @@ delta, explicitly:
   and enabled. Owner-machine evidence: Copilot Chat is **currently
   uninstalled yet 24 chat files persist** — native shows nothing for
   them; we still list them `[LOCAL]`. Same reasoning covers
-  `chat.disableAIFeatures` and policy-disabled installs (a
-  `managed-settings/` dir was observed under Copilot CLI's local data —
-  corporate-managed signal `[LOCAL]`).
+  `chat.disableAIFeatures` and possibly policy-managed installs (a
+  `managed-settings/` dir exists under Copilot CLI's local data, but its
+  policy file was unread — presence alone cannot establish a
+  policy-disabled installation `[LOCAL]` existence only).
 - **Function**: native is a *management* surface (rename, pin, close,
   archive within the Copilot product). We are a *read-only browse*
   surface: canonical IDs, per-source state (`source-not-found`,
@@ -90,8 +91,10 @@ about which formats the parser must support for correctness.
   suppression via `forked_from_id`; revert pages `<thread>_<rollout>`;
   `archived_sessions/`; `session_index.jsonl` titles. Only implement
   what the storage report confirms exists — the rest is backlog.
-- Cost/`files_touched`: `threads.tokens_used` exists in sqlite `[LOCAL]`;
-  rollout-side fields still unconfirmed → spec rule applies per leg.
+- Cost/`files_touched`: `threads.tokens_used` exists in sqlite `[LOCAL]`
+  — but it is a token *count*, not monetary cost; cost attribution needs
+  pricing/model evidence before that leg counts as supported.
+  Rollout-side fields still unconfirmed → spec rule applies per leg.
 
 ### `copilot-cli` — **vendor SessionsAI parser + widen event catalog**
 
@@ -176,7 +179,11 @@ repos until 2026-12-03) and runs in two places:
    pattern change between releases must fail loudly, not drift silently.
 
 Without leg (2) the parity guarantee decays between `devin-redact`
-releases — the exact gap this exercise exists to close. Fallback remains
+releases — the exact gap this exercise exists to close. Caveat: both
+legs only cover patterns present in the checked-in corpus — a brand-new
+upstream pattern absent from it passes undetected either way, so the
+corpus must be regenerated (or widened) on each `devin-redact` release
+for the drift guarantee to hold. Fallback remains
 the CLI subprocess on temp excerpt (`redact-interface-report.md`);
 without either, content search ships disabled (fail-closed).
 

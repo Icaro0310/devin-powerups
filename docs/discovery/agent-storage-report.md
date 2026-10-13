@@ -81,7 +81,9 @@ persists** — the extension must work with the extension absent `[LOCAL]`.
 Key finding: this Codex install uses **sqlite (`state_N.sqlite` +
 `threads.rollout_path`), not `rollout-*.jsonl` files** — and migration
 tables (`rollout_migration_state`, `rollout_migration_skipped_rollouts`)
-prove the JSONL→sqlite transition is real in the wild. The spec's
+show the schema *supports* the JSONL→sqlite transition — both migration
+tables are empty here, so this install cannot by itself prove a
+migration ran or that rollouts are abandoned. The spec's
 parser target (`~/.codex/sessions/**/rollout-*.jsonl`) covers
 pre-migration installs only. **G1 must decide whether the Codex parser
 targets rollouts, `state_*.sqlite`, or both** — with 0 threads here, no
@@ -146,6 +148,13 @@ None. The only probe failure was opening `state_5.sqlite` without
    offline). Its probes are equivalent for filesystem facts but a live
    run would also capture env vars (`COPILOT_DIR`, `CODEX_HOME`) and
    binary versions. Optional future run. `[NÃO VERIFICADO]`
+
+To close any of these, run the discovery tools shipped in this repo on
+the target machine: `scripts/discovery/discover-agent-storage.ps1`
+(Windows PowerShell 5.1, no admin) or
+`scripts/discovery/discover-agent-storage.py` (Python 3.8+ stdlib) —
+`MANUAL-FALLBACK.md` there lists one-liners for CLM/AppLocker/WDAC
+hosts where scripts cannot execute.
 5. `chat.disableAIFeatures` = unset on the observed profile; other
    profiles exist under `Code/User/profiles/` (uninspected). `[LOCAL]` partial
 
