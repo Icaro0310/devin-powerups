@@ -237,3 +237,10 @@ feature (cloud, Git+Markdown memory drive). `devin-dream` (absorbed into
 devin-evals) generates synthetic sessions with known verdicts for
 adversarial regression. Same word, different function — do not merge,
 rename, or cross-reference them.
+
+## Owner-declined channels (2026-10-13)
+
+| Channel | Verdict | Reason |
+|---|---|---|
+| GPT Store | **declined** | requires a paid ChatGPT plan to publish — no plan, not acquiring one. Assets stay in `gpt-store-assets/` — revisit only if a paid plan ever exists |
+| PAT Azure DevOps (vsce CLI) | **declined** | manual portal upload suffices; the Entra workload-identity path already covers CI publishes (D-2026-10-12) |
