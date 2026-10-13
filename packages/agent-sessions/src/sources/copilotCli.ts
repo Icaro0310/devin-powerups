@@ -216,26 +216,31 @@ function collect(env: CollectEnv, _mode: CollectMode): SourceResult {
 
   const topWarnings: ParseWarning[] = [];
   const sessions: SessionMeta[] = [];
-  const seenIds = new Map<string, { root: string; wsHash: string | null }>();
+  // Dedup scope (ids.ts): same native id AND same stable workspace hash.
+  // Every accepted workspace hash is remembered — comparing only the last
+  // one lets an A, B, A sequence emit a duplicate canonical id.
+  const seenIds = new Map<string, { roots: Set<string>; ws: Set<string> }>();
   let unreadable = 0, unrecognized = 0, dupes = 0, crossWs = 0;
   for (const c of candidates) {
     const prior = seenIds.get(c.nativeId);
-    if (prior && prior.root === c.root) continue; // same-root legacy dup is silent
+    if (prior?.roots.has(c.root)) continue; // same-root legacy dup is silent
     if (prior) {
       let h: string | null = null;
       if (c.yamlPath) {
         try { h = wsHashOf(readYamlScalars(readFileSync(c.yamlPath, 'utf8'))); } catch { /* unreadable dup */ }
       }
-      // Dedup needs proof: same native id AND same workspace hash. Anything
-      // else (proven different or unprovable) is kept as its own session.
-      if (h !== null && prior.wsHash !== null && h === prior.wsHash) { dupes++; continue; }
-      if (h !== null && prior.wsHash !== null && h !== prior.wsHash) crossWs++;
+      if (h !== null && prior.ws.has(h)) { dupes++; continue; }
+      if (h !== null && prior.ws.size > 0 && !prior.ws.has(h)) crossWs++;
+      // h null (unprovable) or a new hash: kept as its own session.
     }
     const scan = scanEventsFile(c.eventsPath);
     if (scan.status === 'unreadable') { unreadable++; continue; }
     if (scan.status === 'unrecognized') { unrecognized++; continue; }
     const meta = toMeta(c, scan);
-    seenIds.set(c.nativeId, { root: c.root, wsHash: meta.workspace_hash });
+    const entry = seenIds.get(c.nativeId) ?? { roots: new Set<string>(), ws: new Set<string>() };
+    entry.roots.add(c.root);
+    if (meta.workspace_hash) entry.ws.add(meta.workspace_hash);
+    seenIds.set(c.nativeId, entry);
     sessions.push(meta);
   }
   if (dupes) topWarnings.push(warn('duplicates', `${dupes} duplicate session(s) across roots`));

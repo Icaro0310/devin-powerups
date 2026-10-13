@@ -202,3 +202,25 @@ test('same id different workspace across roots -> both kept, cross-workspace war
   assert.equal(r.sessions.length, 2); // distinct workspaces are distinct sessions
   assert.ok(r.warnings.some((w) => w.code === 'cross-workspace-duplicate'));
 });
+
+test('same id in three roots A,B,A -> third A deduped against first, not lost', () => {
+  const home = join(FIX, 'aba');
+  const dirRoot = join(FIX, 'aba-dir');
+  const homeRoot = join(FIX, 'aba-home');
+  const lines = [ev(0, 'session.start', { version: 1 }), ev(1, 'session.shutdown')];
+  const yaml = (cwd: string) => YAML_NAMED.replaceAll(GIT, cwd);
+  const write = (root: string, yamlText: string) => {
+    const dir = join(root, 'session-state', UUID);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'events.jsonl'), lines.join('\n') + '\n');
+    writeFileSync(join(dir, 'workspace.yaml'), yamlText);
+  };
+  write(join(home, '.copilot'), yaml('/repo/a'));
+  write(dirRoot, yaml('/repo/b'));
+  write(homeRoot, yaml('/repo/a')); // same ws as first — must dedup, not re-emit id
+  const r = copilotCliParser.collect(envFor(home, { COPILOT_DIR: dirRoot, COPILOT_HOME: homeRoot }), 'metadata');
+  assert.equal(r.sessions.length, 2);
+  assert.equal(new Set(r.sessions.map((s) => s.id)).size, 2); // no duplicate canonical ids
+  assert.ok(r.warnings.some((w) => w.code === 'cross-workspace-duplicate'));
+  assert.ok(r.warnings.some((w) => w.code === 'duplicates'));
+});
