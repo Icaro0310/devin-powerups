@@ -982,3 +982,38 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   clears.
 - **Result:** rejected — decision recorded with measured numbers;
   `~/laya-eval` kept for a future re-run.
+
+## D-2026-10-13e — Catalog axes: adoption_mode (license) vs corporate_scope (runtime) + activation needs runtime proof
+
+- **Decision:** two orthogonal axes now govern catalog entries —
+  `adoption_mode` (license-driven: `vendored-file` = upstream files
+  copied in, MIT-class licenses only; `governed-pointer` = the tool is
+  used but no upstream content is copied, mandatory for AGPL and
+  unverified sources; `local-authored` = written here for local
+  infrastructure) and `corporate_scope` (runtime reachability, from
+  D-2026-10-13). Separately: **`active` state requires runtime proof**
+  — service running, skill installed in a live `.devin/` dir, or
+  backend reachable. `approved` is not a resting state; entries
+  without runtime stay `approved`, and `retire` covers abandonment.
+- **Date:** 2026-10-13.
+- **Reason:** owner correction — the first pass copied RepoWise
+  SKILL.md files (AGPL-3.0) into the staging dir, conflating "the
+  catalog governs it" with "the code is ours to copy". The license
+  axis prevents exactly that class of error at registration time. And
+  without runtime proof on `active`, `approved` becomes the cemetery:
+  approved-but-never-running entries silently decay the signal.
+- **Evidence:** repowise-* converted to governed-pointer SKILL.md files
+  (routing intent → the external RepoWise MCP; zero upstream prose),
+  re-gated and re-approved with new SHAs; `adoption_mode` applied to
+  all 41 registry entries (33 vendored-file, 7 governed-pointer,
+  1 local-authored); `searxng-websearch` is the only `active` new
+  entry because its backend is verifiably running.
+- **Expected outcome:** the next agent registering a skill answers two
+  questions at write time — *can we copy it?* (license →
+  adoption_mode) and *where can it run?* (reachability →
+  corporate_scope) — and activation is auditable against a named
+  runtime, not an aspiration.
+- **Result:** shipped as catalog data + this record; a schema-level
+  enforcement (gate check on adoption_mode, `active` requiring a
+  `runtime_proof` field) is named debt for a post-freeze catalog
+  release.
