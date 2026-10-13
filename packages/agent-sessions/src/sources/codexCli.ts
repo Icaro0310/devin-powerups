@@ -2,16 +2,13 @@
  * codex-cli surface parser — build-fresh (no TS reference).
  * Precedence (provisional, revertible in G1):
  *   1. SQLite `<codexHome>/state_<N>.sqlite`, largest N wins, READ-ONLY
- *      via `node:sqlite`; metadata columns only — content columns
- *      (preview, first_user_message, …) are never selected. Unreadable
- *      db → `read-error` when alone, else `partial-parse` + rollouts.
+ *      via `node:sqlite`; metadata columns only — never select title/
+ *      preview/first_user_message (auto-derived from user content).
+ *      Unreadable db → `read-error` alone, else `partial-parse`+rollouts.
  *   2. Rollout JSONL under `sessions/`, `archived_sessions/`,
- *      `$CODEX_SESSIONS_DIR`; kept only for native ids not already
- *      known (overlaps count toward `duplicates`). Forks ignored.
- * ended_at: no real close marker — activity <60s old → `session-open`;
- * the db otherwise reports updated_at (silently when has_user_event,
- * else `no-end-marker`), rollouts prefer the last `task_complete`.
- * source_version: `state-<N>` / `rollout`.
+ *      `$CODEX_SESSIONS_DIR`; known ids → `duplicates`; forks ignored.
+ * ended_at: no close marker — <60s activity → `session-open`; else
+ * updated_at / last `task_complete`. source_version: `state-<N>`/`rollout`.
  */
 
 import { existsSync, readdirSync, readFileSync, type Dirent } from 'node:fs';
@@ -26,8 +23,7 @@ const FRESH_MS = 60_000;
 const STATE_RE = /^state_(\d+)\.sqlite$/;
 const ROLLOUT_RE = /^rollout-.*\.jsonl$/;
 
-/** Minimal `node:sqlite` surface, required lazily so platforms without
- *  the builtin still parse rollout files. */
+/** Minimal `node:sqlite` surface — lazy require so platforms without it still parse rollouts. */
 type SqliteCtor = new (path: string, opts: { readOnly: boolean }) => {
   prepare(sql: string): { all(): unknown[] };
   close(): void;
@@ -35,23 +31,20 @@ type SqliteCtor = new (path: string, opts: { readOnly: boolean }) => {
 
 function loadSqlite(): SqliteCtor | null {
   try {
-    return (createRequire(import.meta.url)('node:sqlite') as { DatabaseSync?: SqliteCtor })
-      .DatabaseSync ?? null;
+    return (createRequire(import.meta.url)('node:sqlite') as { DatabaseSync?: SqliteCtor }).DatabaseSync ?? null;
   } catch { return null; }
 }
 
 interface Draft {
-  nativeId: string | null; cwd: string | null; title: string | null;
+  nativeId: string | null; cwd: string | null;
   startedAt: string | null; endedAt: string | null; sourceVersion: string | null;
   eventCount: number | null; warnings: ParseWarning[];
 }
 
 const asStr = (v: unknown): string | null => (typeof v === 'string' && v ? v : null);
-const asObj = (v: unknown): Record<string, unknown> =>
-  typeof v === 'object' && v !== null ? v as Record<string, unknown> : {};
+const asObj = (v: unknown): Record<string, unknown> => (typeof v === 'object' && v !== null ? v as Record<string, unknown> : {});
 
-/** Number → unix seconds (or ms when clearly ms); string → ISO when
- *  parseable. Anything else → null. */
+/** Number → unix s/ms; string → ISO when parseable; else null. */
 function toIso(v: unknown): string | null {
   if (typeof v === 'number' && Number.isFinite(v)) return new Date(v < 1e12 ? v * 1000 : v).toISOString();
   const t = typeof v === 'string' ? Date.parse(v) : NaN;
@@ -60,6 +53,17 @@ function toIso(v: unknown): string | null {
 
 const normCwd = (c: string): string => normalize(c).replace(/[\\/]+$/, '');
 const isFresh = (iso: string): boolean => Date.now() - Date.parse(iso) < FRESH_MS;
+
+/** ended_at: explicit close wins; missing activity → `no-end-marker`;
+ *  fresh activity → `session-open` (stays null); otherwise infer close
+ *  from last activity — silently when `quietInfer`, else with warning. */
+function deriveEndedAt(lastTs: string | null, explicitEnd: string | null, quietInfer: boolean, w: ParseWarning[], origin?: string): string | null {
+  if (explicitEnd) return explicitEnd;
+  if (!lastTs) { w.push(warn('no-end-marker', 'no activity timestamp', origin)); return null; }
+  if (isFresh(lastTs)) { w.push(warn('session-open', 'activity in the last 60s; session appears open', origin)); return null; }
+  if (!quietInfer) w.push(warn('no-end-marker', 'closed state inferred from last activity', origin));
+  return lastTs;
+}
 
 function stateVersion(p: string): string | null {
   const m = STATE_RE.exec(p.split(/[\\/]/).pop() ?? '');
@@ -82,9 +86,7 @@ function newestStateDb(dir: string): string | null {
 function walk(dir: string, out: string[], depth: number): void {
   if (depth > 8) return;
   let entries: Dirent[];
-  try {
-    entries = readdirSync(dir, { withFileTypes: true });
-  } catch { return; }
+  try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
   for (const e of entries) {
     if (e.isDirectory()) walk(join(dir, e.name), out, depth + 1);
     else if (e.isFile() && ROLLOUT_RE.test(e.name)) out.push(join(dir, e.name));
@@ -93,10 +95,8 @@ function walk(dir: string, out: string[], depth: number): void {
 
 type ThreadRow = Record<string, unknown>;
 
-/** Open strictly read-only AND probe a read — DatabaseSync opens lazily,
- *  so a bad path/WAL-on-ro-fs only fails at first use, not in the ctor.
- *  WAL-mode DBs on read-only filesystems need `mode=ro&immutable=1`;
- *  retry that URI form when the plain open+probe fails. */
+/** Strictly read-only open AND probe — DatabaseSync opens lazily, so a
+ *  bad path/WAL-on-ro-fs only fails at first use; `immutable=1` retries it. */
 function openReadOnly(Ctor: SqliteCtor, path: string) {
   const uri = 'file:' + path.split('/').map(encodeURIComponent).join('/') + '?mode=ro&immutable=1';
   for (const spec of [path, uri]) {
@@ -125,17 +125,10 @@ function readThreads(path: string): Draft[] {
       if (!nativeId) w.push(warn('missing-field', 'native id missing', sv));
       if (!startedAt) w.push(warn('missing-field', 'start timestamp missing', sv));
       if (!cwd) w.push(warn('unknown-workspace', 'workspace path missing; id carries no workspace segment', sv));
-      let endedAt: string | null = null;
-      if (!updated) w.push(warn('no-end-marker', 'no activity timestamp', sv));
-      else if (isFresh(updated)) w.push(warn('session-open', 'activity in the last 60s; session appears open', sv));
-      else {
-        endedAt = updated;
-        if (row.has_user_event !== 1 && row.has_user_event !== true)
-          w.push(warn('no-end-marker', 'closed state inferred from last activity', sv));
-      }
+      const hasUser = row.has_user_event === 1 || row.has_user_event === true;
+      const endedAt = deriveEndedAt(updated, null, hasUser, w, sv ?? undefined);
       return {
         nativeId, cwd: cwd ? normCwd(cwd) : null, startedAt, endedAt,
-        title: null, // threads.title is auto-generated from first user message — content-derived, not metadata
         sourceVersion: sv, eventCount: null, warnings: w,
       };
     });
@@ -149,12 +142,12 @@ function parseRollout(path: string): Draft | null {
   const endsNl = text.length === 0 || text.endsWith('\n');
   const lines = text.split('\n');
   if (endsNl) lines.pop();
-  let nativeId: string | null = null, cwd: string | null = null;
-  let startedAt: string | null = null, lastTs: string | null = null, endTs: string | null = null;
+  let nativeId: string | null = null, cwd: string | null = null, startedAt: string | null = null;
+  let lastTs: string | null = null, endTs: string | null = null;
   let events = 0, malformed = 0, truncated = false;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (!line || !line.trim()) continue;
+    if (!line?.trim()) continue;
     let rec: unknown;
     try {
       rec = JSON.parse(line);
@@ -187,16 +180,9 @@ function parseRollout(path: string): Draft | null {
   if (!cwd) w.push(warn('unknown-workspace', 'workspace path missing; id carries no workspace segment', 'rollout'));
   if (!startedAt) startedAt = lastTs;
   if (!startedAt) w.push(warn('missing-field', 'start timestamp missing', 'rollout'));
-  let endedAt: string | null = null;
-  if (endTs) endedAt = endTs;
-  else if (!lastTs) w.push(warn('no-end-marker', 'no activity timestamp', 'rollout'));
-  else if (isFresh(lastTs)) w.push(warn('session-open', 'activity in the last 60s; session appears open', 'rollout'));
-  else {
-    endedAt = lastTs;
-    w.push(warn('no-end-marker', 'closed state inferred from last activity', 'rollout'));
-  }
+  const endedAt = deriveEndedAt(lastTs, endTs, false, w, 'rollout');
   return {
-    nativeId, cwd: cwd ? normCwd(cwd) : null, title: null, startedAt, endedAt,
+    nativeId, cwd: cwd ? normCwd(cwd) : null, startedAt, endedAt,
     sourceVersion: 'rollout', eventCount: events, warnings: w,
   };
 }
@@ -206,7 +192,7 @@ function toMeta(d: Draft, index: number): SessionMeta {
   const id = d.nativeId ? canonicalId(SURFACE, ws, 'native', d.nativeId) : null;
   return {
     surface: SURFACE, id, display_key: id ?? ephemeralKey(SURFACE, index),
-    title: d.title, started_at: d.startedAt, ended_at: d.endedAt,
+    title: null, started_at: d.startedAt, ended_at: d.endedAt,
     source_version: d.sourceVersion, workspace_hash: ws,
     event_count: d.eventCount, parse_warnings: d.warnings,
   };
