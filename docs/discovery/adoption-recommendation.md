@@ -7,6 +7,36 @@ offline via read-only NTFS mount + native Linux run); the remaining
 evidence gaps are listed at the end of that report and in the final
 section below.
 
+## The delta vs native "Agent Sessions" (read this first at G1)
+
+VS Code already ships a native *Agent Sessions* list `[EXTERNO]`. The
+delta, explicitly:
+
+- **Coverage**: native lists Copilot surfaces only (Copilot Chat +
+  Copilot CLI). It does not see Codex. We cover `vscode-chat`,
+  `copilot-cli` **and `codex-cli`** under one canonical model.
+- **Dependency**: native requires the Copilot Chat extension installed
+  and enabled. Owner-machine evidence: Copilot Chat is **currently
+  uninstalled yet 24 chat files persist** — native shows nothing for
+  them; we still list them `[LOCAL]`. Same reasoning covers
+  `chat.disableAIFeatures` and policy-disabled installs (a
+  `managed-settings/` dir was observed under Copilot CLI's local data —
+  corporate-managed signal `[LOCAL]`).
+- **Function**: native is a *management* surface (rename, pin, close,
+  archive within the Copilot product). We are a *read-only browse*
+  surface: canonical IDs, per-source state (`source-not-found`,
+  `no-sessions`, `read-error`, `unsupported-format`), metadata-first,
+  cross-agent.
+- **Zero-network**: native rides on the Copilot service path; ours is
+  statically network-free by construction — auditable per the spec's
+  five-section evidence model.
+
+So the overlap is real but narrow: an owner who only ever uses Copilot
+Chat, installed, for session management, is already served. The gap we
+fill is everything outside that cell — Codex, uninstalled/policy-disabled
+Copilot, and a uniform cross-agent view. If G1 narrows the product to
+Copilot-only, the honest answer is "use the native list".
+
 ## (a) Per-surface strategy
 
 ### `vscode-chat` — **vendor/adapt from SessionsAI**
@@ -123,11 +153,32 @@ about which formats the parser must support for correctness.
 ## (c) `devin-redact` mechanism — recommendation
 
 **Vendored TS port** of the redaction core (`patterns.py` + false-positive
-guard + `redact_text` ≈ 200 LOC) with a **parity test** generated from the
-Python reference at build time (ecosystem vendoring rule, D-2026-10-09).
-Rationale and fallback (CLI subprocess on temp excerpt) are in
-`redact-interface-report.md`. Without either, content search ships
-disabled (fail-closed) — acceptable but strictly worse.
+guard + `redact_text` ≈ 200 LOC). Three consequences of choosing the port
+over the spec's CLI-subprocess fallback: (i) zero Python in the content
+path too, not just the normal runtime; (ii) the fail-closed "no redactor"
+case shrinks to "port absent/broken", a build-time property; (iii) **new
+drift class: the TS port and the Python reference can diverge** — same
+class as the `plugin.json`/`pyproject` lockstep fix.
+
+**Parity test location (G1 must pin this)**: the parity test does not
+exist yet — no TS may be written before G1. When written it lives **in
+the repo that hosts the port** (the extension's repo — devin-powerups
+unless the owner places the extension elsewhere; the freeze forbids new
+repos until 2026-12-03) and runs in two places:
+
+1. **PR/push CI** — `tools/check_redact_parity.py` (name proposed):
+   installs `devin-redact==<pin>` from PyPI, runs a golden corpus through
+   both implementations, fails on any output diff. Corpus checked in;
+   pin checked in.
+2. **Weekly drift sensor** — same job against the **latest published**
+   `devin-redact` (not the pin), following the existing
+   `check_spec_pins.py` / `registry-drift.yml` pattern: a Python-side
+   pattern change between releases must fail loudly, not drift silently.
+
+Without leg (2) the parity guarantee decays between `devin-redact`
+releases — the exact gap this exercise exists to close. Fallback remains
+the CLI subprocess on temp excerpt (`redact-interface-report.md`);
+without either, content search ships disabled (fail-closed).
 
 ## (d) `session-vault` as UI — **no**
 
