@@ -81,7 +81,7 @@ today.
 | internals-spec | Version `state.vscdb` ItemTable sub-schema | novo | Partial — devin-dream already emits the keys |
 | internals-spec | CFL crash corpus minimization → `fixtures/` | estender | No |
 | internals-spec | Schema v18 detector + real fixture | estender | Partial — dream injects v18 drift (D06) |
-| redact | Cross-chunk secret regression pack (D09) | estender | Partial — defect class is real |
+| ~~redact~~ | ~~Cross-chunk secret regression pack (D09)~~ — **partially satisfied, collapses into evals dream-pack** | estender | Verified 2026-10-13: RD-2 cross-chunk pass shipped (`engine.py:_scan_chunked`/`_pair_chunk_findings`) + 13 dedicated tests (`test_chunked*.py`, adjacent-pair bound documented). Remainder = dream-generated fixtures → same item as `evals dream packs (D01–D09)` below |
 | redact | `devin-redact diff` HTML report | novo | No |
 | history | Export GUI path from synthetic `state.vscdb` | estender | Partial — closes HI-1 without real data |
 | history | `devin-history diff A B` | novo | No |
@@ -89,17 +89,17 @@ today.
 | doctor | `devkit-drift` check (installed vs manifest profile) | novo | Partial |
 | pm | `devin-pm velocity` sparkline | novo | No |
 | qa-pack | devin-dream fixtures pack (D01–D03) as CI precision gate | estender | Partial — precision gate is wanted, corpus exists |
-| qa-pack | `verdicts.jsonl` per session | novo | Partial — dashboard needs a stable format |
+| qa-pack | `verdicts.jsonl` per session | novo | Partial — owner 2026-10-13: conditional ("dashboard would consume"); formalize when ad-hoc parsing hurts |
 | qa-pack | Composite action: sticky verdict comment on PR | estender | No |
-| metrics | `metrics.json` event output for metrics.watch | estender | Partial — trigger wired, format missing |
+| metrics | `metrics.json` event output for metrics.watch | estender | Partial — owner 2026-10-13: needs a real consumer asking for live events; "digest is a natural consumer" is hypothesis, not felt pain |
 | metrics | `metrics report --html` trend charts | novo | No |
 | metrics | Subagent rollup (cost/duration per profile) | novo | Partial — `subagent_heads` data exists |
 | backup | Incremental snapshots with journal | estender | No |
-| search | `--context N` snippet window | novo | Partial — cheap, useful for AI surfaces |
+| search | `--context N` snippet window | novo | Partial — owner 2026-10-13: real but diffuse pain (tokens per hit on AI surfaces); improvement, not a failure-closure — stays |
 | search | `export --obsidian` markdown notes | novo | Partial — vault alignment is a real theme here |
 | graph | GR-1 coverage via dream fleet `--vscdb` | estender | Partial |
 | graph | `graph export --mermaid` | novo | No |
-| graph | Subagent edges from `subagent_heads` | estender | Partial — gap in the model is real |
+| graph | Subagent edges from `subagent_heads` | estender | Partial — owner 2026-10-13: observation, not named pain; needs the concrete question it would answer first |
 | evals | dream-generated eval packs (D01–D09 `expected.json`) | estender | Partial — corpus exists |
 | evals | `evals ci --junit` output | novo | Partial — CI annotation is handy |
 | evals | Trigger precision/recall eval vs dream fleet | novo | No |
@@ -117,9 +117,9 @@ today.
 | awesome-devin | Catalog generated from registry.json | estender | Partial — drift is real (the class `surface_diff.py` targets) |
 | awesome-devin | "registry coverage" CI gate | novo | Partial |
 | awesome-devin | Weekly stars/forks snapshot | novo | No |
-| devin-dream | Resolve `devin_internals` dep in E2E | estender | Stale — devin-dream merged into devin-evals (P4); proposals need re-anchoring |
-| devin-dream | D10 cross-session reused-secret defect | novo | Stale — same |
-| devin-dream | `dream replay <sessions.db>` | novo | Stale — same |
+| evals (was devin-dream) | Resolve `devin_internals` dep in E2E | estender | Re-anchored 2026-10-13 — devin-dream merged into devin-evals (P4) |
+| evals (was devin-dream) | D10 cross-session reused-secret defect | novo | Re-anchored 2026-10-13 — same |
+| evals (was devin-dream) | `dream replay <sessions.db>` | novo | Re-anchored 2026-10-13 — same |
 | switch | `devin-devkit apply <profile>` calls switch underneath | estender | Partial — unifies install + profile selection |
 | switch | `switch doctor --fix` | novo | Partial — doctor already reports nearest profile |
 | skill-catalog | `catalog watch` via trigger manifest | novo | Partial |
@@ -156,11 +156,10 @@ until the consumption point — and the pain — is concrete.
   script; a dispatcher (`devin` or per-product) is a product decision:
   name, collision policy with the Devin CLI, members-as-extras. Not
   enunciable yet — do not build without a consumption-point spec.
-- **MCP serving for devin-explore packages** — search/graph/doctor/
-  history are read-only Rule-1-safe MCP candidates by nature;
-  qa-pack's `adapters/mcp.py` is the mold. Per-package spec needed:
-  tool names, what a "query" returns, whether `doctor check` fits MCP
-  timeouts.
+- ~~**MCP serving for devin-explore packages**~~ — **shipped**: search,
+  graph, doctor, history, pm all ship `*-mcp` console scripts +
+  `mcp_server.py` with `do_*` functions; Zed/JB/Antigravity host-config
+  snippets added 2026-10-13 (explore#66/#68). | shipped |
 - **Observation lane, Task-Observer-inspired** (spec sketch from
   `rebelytics/one-skill-to-rule-them-all`, CC-BY-4.0 — attribution:
   Eoghan Henn / rebelytics.com). The PAS `session_learning.py` already
