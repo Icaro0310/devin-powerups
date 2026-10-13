@@ -185,16 +185,17 @@ reports. Archived so they are not re-proposed.
 |---|---|---|
 | RepoWise (repowise-dev/repowise) | **partially adopted via catalog** | 5-layer code-intelligence MCP (dep graph + git history + docs + decisions + health) is orthogonal to devin-graph's session graph — D-2026-10-13c keeps it external. 6 agent skills vendored+governed (AGPL-3.0 upstream: governed entries, no code copy) |
 | Agent-Reach (Panniantong/Agent-Reach) | **adopted via catalog** | MIT; web access via third-party platforms — `corporate_scope: external`. Approved entry, not installed: needs its own CLI/MCP |
-| OpenMontage (calesthio/OpenMontage) | catalog pointer, dependent | AGPL-3.0, heavy video-production system; entry marks it candidate dependent on the Brag initiative — no felt pain yet |
+| `brag` — conceito | `[novo]` — vídeo demo curto por pacote (45-90s) | backend a decidir quando a dor for sentida; o conceito não depende de nenhuma ferramenta. Candidatos nomeados: asciinema+agg+TTS (leve, MIT — favorito), OpenMontage (AGPL, overkill), `latent-spaces/brag` skill (MIT, genérico) |
+| OpenMontage (calesthio/OpenMontage) | catalog governed-pointer, archived as overkill | AGPL-3.0, heavy video-production system; one *candidate backend* for `brag` — the concept survives its rejection |
 | SearXNG (searxng/searxng) | **adopted as infra** | self-hosted search is the missing web-search capability; running live as `devin-searxng.service` (:8888, JSON enabled) + `searxng-websearch` skill active — D-2026-10-13b |
 | Research Agent skill (fabianocarvalhojr) | dependent candidate, unverified | depends on SearXNG; upstream repo/skills could not be verified — do not vendor without direct evidence |
-| Laya (NandhaKishorM/laya) | evaluating | ALTO-2 backend comparison vs poordjaevin NLI in progress |
+| Laya (NandhaKishorM/laya) | **rejected — measured, do not reopen** | 15-24s/question warm on CPU vs marketed 33ms (GPU number); ~2.6GB; checkpoint ships invalid temperatures (uncalibrated per its own loader warning). Reopens only with a GPU host + local ECE verification — D-2026-10-13d |
 | Paperclip (paperclipai/paperclip) | archived | hosted company-of-agents control plane (org charts, budgets); wrong abstraction for PAS local-first scheduling |
 | Herdr (herdrdev/herdr) | archived | Rust multiplexer for persistent interactive agent terminals; PAS covers non-interactive scheduled work — no felt pain |
 | billion-context (ranxianglei/billion-context) | archived | LLM-proxy context compression cannot intercept Devin's ACP transport; native compaction exists |
 | 49-IDE (49-Agents/49-IDE) | archived | browser canvas of terminal agents; wrong abstraction for devin-office's session-observation model |
 | mcp-handler (vercel-labs/mcp-handler) | deferred | Next.js adapter for hosted MCP — only relevant to GPT Store option (b), still pending owner decision |
-| Magnitude (magnitudedev/magnitude) | archived | test-automation framework, not a TSDB (name collision); devin-metrics SQLite is sufficient |
+| Magnitude (magnitudedev/magnitude) | archived — colisão de nome | test-automation framework, NOT the open-source TSDB the proposal meant — the real TSDB has a different name; re-identify before re-evaluating. devin-metrics SQLite is sufficient today |
 | LocalSend (localsend/localsend) | archived | ssh/scp/Tailscale offload already covers machine-to-machine transport |
 | MiroFish | archived | multi-agent simulation; no felt pain |
 | Wan2GP | archived | local video generation; no felt pain |
@@ -206,3 +207,24 @@ reports. Archived so they are not re-proposed.
 | social-media-skills / marketing lists | archived | promotion tooling; deferred with the HN/forum item |
 | Open SEO | archived | promotion tool, not ecosystem capability |
 | design-automation / social-media / automation-master (fabianocarvalhojr) | archived | no felt pain; same unverified-source caveat |
+
+## Deferred/registered (BAIXO, 2026-10-13)
+
+Promotion and recurring-cost channels — registered to not lose, none
+are queues. Revisit only when a concrete reason appears.
+
+| Item | Status | Trigger to revisit |
+|---|---|---|
+| HN/forum technical post | deferred | after 20+ channels + release.yml proven — a "20 adapters, one logic, parity tests" post earns more than an announcement |
+| GitSkins (visual portfolio) | archived pointer | feeds `tools/surface_diff.py` (BACKLOG) — visual diff of rendered surfaces |
+| Semantica (Palantir OSS) | inspiration | decision-provenance model for devin-judge's graph — revisit when judge gains a graph surface |
+| Foreman | inspiration | two-loop architecture validates devin-judge; revisit if live-supervision pain appears |
+| Atlas | data model | commits↔sessions join model for devin-graph — joins by SHA when the code↔session edge is needed |
+| VS Code PAT publish path | superseded | Entra workload identity shipped (powerups#130/#131); manual portal upload remains the escape hatch — PAT path is dead unless Entra breaks |
+| JetBrains native plugin | revisit on demand | real cost: Kotlin/Java + own marketplace treadmill — build only when a user asks |
+| Eclipse native plugin | revisit on demand | minimal audience; lowest priority of the plugin class |
+| GitHub Copilot Extension | **blocked by architecture** | requires a 24/7 hosted backend — contradicts local-first; not a priority call, a design conflict |
+| Homebrew tap | **do not recreate** | `homebrew-tap`/`scoop-bucket` deliberately deleted 2026-10-08 (orphaned, manual coverage 2/14, no external demand) — recreating would resurrect a dead channel, not fix a gap |
+| MCP Registry claim | pending — claim not publicly verifiable | `devin-brain/.well-known/mcprush-claim.txt` exists but `icaro0310.github.io/devin-brain/.well-known/` returns 404 — Pages does not serve it (jekyll dotdir or Pages off). Options: enable Pages with `include: [.well-known]`, or move the claim to the main site repo. Owner decision (MÉDIO-3 checkpoint) |
+| Antigravity | compatible in principle | `.vsix` from Open VSX verified valid (zip ok, `engines.vscode ^1.85.0`); install test needs the IDE binary — not present on this host |
+| Zed | probe blocked | `devin-bridge` ACP test needs a Zed instance — not installed on this host |
