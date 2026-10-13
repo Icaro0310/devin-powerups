@@ -24,6 +24,7 @@ their own pace. Concrete release tags (`v1.0.0`) mark the underlying commit.
 | `scorecard.yml` | OpenSSF Scorecard | `push` main + `schedule` + `workflow_dispatch` | none |
 | `codeql.yml` | CodeQL analysis | `push`/`pull_request` main + `schedule` | `language` (default `python`) |
 | `secrets-scan.yml` | Secret-shaped string scan | called from repo `ci.yml` | none |
+| `adapters-check.yml` | Distributed-adapter hygiene scan (personal paths, internal names, token shapes, SKILL.md command coherence) | called from repo `ci.yml` | none |
 | `python-test.yml` | pytest on windows+ubuntu | called from repo `ci.yml` | `python-version`, `package-dir` |
 | `adapter-test.yml` | One adapter face's own suite in isolation, on windows+ubuntu | called from per-package adapter workflows | `package-dir`, `adapter-dir`, `test-command`, `python-version`, `node-version`, `pre-install`, `skip-install` |
 | `pypi-publish.yml` | Verify wheel `__version__`, then publish the verified `dist` to PyPI | `workflow_call` only — the caller wires `release`/`workflow_dispatch` | `package-dir`, `python-version`, `module` |
@@ -182,6 +183,17 @@ jobs:
     permissions:
       contents: read
     uses: Icaro0310/devin-powerups/.github/workflows/secrets-scan.yml@v1
+  # adapters-check — same wiring in every repo that ships distributed
+  # adapters/skills (adapters/, packages/*/adapters/, .devin/skills/).
+  # The sensor fetches scripts/check-adapters-hygiene.py from this repo
+  # at the same v1 tag when the caller does not ship its own copy;
+  # known-legitimate hits pin per file in a repo-root
+  # `.adapters-hygiene-allow` (`path sha256=<hex>`), same mechanism as
+  # .secrets-scan-allow.
+  adapters-check:
+    permissions:
+      contents: read
+    uses: Icaro0310/devin-powerups/.github/workflows/adapters-check.yml@v1
 ```
 
 Rule of thumb: the `permissions` on a `uses:` job must cover every scope the

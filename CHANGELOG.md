@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `devin-powerups` no longer declares an external dependency on Corporate Windows; the schema rule that forbids it was not being enforced.
 - `tools/new-repo.py` marks an unsupported environment as `delegation=forbidden`, as the schema requires.
 - `test_manifest_uses_pypi_names_and_real_cli_entrypoints` no longer freezes which tools install from GitHub, PyPI or npm.
+- `scripts/check-adapters-hygiene.py`: five sensor gaps closed — README names now match whole `devin-*` tokens (a `devin-checker` mention no longer validates `devin-check`); fenced/inline `devin-*` words only count as invocations in command position, so install lines, comments and quoted launcher specs stop failing valid skills; tilde (`~~~`) fences are recognized; `C:\Users` matches one or two backslashes; binary adapter files are scanned for token-shaped values instead of skipped whole. `VARIANTS.md` now documents the `adapters-check.yml` reusable and its `ci.yml` caller wiring.
 
 ## [0.1.0] - 2026-09-29
 

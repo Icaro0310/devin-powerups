@@ -72,7 +72,7 @@ FORBIDDEN: list[tuple[str, re.Pattern[str], str]] = [
     # product's contract.
     ("personal-path/home", re.compile(r"/home/\w+"), "all"),
     ("personal-path/users", re.compile(r"/Users/\w+"), "all"),
-    ("personal-path/cusers", re.compile(r"C:\\\\Users"), "all"),
+    ("personal-path/cusers", re.compile(r"C:\\{1,2}Users"), "all"),
     ("personal-path/utilizador", re.compile(r"Utilizador"), "all"),
     # Internal host:port literals — an internal endpoint is a leak when
     # it lands in a shipped config or executable file. Docs are exempt:
@@ -107,11 +107,18 @@ FORBIDDEN: list[tuple[str, re.Pattern[str], str]] = [
     ),
 ]
 
-# A devin-* token counts as a CLI invocation when it appears in a fenced
-# code block or inside inline backticks — plain prose ("the devin-search
-# package") does not promise a command.
+# A devin-* token counts as a CLI invocation when it sits in command
+# position inside a fenced code block or inline backticks — the first
+# word of a shell segment, or a token following a launcher such as
+# ``uvx``/``uv run``/``pipx run``/``npx``. Prose, install lines
+# (``pip install devin-foo``) and comments do not promise a command.
 CMD_TOKEN_RE = re.compile(r"\bdevin-\w[\w-]*")
 INLINE_CODE_RE = re.compile(r"`([^`]+)`")
+FENCE_RE = re.compile(r"\s*([`~])\1{2,}")
+SHELL_SEP_RE = re.compile(r"&&|\|\||[|;]")
+QUOTED_RE = re.compile(r"'[^']*'|\"[^\"]*\"")
+ENV_ASSIGN_RE = re.compile(r"\w+=\S+")
+LAUNCHERS = {"uvx", "npx", "bunx"}
 
 
 def is_doc(path: Path) -> bool:
@@ -185,14 +192,18 @@ def file_sha256(path: Path) -> str:
 def check_forbidden(root: Path, files, pins: dict[str, str]) -> list[str]:
     findings: list[str] = []
     for path in files:
-        if is_binary(path):
-            continue
+        binary = is_binary(path)
         rel = path.relative_to(root).as_posix()
-        text = path.read_text(errors="replace")
+        text = path.read_bytes().decode("utf-8", errors="replace")
         hits: list[str] = []
         doc = is_doc(path)
         for lineno, line in enumerate(text.splitlines(), 1):
             for name, pattern, scope in FORBIDDEN:
+                # Binary adapter assets are not text-searchable in full —
+                # but token-shaped values are still greppable, so only
+                # the token/* rules apply there.
+                if binary and not name.startswith("token/"):
+                    continue
                 if scope == "non-doc" and doc:
                     continue
                 for m in pattern.finditer(line):
@@ -217,19 +228,61 @@ def strip_frontmatter(text: str) -> str:
     return text
 
 
+def _segment_tokens(segment: str) -> set[str]:
+    """devin-* tokens in command position within one shell segment."""
+    if segment.lstrip().startswith("#"):
+        return set()
+    words = segment.split()
+    while words and (
+        words[0] in {"$", ">", "sudo", "command", "env"}
+        or ENV_ASSIGN_RE.fullmatch(words[0])
+    ):
+        words.pop(0)
+    if not words:
+        return set()
+    first = words[0]
+    if CMD_TOKEN_RE.fullmatch(first):
+        return {first}
+    if first in LAUNCHERS:
+        rest = " ".join(words[1:])
+    elif first == "uv" and words[1:2] == ["run"]:
+        rest = " ".join(words[2:])
+    elif first == "uv" and words[1:3] == ["tool", "run"]:
+        rest = " ".join(words[3:])
+    elif first == "pipx" and words[1:2] == ["run"]:
+        rest = " ".join(words[2:])
+    else:
+        return set()
+    # Quoted spans in launcher lines are package specs/options
+    # (``--from 'devin-doctor[mcp]'``), not invoked commands.
+    return set(CMD_TOKEN_RE.findall(QUOTED_RE.sub(" ", rest)))
+
+
+def _command_tokens(text: str) -> set[str]:
+    """devin-* invocations across shell segments of one text block."""
+    tokens: set[str] = set()
+    for segment in SHELL_SEP_RE.split(text):
+        tokens.update(_segment_tokens(segment))
+    return tokens
+
+
 def cli_tokens(skill: Path) -> set[str]:
     """devin-* tokens used as CLI invocations (fenced or inline code)."""
     tokens: set[str] = set()
-    in_fence = False
+    fence_char = ""
     for line in strip_frontmatter(skill.read_text(errors="replace")).splitlines():
-        if line.strip().startswith("```"):
-            in_fence = not in_fence
+        fence = FENCE_RE.match(line)
+        if fence:
+            if not fence_char:
+                fence_char = fence.group(1)
+            elif fence.group(1) == fence_char:
+                fence_char = ""
             continue
-        if in_fence:
-            tokens.update(CMD_TOKEN_RE.findall(line))
+        if fence_char:
+            tokens.update(_command_tokens(line))
         else:
             for span in INLINE_CODE_RE.findall(line):
-                tokens.update(CMD_TOKEN_RE.findall(span))
+                tokens.update(_command_tokens(span))
     return tokens
 
 
@@ -257,12 +310,16 @@ def check_commands(root: Path, files) -> list[str]:
         if pyproject.is_file():
             data = tomllib.loads(pyproject.read_text())
             scripts = set(data.get("project", {}).get("scripts", {}))
-        readme_text = ""
+        # Whole-word tokens only — a README that names the longer
+        # ``devin-checker`` must not silently validate ``devin-check``.
+        readme_tokens: set[str] = set()
         readme = pkg / "README.md"
         if readme.is_file():
-            readme_text = readme.read_text(errors="replace")
+            readme_tokens = set(
+                CMD_TOKEN_RE.findall(readme.read_text(errors="replace"))
+            )
         for token in sorted(tokens):
-            if token not in scripts and token not in readme_text:
+            if token not in scripts and token not in readme_tokens:
                 findings.append(
                     f"{rel}: '{token}' invoked but not in "
                     f"{pyproject.relative_to(root)} [project.scripts] "
@@ -369,6 +426,63 @@ def selftest() -> int:
         (empty / "src").mkdir(parents=True)
         findings, nfiles = run(empty)
         expect("no-adapter repo skips clean", findings == [] and nfiles == 0)
+
+        # ---- fixture: README substring must not validate ------------
+        sub = base / "substr"
+        sskill = sub / "adapters/skills/x/SKILL.md"
+        sskill.parent.mkdir(parents=True)
+        sskill.write_text("```bash\ndevin-check --json\n```\n")
+        (sub / "README.md").write_text("# demo\n\nUse `devin-checker`.\n")
+        findings, _ = run(sub)
+        expect("longer README name does not validate",
+               any("devin-check" in f for f in findings), f"{findings}")
+
+        # ---- fixture: tilde fences and shell-position tokens ---------
+        tilde = base / "tilde"
+        tskill = tilde / "adapters/skills/x/SKILL.md"
+        tskill.parent.mkdir(parents=True)
+        tskill.write_text(
+            "~~~bash\ndevin-ghost check\n~~~\n\n"
+            "```bash\npip install devin-other\n# devin-comment\n"
+            "echo ok && devin-inline run\n```\n"
+        )
+        (tilde / "README.md").write_text("# x\n")
+        findings, _ = run(tilde)
+        joined = "\n".join(findings)
+        expect("tilde-fenced command flagged", "devin-ghost" in joined)
+        expect("install line not a command", "devin-other" not in joined)
+        expect("fence comment not a command", "devin-comment" not in joined)
+        expect("post-separator command flagged", "devin-inline" in joined)
+
+        # ---- fixture: launcher segment -------------------------------
+        lau = base / "launcher"
+        lskill = lau / "adapters/skills/x/SKILL.md"
+        lskill.parent.mkdir(parents=True)
+        lskill.write_text(
+            "```bash\nuvx --from 'devin-doctor[mcp]' devin-ghost\n```\n"
+        )
+        (lau / "README.md").write_text("# x\n")
+        findings, _ = run(lau)
+        joined = "\n".join(findings)
+        expect("launcher target flagged", "devin-ghost" in joined)
+        expect("quoted --from spec not a command",
+               "devin-doctor" not in joined)
+
+        # ---- fixture: binary token + single-backslash path ----------
+        misc = base / "misc"
+        blob = misc / "adapters/bin/blob.bin"
+        blob.parent.mkdir(parents=True)
+        blob.write_bytes(
+            b"\x00\x01ghp_" + b"a" * 40 + b"\x00"
+        )
+        leak = misc / "adapters/cfg/win.txt"
+        leak.parent.mkdir(parents=True)
+        leak.write_text("home=C:\\Users\\alice\n")
+        findings, _ = run(misc)
+        joined = "\n".join(findings)
+        expect("binary token flagged", "token/gh-oauth" in joined)
+        expect("single-backslash C:\\Users flagged",
+               "personal-path/cusers" in joined)
 
     if failures:
         print(f"selftest: {len(failures)} case(s) FAILED", file=sys.stderr)
