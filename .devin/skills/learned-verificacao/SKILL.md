@@ -17,7 +17,7 @@ muitos ficheiros, superficies geradas, ou merges sob guardrails.
   sobrevivem (badge sweep sem check = 49 ocorrencias stale; guia manual
   do devkit fora do gerador = invisivel ao `--check`). Antes de propor
   "manual com check proprio", preferir cobrir no gerador unico —
-  mecanismos paralelos sao onde os erros vivem (heartbeat-wake.py orfao,
+  mecanismos paralelos sao onde os erros vivem (o job de wake orfao,
   internals-spec).
 - (2026-10-11) merges de output gerado nao tem findings no sentido do
   D-record: a categoria e "generator merge" (gerado, identico entre
@@ -61,9 +61,10 @@ muitos ficheiros, superficies geradas, ou merges sob guardrails.
   inventario obrigatorio de mecanismos existentes: `ps aux` para
   launchers (CDP, playwright, MCP), `ls ~/.local/share/` e
   `~/.config/` para perfis/kits persistentes, vault com 2-3 variantes
-  de query (vault-first). Caso real: kit pw-gsc
-  (`~/.local/share/pw-gsc/`, Brave + CDP :9223, sessao GitHub viva,
-  launcher running) ficou invisivel durante ~4 turnos porque a busca
+  de query (vault-first). Caso real: um kit de scraping persistente
+  (dir proprio em `~/.local/share/`, browser com porta CDP aberta,
+  sessao GitHub viva, launcher running) ficou invisivel durante ~4
+  turnos porque a busca
   foi MCP-browser -> vault-credenciais -> "pede ao user" — nunca `ps`.
   Pedir credencial que a maquina ja tem e a falha, nao a ausencia.
   Regras violadas: vault-first (queries minimas) e
@@ -78,6 +79,8 @@ muitos ficheiros, superficies geradas, ou merges sob guardrails.
   classe `approve-job flake` nomeada
 - v4 (2026-10-13): verso do default invertido — "parece ausente != esta
   ausente" (inventario de mecanismos antes de pedir credenciais/sessao)
+- v5 (2026-10-13): nomes internos removidos (sensor adapters-check) —
+  a licao fica intacta sem nomes de tooling privado
 - (2026-10-13) limite do default invertido: o grep-em-main aplica-se a
   PRs que tocam superficie de produto ou config (.github/, pyproject,
   codigo). Para PRs docs-only ou dependabot, fechar por leitura do

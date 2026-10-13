@@ -1315,3 +1315,7 @@ contact are the target.
   someone remembers it. Upgrade path if it bites: a `# canary: <sha>`
   marker line in a caller, validated by a cheap CI check, would make it
   mechanical. Deferred until the first missed-canary incident.
+
+## D-2026-10-13j — Adapters-check sensor: doc files exempt from loopback `host:port`; allowlist is hash-pinned per file
+
+New reusable CI sensor (`adapters-check.yml` + `scripts/check-adapters-hygiene.py`) blocks distributed adapter files (adapters/, packages/*/adapters/, .devin/skills/) from leaking internals or drifting from the package's public contract. Two policy choices worth recording: (1) `host:port` literals only flag **non-doc** files — a daemon README documenting the product's own `127.0.0.1:8788` bind is the public contract, not a leak; every other rule applies to docs too. (2) Known-legitimate hits pin via repo-root `.adapters-hygiene-allow` (`path sha256=<hex>`, same mechanism as `.secrets-scan-allow`) — fixtures stay pinned, not pattern-exempted.

@@ -3,7 +3,9 @@ name: ci
 # Self-scan: the hub's own workflows (incl. the reusable pypi-publish.yml)
 # are only checked when some OTHER repo's ci calls secrets-scan — nothing
 # scanned this checkout itself. Local workflow_call fixes that: the same
-# reusable, run against the hub's own tree on every push/PR.
+# reusable, run against the hub's own tree on every push/PR. Same for
+# adapters-check — the hub ships adapters/ + .devin/skills/ like any
+# other repo.
 
 on:
   push:
@@ -16,3 +18,5 @@ permissions:
 jobs:
   secrets-scan:
     uses: ./.github/workflows/secrets-scan.yml
+  adapters-check:
+    uses: ./.github/workflows/adapters-check.yml
