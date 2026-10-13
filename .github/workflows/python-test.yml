@@ -85,6 +85,32 @@ jobs:
           print(f"version lockstep ok: {ver}")
           PY
 
+      - name: Plugin manifest lockstep (plugin.json vs pyproject)
+        if: ${{ !inputs.skip-install }}
+        working-directory: ${{ inputs.package-dir }}
+        shell: bash
+        # Same drift family as __version__: package bumps never touch
+        # adapters/.devin-plugin/plugin.json — every drifted package was
+        # one that had been bumped (all aligned ones sat at never-bumped
+        # 0.1.0). Skips cleanly when no plugin manifest ships.
+        run: |
+          [ -f pyproject.toml ] || exit 0
+          python - <<'PY'
+          import json, pathlib, sys, tomllib
+          plug = pathlib.Path("adapters/.devin-plugin/plugin.json")
+          if not plug.is_file():
+              print("::notice::no plugin manifest — plugin lockstep skipped")
+              sys.exit(0)
+          ver = tomllib.loads(pathlib.Path("pyproject.toml")
+                              .read_text())["project"]["version"]
+          pver = json.loads(plug.read_text())["version"]
+          if pver != ver:
+              print(f"::error::{plug}: version {pver} != pyproject {ver} "
+                    "— keep the manifest in lockstep with the package")
+              sys.exit(1)
+          print(f"plugin lockstep ok: {ver}")
+          PY
+
       - name: Lockfile freshness (uv.lock vs pins)
         shell: bash
         # uv.lock lives at the repo/workspace root, not in package-dir.
