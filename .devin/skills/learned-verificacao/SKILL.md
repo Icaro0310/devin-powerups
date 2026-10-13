@@ -31,7 +31,26 @@ muitos ficheiros, superficies geradas, ou merges sob guardrails.
   branch certo: `DEVIN_DEVKIT_OFFLINE` existia no branch do PR #36 mas
   nao em main/published — afirmar "existe" ou "nao existe" sem dizer o
   branch e factualmente incompleto.
+- (2026-10-13) "parece coberto" != "esta coberto": antes de classificar
+  trabalho como superseded, grep em `main` — a camada MCP+skill+plugin
+  parecia shipped (vscode/daemon estavam) mas nunca entrou em
+  assure/control/devkit. Mesmo padrao do `--environment` so em install
+  e do `merged-into-main` so no PyPI: superficie parcial le como
+  cobertura total. Verificar o artefacto, nao a aparencia.
+- (2026-10-13) teste que pina marcadores de conteudo testa o snapshot,
+  nao o contrato: `test_skill_policy.py` ficou verde enquanto pinava
+  strings que o SKILL.md ja nao tinha — so falhou quando um PR reescreveu
+  o ficheiro. Mesma classe do smoke-que-nao-cobre-regressao: pins devem
+  seguir o contrato vivo, e todo rewrite de ficheiro pinado exige
+  re-pin do teste no mesmo commit.
+- (2026-10-13) pin declarado vs lock real e o mesmo eixo do lockstep
+  versao: `uv.lock` ficou em internals-spec 0.3.0 quando o pin subiu
+  para >=0.3.1 — invisivel porque CI usa pip, nunca `uv sync --locked`.
+  Todo bump de pin exige `uv lock` no mesmo commit; sem gate, o lock
+  so diverge em silencio para quem corre `uv run` local.
 
 ## Changelog
 
 - v1 (2026-10-11): criada na onda corporate-docs + devkit extras target
+- v2 (2026-10-13): +3 licoes do PR-sweep (parece-coberto, pins de teste,
+  lockfile drift)
