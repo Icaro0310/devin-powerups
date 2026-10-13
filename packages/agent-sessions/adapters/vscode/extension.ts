@@ -60,6 +60,9 @@ export function activate(context: vscode.ExtensionContext): void {
     treeView,
     detailsReg,
     participant,
+    vscode.workspace.onDidCloseTextDocument((doc) => {
+      if (doc.uri.scheme === SessionDetailsProvider.scheme) detailsProvider.untrack(doc.uri);
+    }),
     vscode.commands.registerCommand('agentSessions.refresh', refresh),
     vscode.commands.registerCommand('agentSessions.openDetails', async (arg?: string | SessionNode) => {
       // Row click passes the display key; the context menu passes the node.

@@ -16,7 +16,7 @@ assert.ok(
   ['agentSessions.refresh', 'agentSessions.openDetails'].every((c) => r.commands.some((x) => x.id === c)),
   'commands registered',
 );
-assert.equal(subscriptions.length, 5, 'five disposables pushed');
+assert.equal(subscriptions.length, 6, 'six disposables pushed');
 
 // Tree provider: 3 surface nodes always, expanded, correct contextValue
 const tree = r.views[0].provider;
@@ -49,3 +49,13 @@ const openDetails = r.commands.find((c) => c.id === 'agentSessions.openDetails')
 await openDetails.fn('copilot-cli:ephemeral:0');
 await openDetails.fn({ kind: 'session', meta: { display_key: 'copilot-cli:ephemeral:0' } });
 assert.ok(vscode.registered.docs.length >= 2, 'openDetails opened docs for both arg shapes');
+
+// details provider untracks closed documents — refresh must not fire for them
+const provider = r.providers[0].provider;
+const uri = vscode.Uri.parse('agent-sessions:Session/nope.md');
+provider.provideTextDocumentContent(uri); // tracked now
+for (const fn of vscode.registered.closeListeners ?? []) fn({ uri });
+let fired = false;
+provider.onDidChange(() => { fired = true; });
+provider.refresh();
+assert.equal(fired, false, 'closed details doc no longer receives change events');

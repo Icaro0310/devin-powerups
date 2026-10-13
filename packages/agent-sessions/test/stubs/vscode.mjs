@@ -44,6 +44,8 @@ export const workspace = {
     registered.providers.push({ scheme, provider });
     return { dispose() {} };
   },
+  onDidCloseTextDocument(fn) { registered.closeListeners = (registered.closeListeners ?? []).concat(fn); return { dispose() {} }; }
+,
   async openTextDocument(uri) {
     const p = registered.providers.find((p) => p.scheme === uri.scheme);
     return { uri, getText: () => (p ? p.provider.provideTextDocumentContent(uri) : '') };

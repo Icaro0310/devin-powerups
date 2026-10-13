@@ -47,6 +47,12 @@ export class SessionDetailsProvider implements vscode.TextDocumentContentProvide
     for (const raw of this.opened) this.emitter.fire(vscode.Uri.parse(raw));
   }
 
+  /** Forget a closed details document — closed tabs should not keep
+   *  receiving change events or accumulating in memory. */
+  untrack(uri: vscode.Uri): void {
+    this.opened.delete(uri.toString());
+  }
+
   /** Match on display_key across all results first, then canonical id. */
   private find(keys: readonly string[]): Found | undefined {
     const results = this.getResults();
