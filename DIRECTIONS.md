@@ -225,7 +225,7 @@ are queues. Revisit only when a concrete reason appears.
 | Eclipse native plugin | revisit on demand | minimal audience; lowest priority of the plugin class |
 | GitHub Copilot Extension | **blocked by architecture** | requires a 24/7 hosted backend — contradicts local-first; not a priority call, a design conflict |
 | Homebrew tap | **do not recreate** | `homebrew-tap`/`scoop-bucket` deliberately deleted 2026-10-08 (orphaned, manual coverage 2/14, no external demand) — recreating would resurrect a dead channel, not fix a gap |
-| MCP Registry claim | pending — claim not publicly verifiable | `devin-brain/.well-known/mcprush-claim.txt` exists but `icaro0310.github.io/devin-brain/.well-known/` returns 404 — Pages does not serve it (jekyll dotdir or Pages off). Options: enable Pages with `include: [.well-known]`, or move the claim to the main site repo. Owner decision (MÉDIO-3 checkpoint) |
+| ~~MCP Registry claim~~ — **resolved 2026-10-13** | claim moved to the site root: `Icaro0310.github.io/.well-known/mcprush-claim.txt` (+ `.nojekyll`) serves HTTP 200. The copy in `devin-brain/.well-known/` remains as source-of-record | shipped |
 | Antigravity | compatible in principle | `.vsix` from Open VSX verified valid (zip ok, `engines.vscode ^1.85.0`); install test needs the IDE binary — not present on this host |
 | Zed | probe blocked | `devin-bridge` ACP test needs a Zed instance — not installed on this host |
 
