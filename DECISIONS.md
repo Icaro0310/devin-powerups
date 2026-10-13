@@ -1306,3 +1306,8 @@ contact are the target.
   future permission elevation (`contents: write`, `packages: write`,
   `id-token`) moves the workflow to SHA-pinned — mandatory, not
   optional.** Add a permission before a pin? No — the pin comes first.
+- **Canary mechanism for floating tags:** an edit to a `@v1` reusable
+  propagates to every caller's next run simultaneously — no canary. To
+  stage a risky change: pin ONE affected caller to the candidate SHA,
+  let it run, then move `v1`. If nobody pins, the only defense is
+  "hope it doesn't break" — which is exactly the gap this record closes.
