@@ -1299,3 +1299,10 @@ contact are the target.
 - **Corollary:** fixes to `@v1` callers ride the tag move; SHA-pinned
   callers need an explicit pin-bump wave plus a `v1` re-tag for any
   floaters.
+- **Reverse of free propagation:** a bad merge to `main` propagates to
+  every `@v1` consumer's next CI run with no canary — the same property
+  that ships fixes without rollout ships regressions without one.
+  Acceptable today because the workflow is `contents: read`; **any
+  future permission elevation (`contents: write`, `packages: write`,
+  `id-token`) moves the workflow to SHA-pinned — mandatory, not
+  optional.** Add a permission before a pin? No — the pin comes first.
