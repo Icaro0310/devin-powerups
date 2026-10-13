@@ -853,3 +853,132 @@ graph+history+search, pm+metrics, bridge+orchestrator — see that record's
   `check --json` on a populated data dir exceeds the extension's 120 s
   subprocess cap (disk-usage walk) — a CLI-latency property, not
   contract drift.
+
+## D-2026-10-13 — External skills enter through the governed catalog, not file copies
+
+- **Decision:** third-party skills are adopted as **governed catalog
+  entries** (scan → quarantine → G1 → approve) with provenance pinned
+  in `skill-vendor/VENDORS.md` (upstream repo, path, license, commit
+  SHA) and a `corporate_scope` marker field on the registry entry:
+  `external` (third-party fetch — blocked where `external_compute:
+  false`), `optional-selfhosted` (works corporate only via a reachable
+  self-hosted backend, must degrade gracefully), `conditional` (needs
+  a separate local runtime/index). The registry writes its whole data
+  map, so the field survives future transitions. License classes:
+  MIT → file-vendorable; AGPL-3.0 → governed pointers/thin skills, no
+  code copy; unverified source → no vendor at all.
+- **Date:** 2026-10-13.
+- **Reason:** the catalog was built for "when do I trust a third-party
+  or learned skill" — external adoption is its designed use, and the
+  alternative (forking skills into repos) creates maintenance debt and
+  license exposure. The corporate mark exists because two of this
+  wave's adoptions (Agent-Reach, OpenMontage) reach third-party
+  platforms by design — without the mark a corporate install would
+  silently inherit external calls.
+- **Evidence:** 9 entries approved today — `agent-reach` (MIT,
+  `external`), `openmontage` (AGPL pointer, `external` + dependent on
+  Brag), `searxng-websearch` (`optional-selfhosted`),
+  `repowise-*` ×6 (AGPL skills, `conditional` on a RepoWise index).
+  Quarantine copies + SHA-256 in the catalog registry; activation is a
+  deliberate second step — `searxng-websearch` is the only one
+  installed live (`~/.devin/skills/`), because its backend exists.
+- **Expected outcome:** "always-active vs outside-corporate" is a
+  registry fact, not tribal knowledge; AGPL material stays governed
+  pointers; adoption ≠ activation — a skill only goes live when its
+  runtime exists.
+- **Result:** shipped — catalog entries + VENDORS.md provenance;
+  activation discipline recorded.
+
+## D-2026-10-13b — SearXNG is the canonical web-search backend (service + skill contract)
+
+- **Decision:** web search lands as **option (c)**: a self-hosted
+  SearXNG instance consumed as a plain local HTTP service, with the
+  `searxng-websearch` catalog skill as the agent-facing contract —
+  not a `devin-search` subcommand (a) and not a bundled MCP tool (b).
+  Agent-Reach stays cataloged as the **optional external fallback**
+  (`corporate_scope: external`).
+- **Date:** 2026-10-13.
+- **Reason:** no container runtime exists on this host (no
+  docker/podman), so SearXNG runs from source (uv venv, CPython 3.12)
+  under a user systemd unit — which is also the distribution shape
+  that survives `external_compute: false`: the instance is localhost
+  infrastructure, not an agent dependency. A `devin-search web`
+  subcommand would be a publishable-package change inside the
+  governance freeze for zero added logic — the "business rule"
+  (metasearch) lives entirely in SearXNG; uma lógica, muitas faces
+  means the adapter would be a 30-line curl wrapper with nothing to
+  wrap.
+- **Evidence:** `devin-searxng.service` (user unit, enabled,
+  Restart=on-failure) serving `http://127.0.0.1:8888` with
+  `formats: [html, json]`; live query returns 20-28 results across
+  engines. Graceful failure verified both directions: engines
+  suspended → HTTP 200 + `results: []` + `unresponsive_engines`
+  (observed: brave rate-limited, duckduckgo CAPTCHA — the instance
+  degrades per-engine, no crash); instance unreachable → curl fails
+  closed (exit 7). Source checkout `~/devin/searxng`, instance config
+  `instance/settings.yml`.
+- **Expected outcome:** agents gain web search that works behind a
+  corporate proxy when the instance is local; when engines or the
+  instance are unreachable the skill reports and falls back to
+  internal knowledge instead of fabricating. If usage proves out, a
+  post-freeze `devin-search web` convenience wrapper can be filed as
+  `[estender]`.
+- **Result:** shipped — service live and persistent; skill active;
+  Research Agent skill registered in DIRECTIONS as a dependent
+  candidate pending a verifiable source.
+
+## D-2026-10-13c — devin-graph stays a session graph; RepoWise stays an external sibling
+
+- **Decision:** `devin-graph` is **not** extended into code indexing.
+  RepoWise remains an external MCP sibling; integration, when pain is
+  felt, is by reference keys — repository, path, symbol, commit SHA —
+  not by embedding.
+- **Date:** 2026-10-13.
+- **Reason:** the two graphs are orthogonal: devin-graph answers
+  "which sessions touched X / what did the agent do"; RepoWise
+  answers "how does the code fit together / what is risky to change"
+  across five layers (dependency graph, git history, docs, decisions,
+  health). Merging them would mean vendoring an AGPL-3.0 codebase and
+  doubling devin-graph's scope for an unproven join. The 6 governed
+  `repowise-*` skills already route agents when a `.repowise/` index
+  exists.
+- **Evidence:** RepoWise persists to SQL with NetworkX in memory (no
+  graph DB), exposes `get_context`/`get_risk`/`get_why`/`get_dead_code`
+  MCP tools; devin-graph edges are session↔artifact. No session ever
+  needed a code↔session edge — the DIRECTIONS `devin-codegraph` line
+  stays unconverted for the same reason.
+- **Expected outcome:** if a task ever needs "the session that changed
+  this function", the join key is commit SHA + path — cheap to bridge
+  read-only, no schema marriage required.
+- **Result:** decided — external-sibling architecture recorded; no
+  code written (spec, not implementation, per the task gate).
+
+## D-2026-10-13d — Laya rejected as a poordjaevin backend on CPU (measured, not claimed)
+
+- **Decision:** Laya (`convaiinnovations/laya` 0.4.6) is **not adopted**
+  as a `devin-judge`/`poordjaevin` backend. Revisit only if (a) a GPU
+  host exists AND (b) calibration is verified on a local eval set.
+- **Date:** 2026-10-13.
+- **Reason:** the marketing numbers (~33 ms, calibrated confidence) do
+  not survive contact with this hardware or the shipped checkpoint.
+  Measured: **15–24 s per question, warm, on CPU** — three orders of
+  magnitude off the claimed 33 ms, and worse than the incumbent
+  mDeBERTa NLI backend which scores a batch of hypotheses in a single
+  sub-second forward pass. Footprint ~2.6 GB vs ~280 MB. And the
+  library itself warns at load: *"this checkpoint ships invalid
+  temperatures or values outside [0.5, 5] … Treat confidence from the
+  affected entries as uncalibrated"* — the one property poordjaevin
+  sells (honest calibration) is the one the checkpoint flags broken.
+- **Evidence:** functional probe in `~/laya-eval` (venv, torch CPU
+  wheel): `Router.predict(state, questions)` works — `noul` returned
+  0.745 for "touches payment code" on a Stripe-webhook state, the
+  typed-decision API maps cleanly to `entail_probs` semantics
+  (`noul`→P(entailment), `choice`, `score`). Qtype schema verified:
+  `instructions` + `criteria` (list for score, dict for choice).
+  Latency measured across 3 warm calls: 24177 / 21330 / 14920 ms.
+- **Expected outcome:** no backend swap; the plugable-backend
+  architecture stays validated by a real (rejected) candidate, and the
+  adoption path is documented if a GPU host + local ECE check ever
+  clears.
+- **Result:** rejected — decision recorded with measured numbers;
+  `~/laya-eval` kept for a future re-run.
