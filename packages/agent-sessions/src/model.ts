@@ -46,6 +46,11 @@ export interface SessionMeta {
   id: string | null;
   /** Presentation key for id:null rows — ephemeral, never persisted. */
   display_key: string;
+  /** DECISION (stricter than spec, intentional): spec allowed titles
+   *  behind a flag; we emit `null` unconditionally because real
+   *  `customTitle`/`threads.title` values are auto-generated from
+   *  message content — a title is content-derived, not metadata.
+   *  Not a bug; do not "fix" by surfacing stored titles. */
   title: string | null;
   started_at: string | null;
   ended_at: string | null;

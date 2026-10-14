@@ -1,15 +1,88 @@
 {
   "name": "agent-sessions",
+  "displayName": "Agent Sessions",
+  "publisher": "icaro0310",
   "version": "0.0.1",
   "private": true,
   "type": "module",
+  "license": "MIT",
   "description": "Read-only multi-agent session browser (vscode-chat, copilot-cli, codex-cli). Local-first, zero network, metadata-first.",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/adapters/vscode/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "agent-sessions",
+          "title": "Agent Sessions",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "agent-sessions": [
+        {
+          "id": "agentSessions.sessions",
+          "name": "Sessions"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "agentSessions.refresh",
+        "title": "Agent Sessions: Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "agentSessions.openDetails",
+        "title": "Agent Sessions: Open Details",
+        "icon": "$(go-to-file)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "agentSessions.refresh",
+          "when": "view == agentSessions.sessions",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "agentSessions.openDetails",
+          "when": "view == agentSessions.sessions && viewItem == session",
+          "group": "inline"
+        }
+      ]
+    },
+    "chatParticipants": [
+      {
+        "id": "agent-sessions.sessions",
+        "fullName": "Agent Sessions",
+        "name": "sessions",
+        "description": "Browse local agent sessions (vscode-chat, copilot-cli, codex-cli) — read-only, offline",
+        "isSticky": false
+      }
+    ]
+  },
   "scripts": {
     "test": "node --test test/*.test.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json",
+    "vscode:package": "vsce package --no-dependencies -o agent-sessions.vsix"
   },
   "devDependencies": {
-    "typescript": "^5.6.0",
-    "@types/node": "^22.0.0"
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.100.0",
+    "@vscode/vsce": "^3.9.2",
+    "typescript": "^5.6.0"
   }
 }
