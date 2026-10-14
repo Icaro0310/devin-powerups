@@ -85,6 +85,7 @@ today.
 | redact | `devin-redact diff` HTML report | novo | No |
 | history | Export GUI path from synthetic `state.vscdb` | estender | Partial — closes HI-1 without real data |
 | history | `devin-history diff A B` | novo | No |
+| explore | CAT-1 parsers for Copilot Chat/CLI + Codex sessions (D-2026-10-14 Option A: canonical multi-agent model for the nine CLIs) | estender | No — decided B-now; revisits on concrete corporate demand or the corporate run (audit §6) showing real usage. qa-pack `--transcript` already straddles and is the natural first port |
 | doctor | `doctor updates --apply` | estender | Partial — devkit `update` already covers package upgrades |
 | doctor | `devkit-drift` check (installed vs manifest profile) | novo | Partial |
 | pm | `devin-pm velocity` sparkline | novo | No |
