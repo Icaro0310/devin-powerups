@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Generate the golden parity corpus for the devin-redact TS port.
 
+NOTE: this is a parity spec, not a security spec — cases codify the
+current Python behaviour, including known upstream limitations
+(devin-state#66). A case passing means "same as Python", not "safe".
+
 Each line of the emitted JSONL is one case:
     {"name": ..., "input": ..., "redact_text": {"output": ..., "edits": [...]},
      "scan_text": [...]}

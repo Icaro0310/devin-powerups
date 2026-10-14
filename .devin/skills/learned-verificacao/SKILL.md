@@ -100,3 +100,10 @@ muitos ficheiros, superficies geradas, ou merges sob guardrails.
   vindos de exploracao alheia recebem grep de confirmacao na sessao
   principal antes de entrar em doc publicado (incidente
   sessions.desktop.main.js).
+- (2026-10-14) identificador introduzido por agente verifica-se na
+  fonte: `paths_allowed` (o campo real e `paths-ignore`) e
+  `setup-python@<sha># v6` (SHA comentado com versao inexistente) sairam
+  no mesmo PR — duas alucinacoes de "nome plausivel" que o Devin Review
+  apanhou. Plausibilidade nao e evidencia: campo de config, versao de
+  action e path novo verificam-se na doc/origem antes de entrar no
+  commit, nao a espera que o review apanhe.

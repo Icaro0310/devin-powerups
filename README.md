@@ -302,6 +302,26 @@ Issues and pull requests are welcome. New projects should document purpose,
 prior art, install and usage instructions, supported platforms, limitations,
 and how their Devin-specific capability improves the base tool.
 
+### Secret-looking test fixtures (three gates)
+
+Fixtures that must contain secret-shaped strings (e.g. the `devin-redact`
+parity corpus) trip **three independent layers** — know them before
+committing:
+
+1. **GitHub push protection** blocks the push at `git push` (GH013).
+   Path-scoped escape: `.github/secret_scanning.yml` `paths-ignore:`
+   (that exact key — it only takes effect once merged to the default
+   branch, so land it in a tiny PR first).
+2. **Repo CI `secrets-scan`** (`.github/workflows/secrets-scan.yml`)
+   greps the PR diff independently of GitHub. Escape: `.secrets-scan-allow`
+   entries `path sha256=<hash>` — recompute the pin whenever the fixture
+   changes (that re-trigger is the point of the hash pin).
+3. **`devin-redact` itself** scans any text — keep fixtures honest; the
+   corpus is how we prove the redactor sees the same things as Python.
+
+All fixture secrets are fabricated (Stripe doc examples, RFC-style keys) —
+never real credentials.
+
 ## When to use this
 
 - You maintain the Icaro0310 Devin ecosystem (or fork the pattern) and need
