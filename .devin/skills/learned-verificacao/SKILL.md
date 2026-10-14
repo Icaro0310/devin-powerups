@@ -56,6 +56,16 @@ muitos ficheiros, superficies geradas, ou merges sob guardrails.
   invisivel porque CI usa pip, nunca `uv sync --locked`. Todo bump de
   pin exige `uv lock` no mesmo commit; sem gate, o lock so diverge em
   silencio para quem corre `uv run` local.
+- (2026-10-14) relatorio de subagent sobre conteudo de ficheiro entra em
+  artefacto publicado so apos medicao directa: um subagent reportou "0
+  matches" para `session-state`/`events.jsonl`/`agentSessions.` num
+  bundle minificado — greps directos na mesma sessao mediram 3/2/26 e
+  mudaram a conclusao do G1 (o nativo le `.copilot/session-state` do
+  disco). Instancia da familia "parece ausente != esta ausente", mas o
+  objeto e outro: subagent report != medicao. Regra: qualquer "N
+  matches"/"ausente"/"presente" vindo de subagent que vai para doc,
+  D-record ou PR recebe um grep/wc de confirmacao na sessao principal —
+  30 segundos, e o artefacto nao herda erro de exploracao alheia.
 - (2026-10-13) "parece ausente" != "esta ausente" — o verso do default
   invertido. Antes de pedir credenciais ou declarar "sem sessao",
   inventario obrigatorio de mecanismos existentes: `ps aux` para
@@ -86,3 +96,7 @@ muitos ficheiros, superficies geradas, ou merges sob guardrails.
   codigo). Para PRs docs-only ou dependabot, fechar por leitura do
   titulo e aceitavel — sem este limite a regra correcta desgasta-se por
   uso excessivo, e regra gasta morre.
+- (2026-10-14) subagent report != medicao: claims de contagem/ausencia
+  vindos de exploracao alheia recebem grep de confirmacao na sessao
+  principal antes de entrar em doc publicado (incidente
+  sessions.desktop.main.js).
