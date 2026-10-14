@@ -108,16 +108,32 @@ jobs:
       ext-version: ${{ steps.d.outputs.ext-version }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - id: d
+
+      # When the wheel legs skip, detect becomes the publish-origin
+      # gate — the same ancestry check verify-wheel-version runs.
+      - name: Require publish origin merged into main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ -f "${{ inputs.package-dir }}/pyproject.toml" ]; then
+          status=$(gh api "repos/${{ github.repository }}/compare/main...${GITHUB_SHA}" --jq .status)
+          case "$status" in
+            behind|identical) ;;
+            *) echo "::error::publish origin is '$status' vs main — refusing to publish an unmerged commit"; exit 1 ;;
+          esac
+
+      - id: d
+        env:
+          PACKAGE_DIR: ${{ inputs.package-dir }}
+          VSCODE_EXT_DIR: ${{ inputs.vscode-ext-dir }}
+        run: |
+          if [ -f "$PACKAGE_DIR/pyproject.toml" ]; then
             echo "has-wheel=true" >> "$GITHUB_OUTPUT"
           else
             echo "has-wheel=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::no pyproject.toml under ${{ inputs.package-dir }} — wheel legs (verify, PyPI) skip; extension-only release"
+            echo "::warning::no pyproject.toml under $PACKAGE_DIR — wheel legs (verify, PyPI) skip; extension-only release"
           fi
-          if [ -n "${{ inputs.vscode-ext-dir }}" ] && [ -f "${{ inputs.vscode-ext-dir }}/package.json" ]; then
-            v=$(python3 -c "import json; print(json.load(open('${{ inputs.vscode-ext-dir }}/package.json'))['version'])")
+          if [ -n "$VSCODE_EXT_DIR" ] && [ -f "$VSCODE_EXT_DIR/package.json" ]; then
+            v=$(python3 -c "import json,os; print(json.load(open(os.path.join(os.environ['VSCODE_EXT_DIR'],'package.json')))['version'])")
             echo "ext-version=$v" >> "$GITHUB_OUTPUT"
           fi
 
@@ -257,8 +273,17 @@ jobs:
           PACKAGE_DIR: ${{ inputs.package-dir }}
           OWNER: ${{ github.repository_owner }}
           IMAGE_NAME: ${{ inputs.docker-image }}
+          EXT_VERSION: ${{ needs.detect.outputs.ext-version }}
         run: |
-          ver=$(python3 -c "import tomllib,os; print(tomllib.load(open(os.path.join(os.environ['PACKAGE_DIR'],'pyproject.toml'),'rb'))['project']['version'])")
+          ver=$(python3 - <<'PY'
+          import os, tomllib
+          pp = os.path.join(os.environ['PACKAGE_DIR'], 'pyproject.toml')
+          if os.path.exists(pp):
+              print(tomllib.load(open(pp, 'rb'))['project']['version'])
+          else:
+              print(os.environ.get('EXT_VERSION', ''))
+          PY
+          )
           test -n "$ver"
           echo "version=$ver" >> "$GITHUB_OUTPUT"
           # Docker refs are lowercase-only — an owner like Icaro0310
@@ -363,6 +388,16 @@ jobs:
               errs.append(f"'version' {pkg.get('version')} != release version "
                           f"{rel_version} — the extension ships in lockstep; "
                           "bump package.json before tagging")
+          # Tag convention `<pkg>-vX.Y.Z`: without a wheel the tag itself
+          # is the only release-version signal — a mistagged release
+          # would mint a GitHub/marketplace entry named X.Y.Z containing
+          # a different extension version.
+          if (os.environ.get('GITHUB_REF_TYPE') == 'tag'
+                  and '-v' in os.environ.get('GITHUB_REF_NAME', '')):
+              tag_version = os.environ['GITHUB_REF_NAME'].rsplit('-v', 1)[1]
+              if pkg.get('version') != tag_version:
+                  errs.append(f"'version' {pkg.get('version')} != tag suffix "
+                              f"{tag_version} — retag or bump package.json")
           for err in errs:
               print(f'::error::{err}')
           sys.exit(1 if errs else 0)
@@ -380,6 +415,13 @@ jobs:
           else
             npm install --no-audit --no-fund
           fi
+
+      # Compiled extensions declare `main: ./out/…` with out/ ignored —
+      # without the build the packaged vsix lacks its entrypoint.
+      # --if-present keeps the step a no-op for plain-JS extensions.
+      - name: Build extension
+        working-directory: ${{ inputs.vscode-ext-dir }}
+        run: npm run build --if-present
 
       - name: Package .vsix
         working-directory: ${{ inputs.vscode-ext-dir }}

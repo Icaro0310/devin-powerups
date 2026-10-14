@@ -38,6 +38,15 @@ jobs:
         with:
           node-version: "22"
 
+      - name: Check tag matches manifest version
+        run: |
+          want="${GITHUB_REF_NAME##*-v}"
+          got=$(node -p "require('./packages/agent-sessions/package.json').version")
+          if [ "$want" != "$got" ]; then
+            echo "::error::tag '$GITHUB_REF_NAME' implies version $want but package.json is $got"
+            exit 1
+          fi
+
       - name: Build and package the extension
         working-directory: packages/agent-sessions
         run: |
@@ -49,9 +58,17 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ github.ref_name }}
-        run: gh release create "$RELEASE_TAG" \
-          packages/agent-sessions/agent-sessions.vsix \
-          --verify-tag --generate-notes
+        run: |
+          # Idempotent: a rerun after a partial failure uploads over the
+          # existing release instead of dying on `gh release create`.
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" \
+              packages/agent-sessions/agent-sessions.vsix --clobber
+          else
+            gh release create "$RELEASE_TAG" \
+              packages/agent-sessions/agent-sessions.vsix \
+              --verify-tag --generate-notes
+          fi
 
   fanout:
     permissions:
