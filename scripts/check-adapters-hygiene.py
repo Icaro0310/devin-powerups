@@ -345,52 +345,82 @@ EXT_SRC_SKIP_PARTS = {
 }
 VERSION_PIN_RE = re.compile(
     r"(?:^|[\s{,])(?:export\s+)?(?:const|let|var|readonly)\s+"
-    r"([A-Za-z_]*version[A-Za-z_]*)\s*=\s*"
+    r"(\w*version\w*)\s*(?::\s*[^=;]+?)?\s*=\s*"
     r"['\"](\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]*)?)['\"]",
     re.IGNORECASE,
 )
 VERSION_PROP_RE = re.compile(
-    r"[\s{,](?:version|VERSION)\s*:\s*"
-    r"['\"](\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]*)?)['\"]"
+    r"[\s{,]['\"]?version['\"]?\s*:\s*"
+    r"['\"](\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]*)?)['\"]",
+    re.IGNORECASE,
 )
 
 
-def extension_dirs(root: Path, files) -> set[Path]:
-    """Directories that ship a VS Code extension (package.json with
-    ``engines.vscode``)."""
+def is_extension_source(root: Path, f: Path) -> bool:
+    """True when the nearest package.json walking up from ``f`` declares
+    ``engines.vscode`` — covers package-root extensions whose manifest
+    sits outside the adapter scan roots."""
     import json
 
-    dirs: set[Path] = set()
-    for f in files:
-        if f.name != "package.json":
-            continue
-        try:
-            data = json.loads(f.read_text(errors="replace"))
-        except ValueError:
-            continue
-        if isinstance(data.get("engines"), dict) and "vscode" in data["engines"]:
-            dirs.add(f.parent)
-    return dirs
+    d = f.parent
+    while d == root or root in d.parents:
+        pkg = d / "package.json"
+        if pkg.is_file():
+            try:
+                data = json.loads(pkg.read_text(errors="replace"))
+            except ValueError:
+                data = {}
+            return (
+                isinstance(data.get("engines"), dict)
+                and "vscode" in data["engines"]
+            )
+        d = d.parent
+    return False
+
+
+def _iter_code_lines(text: str):
+    """Yield ``(lineno, line)`` with ``//`` and ``/* */`` comments
+    stripped. ``//`` inside a string literal on the same line hides the
+    rest of that line — accepted: commented-out examples are the common
+    case, URLs adjacent to pins are not."""
+    in_block = False
+    for lineno, line in enumerate(text.splitlines(), 1):
+        out: list[str] = []
+        j = 0
+        while j < len(line):
+            if in_block:
+                k = line.find("*/", j)
+                if k == -1:
+                    j = len(line)
+                else:
+                    in_block = False
+                    j = k + 2
+            elif line.startswith("//", j):
+                break
+            elif line.startswith("/*", j):
+                in_block = True
+                j += 2
+            else:
+                out.append(line[j])
+                j += 1
+        yield lineno, "".join(out)
 
 
 def check_version_pins(root: Path, files) -> list[str]:
     findings: list[str] = []
-    exts = extension_dirs(root, files)
-    if not exts:
-        return findings
     for f in files:
         if f.name == "package.json" or f.suffix.lower() not in EXT_SRC_SUFFIXES:
             continue
-        if f.suffix == ".ts" and f.name.endswith(".d.ts"):
-            continue
-        if not any(d == f.parent or d in f.parents for d in exts):
+        if f.name.endswith(".d.ts"):
             continue
         parts = set(f.relative_to(root).parts)
         if parts & EXT_SRC_SKIP_PARTS or f.stem.endswith((".test", ".spec")):
             continue
+        if not is_extension_source(root, f):
+            continue
         rel = f.relative_to(root).as_posix()
-        for lineno, line in enumerate(
-            f.read_text(errors="replace").splitlines(), start=1
+        for lineno, line in _iter_code_lines(
+            f.read_text(errors="replace")
         ):
             hit = VERSION_PIN_RE.search(line) or VERSION_PROP_RE.search(line)
             if hit:
@@ -572,6 +602,11 @@ def selftest() -> int:
         bad.write_text(
             'const VERSION = "0.1.0";\n'
             'const manifest = { version: "1.0.0" };\n'
+            'const meta = { "version": "1.0.1" };\n'
+            'const VERSION: string = "0.1.2";\n'
+            'const VERSION2 = "0.1.3";\n'
+            '// const VERSION = "0.1.0"; — historical note\n'
+            '/* const VERSION = "9.9.9"; */\n'
             'const runtime = context.extension.packageJSON.version;\n'
             'const COMPATIBLE_CLI = { min: [0, 1], max: [1, 9] };\n'
             'export function parseCompat(v: string): number[] { return []; }\n'
@@ -588,10 +623,28 @@ def selftest() -> int:
         findings, _ = run(ext)
         joined = "\n".join(findings)
         expect("const VERSION pin flagged", "version-pin" in joined)
-        expect("pin line numbers", ":1:" in joined and ":2:" in joined)
+        expect("quoted-key pin flagged", ":3:" in joined)
+        expect("typed-annotation pin flagged", ":4:" in joined)
+        expect("digit-suffix pin flagged", ":5:" in joined)
+        expect("line comment ignored", ":6:" not in joined)
+        expect("block comment ignored", ":7:" not in joined)
         expect("test file exempt", "version.test.js" not in joined)
         expect("build output exempt", "out/extension.js" not in joined)
         expect("non-extension source exempt", "tool/src/x.ts" not in joined)
+
+        # ---- fixture: package-root extension (manifest above scan root)
+        pkgroot = base / "pkgroot"
+        rootpkg = pkgroot / "packages/demo/package.json"
+        rootpkg.parent.mkdir(parents=True)
+        rootpkg.write_text(
+            '{"name": "demo", "engines": {"vscode": "^1.90.0"}}\n'
+        )
+        src = pkgroot / "packages/demo/adapters/vscode/src/ext.ts"
+        src.parent.mkdir(parents=True)
+        src.write_text('const EXT_VERSION = "2.0.0";\n')
+        findings, _ = run(pkgroot)
+        expect("package-root extension flagged",
+               any("version-pin" in f for f in findings), f"{findings}")
 
     if failures:
         print(f"selftest: {len(failures)} case(s) FAILED", file=sys.stderr)
