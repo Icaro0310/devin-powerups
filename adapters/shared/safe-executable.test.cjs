@@ -162,6 +162,9 @@ test("a '..'-prefixed dir INSIDE the workspace is not outside it", () => {
   assert.equal(isInside("/ws/..tools/x", "/ws"), true);
   assert.equal(isInside("/ws/x", "/ws"), true);
   assert.equal(isInside("/ws/../outside", "/ws"), false);
+  // '..' that resolves back INSIDE is still inside — a refactor that
+  // rejects any '..' would turn this into a silent false negative.
+  assert.equal(isInside("/ws/sub/../x", "/ws"), true);
 });
 
 test("resolveShimEntry reads the %~dp0 and %dp0% launcher forms", () => {
