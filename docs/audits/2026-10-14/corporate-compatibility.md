@@ -154,3 +154,44 @@ Bundle for a clean corporate VS Code (no Devin CLI/Desktop):
 Non-goals: no Devin CLI, no VM, no Slack, no external integrations. If the
 corporate proxy does TLS inspection, follow `devin-judge/README.corporate-windows.md`
 (Zscaler section) for CA-bundle env vars before any `pip`/`npm` step.
+
+## 7. Live run on a clean VS Code 1.141 profile (2026-10-14, this machine)
+
+Not the corporate machine, but a real extension-host run on a portable
+stable build with isolated `--user-data-dir`/`--extensions-dir`. Measured,
+not inspected:
+
+| Step | Result |
+|---|---|
+| Install `devin-judge.vsix`, launch a fresh workspace | Endpoint file **never written**; zero `_doActivateExtension icaro0310.devin-judge` entries in `exthost.log` |
+| Root cause | The manifest did not declare `capabilities.untrustedWorkspaces`. A fresh workspace in a fresh profile is Restricted Mode; extensions without the capability are silently inert. `onStartupFinished` fired for other extensions, ours was never attempted |
+| Fix | `untrustedWorkspaces.supported: true` (honest: text -> `vscode.lm` + authenticated localhost endpoint, no workspace code execution) — same commit also replaced the hardcoded `VERSION` constant with `context.extension.packageJSON.version` after the endpoint advertised `0.1.0` for a `0.1.2` build |
+| After fix, default Restricted Mode | `vscode-lm-endpoint.json` written ~8s after launch, mode `0600` |
+| Endpoint, no bearer token | `401 {"error":"unauthorized"}` |
+| Endpoint, valid token, no LM provider installed | `503 {"error":"no chat model available..."}` — the designed graceful fallback (maps to `VscodeLmUnavailable` upstream) |
+| Third-party LM provider registered via `vscode.lm.registerLanguageModelChatProvider` | `200 {"probs":[95,20,80],"model":"localtest/fake"}` — full `selectChatModels` -> `sendRequest` -> stream-parse path verified |
+| `POORDJAEVIN_BACKEND=vscode-lm` `do_judge` / `do_gate` / `do_classify` against the live endpoint | Typed decisions returned end-to-end |
+
+### Gaps found by the live run (affect every extension in the ecosystem)
+
+1. **`capabilities.untrustedWorkspaces` is missing from every ecosystem
+   manifest** — `agent-sessions`, `qa-pack`, `doctor`, `search`, `devkit`,
+   `bridge`, `devin-brain`, `vscode_ext` (grep `-L` over all
+   `adapters/vscode/package.json` + `packages/*/package.json`). In Restricted
+   Mode they all install fine and then never run. Corporate admins commonly
+   force Restricted Mode via policy, so this is the single most likely
+   "extension does nothing" failure mode. Recommended fix per extension:
+   declare `supported: true` where the extension does not execute workspace
+   code (agent-sessions, judge, search, doctor, qa-pack), or `limited` with a
+   description where it spawns processes (bridge).
+2. **`vscode.lm.registerLanguageModelChatProvider` vendors are allowlisted
+   by `product.json`** (`extensionEnabledApiProposals`, proposal
+   `chatProvider`). Copilot and official BYOK extensions (e.g.
+   foundry-local) are listed; a custom third-party provider throws
+   `Error: Chat model provider uses UNKNOWN vendor` at registration. This
+   does not affect devin-judge consumers (Copilot/BYOK are allowlisted) but
+   is worth knowing before writing a bespoke corporate LM provider.
+3. **`github.copilot-chat` ships disabled in a profile with no sign-in** —
+   `selectChatModels()` returns `[]`, the endpoint returns 503 as designed.
+   Copilot coverage requires the user's GitHub sign-in; BYOK coverage
+   requires a BYOK extension with keys. Neither is testable headless.
