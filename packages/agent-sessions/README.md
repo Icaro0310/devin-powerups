@@ -36,6 +36,10 @@ All parsing runs locally. Parse warnings use sanitized templates
 (codes and counts only). Content-derived fields (auto titles, previews,
 first-message text) are never read into the canonical model.
 
+The `@sessions` Chat Participant does not select or depend on any
+specific language model — it answers from local metadata and responds
+with whatever the host provides, including no model at all.
+
 Requires VS Code 1.100+. MIT.
 
 ## Development

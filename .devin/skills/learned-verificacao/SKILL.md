@@ -70,6 +70,15 @@ muitos ficheiros, superficies geradas, ou merges sob guardrails.
   pesquisa de credenciais primeiro (queries minimas) e inventario
   antes de negar.
 
+- (2026-10-14) classe nomeada: `language-model-unavailable warmup` — um
+  Chat Participant novo que responde "Language model unavailable" no
+  primeiro submit NAO e falha do participant: e o workbench a resolver
+  o model (free built-in pode demorar ou precisar de um submit que o
+  desperte). O handler nunca toca `request.model`. Sintoma reconhecido
+  => resubmit e segue; nao diagnosticar como bug do participant.
+  Verificado em VS Code 1.140: segundo submit ao mesmo participant
+  respondeu a string exacta do codigo.
+
 ## Changelog
 
 - v1 (2026-10-11): criada na onda corporate-docs + devkit extras target
