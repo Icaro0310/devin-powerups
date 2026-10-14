@@ -96,6 +96,12 @@ def main() -> int:
     ts_results = ts_batch([c["input"] for c in cases])
 
     failures: list[str] = []
+    if not cases:
+        failures.append("corpus is empty — nothing was actually checked")
+    if len(ts_results) != len(cases):
+        failures.append(
+            f"runner returned {len(ts_results)} results for {len(cases)} "
+            f"inputs — zip would silently skip the tail")
 
     # Leg 1 — corpus replay on both sides (golden = frozen truth)
     for case, ts in zip(cases, ts_results):
