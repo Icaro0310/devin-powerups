@@ -118,10 +118,13 @@ displayed.
 - **Corporate run** — bundle at `~/agent-sessions-discovery/`. Validates
   coverage claims (env vars, managed layouts, corporate profiles) that the
   personal-machine evidence cannot. Does not block anything decided here.
-- **`@sessions` with a chat provider** — participant registers and
-  activates cleanly (60 ms, verified in VSCodium 1.140), but the chat UI
-  requires `GitHub.copilot-chat` installed; untestable in clean VSCodium.
-  One-minute visual check on the owner's Windows VS Code.
+- **`@sessions` with a chat provider** — VERIFIED 2026-10-14 on VS Code
+  stable 1.140 (Linux x64 tarball) with bundled `github.copilot-chat`
+  0.69.0: `@sessions` appears in the `@` completion, accepts selection,
+  and streams the real answer (`no sessions match — try a surface name,
+  workspace hash or session key`). No GitHub sign-in needed — the
+  workbench resolves the built-in free model (`MAI-Code-1.1-Flash`); the
+  participant handler itself never touches `request.model`.
 - **Native Agent Sessions (VS Code ≥1.140)** — mapped from
   `sessions.desktop.main.js` (20.7 MB, measured directly). It is **not**
   Copilot-only anymore: the built-in "Agents window" is a multi-harness
