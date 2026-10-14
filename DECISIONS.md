@@ -55,6 +55,26 @@ Result. Records are not eternal — revisit when new evidence arrives.
   calibrated decisions in corporate need no Devin credentials, only whatever
   chat model VS Code serves (Copilot, Codex, BYOK). `nli` remains the
   fully-offline floor.
+- **Extension `untrustedWorkspaces` classification criterion (corrected):**
+  the axis is not "reads vs writes" but "can a hostile workspace inject
+  code via config or inputs?"
+  - `supported: true` — extension does not read workspace-controlled data
+    into execution paths. `agent-sessions`, `judge`.
+  - `supported: "limited"` + `restrictedConfigurations` — extension
+    executes a user-installed binary, but workspace-configured
+    executable/args (and auto-exec flags like `checkOnStartup`) are
+    ignored in Restricted Mode. All CLI-wrapper extensions (qa-pack,
+    doctor, search, devkit, bridge, brain, vscode_ext template).
+  - `supported: false` — extension surface too broad to safely degrade.
+    Reserved for extensions where workspace interaction alone constitutes
+    risk; `bridge` is the first candidate if the criterion tightens (the
+    CLI spawns the user-installed agent binary with the repo as cwd and
+    reads repo `policy.json`/`.sessions.json` — falsifiable output, not
+    code injection, but the widest repo→CLI surface of the adapters).
+  - **Rationale for the correction:** an earlier draft classified by
+    read/write semantics; that missed the
+    `execFile(configuration.get("executable"))` vector, which is exactly
+    what Restricted Mode exists to close.
 
 ## D-2026-10-10 — Out-of-diff findings: sanctioned clearance path
 
