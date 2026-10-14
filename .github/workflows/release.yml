@@ -390,16 +390,20 @@ jobs:
               errs.append(f"'version' {pkg.get('version')} != release version "
                           f"{rel_version} — the extension ships in lockstep; "
                           "bump package.json before tagging")
-          # Tag convention `<pkg>-vX.Y.Z`: without a wheel the tag itself
-          # is the only release-version signal — a mistagged release
-          # would mint a GitHub/marketplace entry named X.Y.Z containing
-          # a different extension version.
-          if (os.environ.get('GITHUB_REF_TYPE') == 'tag'
-                  and '-v' in os.environ.get('GITHUB_REF_NAME', '')):
-              tag_version = os.environ['GITHUB_REF_NAME'].rsplit('-v', 1)[1]
-              if pkg.get('version') != tag_version:
-                  errs.append(f"'version' {pkg.get('version')} != tag suffix "
-                              f"{tag_version} — retag or bump package.json")
+          # Tag conventions `<pkg>-vX.Y.Z` and bare `vX.Y.Z`: the tag is
+          # the release-version signal — a mistagged release would mint
+          # a GitHub/marketplace entry named X.Y.Z containing a different
+          # extension version.
+          ref_name = os.environ.get('GITHUB_REF_NAME', '')
+          tag_version = None
+          if os.environ.get('GITHUB_REF_TYPE') == 'tag':
+              if '-v' in ref_name:
+                  tag_version = ref_name.rsplit('-v', 1)[1]
+              elif ref_name.startswith('v') and ref_name[1:2].isdigit():
+                  tag_version = ref_name[1:]
+          if tag_version is not None and pkg.get('version') != tag_version:
+              errs.append(f"'version' {pkg.get('version')} != tag "
+                          f"{ref_name} — retag or bump package.json")
           for err in errs:
               print(f'::error::{err}')
           sys.exit(1 if errs else 0)
