@@ -75,6 +75,21 @@ Result. Records are not eternal — revisit when new evidence arrives.
     read/write semantics; that missed the
     `execFile(configuration.get("executable"))` vector, which is exactly
     what Restricted Mode exists to close.
+  - **Windows cwd-search amendment (same day):** `limited` was still
+    false on Windows even with `restrictedConfigurations` — CreateProcess
+    searches cwd before PATH, so `execFile("<cli>", {cwd: workspaceDir})`
+    executes a binary planted in the cloned repo. Every limited adapter
+    resolves through the shared `adapters/shared/safe-executable.cjs`
+    helper (manual PATH walk, absolute target, workspace-contained
+    candidates rejected when untrusted, npm `.cmd`/`.bat` shims unwrapped
+    to their `.js` entry via `process.execPath`), with hash lockstep in
+    `config-restricted-check`. Copies are byte-identical across repos;
+    what differs per copy is the **trust source, not the policy**: the
+    extension passes `vscode.workspace.isTrusted`, the bridge CLI (which
+    cannot see that API) defaults untrusted and grants trust only to
+    explicit user gestures (`--bin`, `DEVIN_CLI_PATH`). Do not "unify" the
+    two by plumbing `isTrusted` into the CLI — the divergence is the
+    security boundary, not drift.
 
 ## D-2026-10-10 — Out-of-diff findings: sanctioned clearance path
 
