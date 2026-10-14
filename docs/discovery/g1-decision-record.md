@@ -73,6 +73,20 @@ The parity machinery, unchanged from the recommendation:
    pattern, Sunday 05:41 cron). Without this leg parity rots between
    releases.
 
+**The pin is the latest assessed release** (`devin-redact==0.2.2` in
+`tools/requirements-redact.txt`), not a minimum. A Python release breaks
+the pinned leg only when someone bumps the pin — which is correct: the
+pin is the reviewed baseline, the weekly drift leg reports when upstream
+moved.
+
+**Two standing obligations** (recorded so they are not rediscovered as
+bugs):
+- The port is **equivalent, not safer**: corpus parity proves "same output
+  as Python", not correctness — a bug in the Python engine propagates to
+  the port until fixed at the source.
+- **Sync responsibility is manual**: anyone touching `devin-redact`
+  Python checks the TS port. CI detects the drift; assigning it is on us.
+
 **Alternative (not taken, remains revertible):** CLI subprocess with
 fail-closed behavior when Python is absent. Costs one external process per
 redaction and keeps a Python dependency for the optional feature only.

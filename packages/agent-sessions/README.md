@@ -22,6 +22,11 @@ Commands: **Agent Sessions: Refresh** (view title / command palette),
 **Agent Sessions: Open Details** (context menu on a session — opens a
 read-only metadata document).
 
+The extension also vendors a TypeScript port of `devin-redact`'s text
+surface (`redact_text`/`scan_text`) for the future content-search leg —
+it redacts text snippets only; full-file and database scanning remain
+Python CLI capabilities, out of scope for this package.
+
 ## Session states
 
 `ok` · `partial` (parsed with warnings) · `no-sessions` ·
