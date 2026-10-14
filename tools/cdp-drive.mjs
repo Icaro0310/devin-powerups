@@ -44,8 +44,16 @@ ws.onmessage = (e) => {
   const m = JSON.parse(e.data);
   if (m.id && pend.has(m.id)) { pend.get(m.id)(m); pend.delete(m.id); }
 };
+ws.onclose = () => {
+  for (const res of pend.values()) res({ error: { message: 'socket closed' } });
+  pend.clear();
+};
 const send = (method, params = {}) =>
-  new Promise((res) => { const i = ++id; pend.set(i, res); ws.send(JSON.stringify({ id: i, method, params })); });
+  new Promise((res, rej) => {
+    const i = ++id;
+    pend.set(i, (m) => (m.error ? rej(new Error(`${method}: ${m.error.message}`)) : res(m)));
+    ws.send(JSON.stringify({ id: i, method, params }));
+  });
 
 const gap = Number(arg('sleep', 120));
 let out = '';
@@ -69,10 +77,23 @@ if (has('insert')) {
 }
 if (has('key')) {
   const k = arg('key'); const mods = Number(arg('mods', 0));
-  const codes = { Enter: ['Enter', 13], Escape: ['Escape', 27], Tab: ['Tab', 9], Backspace: ['Backspace', 8] };
-  const [code, vk] = codes[k] ?? [`Key${k.toUpperCase()}`, k.toUpperCase().charCodeAt(0)];
+  // name -> [key, code, windowsVirtualKeyCode]; single letters fall through
+  const keys = {
+    Enter: ['Enter', 'Enter', 13], Escape: ['Escape', 'Escape', 27],
+    Tab: ['Tab', 'Tab', 9], Backspace: ['Backspace', 'Backspace', 8],
+    ArrowUp: ['ArrowUp', 'ArrowUp', 38], ArrowDown: ['ArrowDown', 'ArrowDown', 40],
+    ArrowLeft: ['ArrowLeft', 'ArrowLeft', 37], ArrowRight: ['ArrowRight', 'ArrowRight', 39],
+    Space: [' ', 'Space', 32], Delete: ['Delete', 'Delete', 46], Insert: ['Insert', 'Insert', 45],
+    Home: ['Home', 'Home', 36], End: ['End', 'End', 35],
+    PageUp: ['PageUp', 'PageUp', 33], PageDown: ['PageDown', 'PageDown', 34],
+  };
+  for (let i = 1; i <= 12; i++) keys[`F${i}`] = [`F${i}`, `F${i}`, 111 + i];
+  const entry = keys[k]
+    ?? (/^[a-z]$/i.test(k) ? [k, `Key${k.toUpperCase()}`, k.toUpperCase().charCodeAt(0)] : null);
+  if (!entry) { console.error(`unsupported --key ${k} — add it to the keys map`); process.exit(1); }
+  const [keyName, code, vk] = entry;
   for (const type of ['rawKeyDown', 'keyUp'])
-    await send('Input.dispatchKeyEvent', { type, key: k, code, windowsVirtualKeyCode: vk, nativeVirtualKeyCode: vk, modifiers: mods });
+    await send('Input.dispatchKeyEvent', { type, key: keyName, code, windowsVirtualKeyCode: vk, nativeVirtualKeyCode: vk, modifiers: mods });
   out = 'keyed';
 }
 if (has('click')) {

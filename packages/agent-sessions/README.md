@@ -36,9 +36,12 @@ All parsing runs locally. Parse warnings use sanitized templates
 (codes and counts only). Content-derived fields (auto titles, previews,
 first-message text) are never read into the canonical model.
 
-The `@sessions` Chat Participant does not select or depend on any
-specific language model — it answers from local metadata and responds
-with whatever the host provides, including no model at all.
+The `@sessions` Chat Participant handler does not select or depend on
+any specific language model — it answers from local metadata and never
+reads `request.model`. The workbench itself can still reject a first
+submission while the model host warms up ("Language model unavailable");
+that is a host gate before the handler runs, not a model dependency of
+the participant.
 
 Requires VS Code 1.100+. MIT.
 
