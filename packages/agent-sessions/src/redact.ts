@@ -288,7 +288,9 @@ function* iterMatches(text: string): Generator<RawMatch> {
       const re = regexes[i];
       if (re === undefined) continue;
       for (const m of text.matchAll(re)) {
-        if (m[0].includes(REDACTED_TAG)) continue; // already redacted
+        // already redacted — upstream parity (engine.py: skip the WHOLE
+        // match; a second secret inside it stays raw — corpus env_tag_tail)
+        if (m[0].includes(REDACTED_TAG)) continue;
         if (category === 'env_assignment' && looksLikeCodeAssignment(m[0])) continue;
         yield { category, name: patternName(category, i), m };
       }

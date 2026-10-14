@@ -63,6 +63,10 @@ CASES = [
     ("overlap_two_keys",   "sk-A1b2C3d4E5f6G7h8I9j0K1l2 and sk-Z9y8X7w6V5u4T3s2R1q0P9o8"),
     ("adjacent",           "ghp_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6,ghp_Z9y8X7w6V5u4T3s2R1q0P9o8N7m6L5k4"),
     ("already_redacted",   "token <REDACTED:0123456789abcdef> stays"),
+    # Upstream parity (devin-redact engine.py skips any match containing a
+    # REDACTED tag): a second assignment inside that skipped match stays raw
+    # — identical exposure on both engines, fixed upstream not in the port.
+    ("env_tag_tail",       "API_KEY=<REDACTED:abc123> OTHER_TOKEN=rawsecret99"),
     ("multiline_mixed",    "l1 sk-A1b2C3d4E5f6G7h8I9j0K1l2\nl2 plain\nl3 xoxb-1234567890-abcdefghijkl"),
     # --- negatives / boundaries ----------------------------------------
     ("empty",              ""),
