@@ -100,6 +100,16 @@ muitos ficheiros, superficies geradas, ou merges sob guardrails.
   vindos de exploracao alheia recebem grep de confirmacao na sessao
   principal antes de entrar em doc publicado (incidente
   sessions.desktop.main.js).
+- (2026-10-14) "parece que sei o que precisa" != "li o que esta
+  escrito" — a direccao oposta do default invertido. O header de
+  release.yml documentava os scopes exactos que o reusable exige do
+  caller (contents:read, id-token:write, packages:write) e que um scope
+  em falta mata o run em startup_failure com zero jobs; nao foi lido,
+  dois tag-runs morreram (environment:"" invalido, depois
+  packages:write ausente). Antes de invocar um mecanismo com contrato
+  documentado (reusable workflow, sensor, shared helper), ler o header
+  e nao inferir o contrato. Documentacao estatica existente e ignorada
+  falha em silencio ate ao runtime.
 - (2026-10-14) CI Windows e ambiente real, nao emulado: fixtures de
   executavel devem declarar a plataforma desde o inicio — PATHEXT nunca
   casa ficheiro sem extensao (12 falhas no bridge porque `devin`/
