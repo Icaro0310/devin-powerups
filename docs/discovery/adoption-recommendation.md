@@ -50,6 +50,21 @@ fill is everything outside that cell — Codex, uninstalled/policy-disabled
 Copilot, and a uniform cross-agent view. If G1 narrows the product to
 Copilot-only, the honest answer is "use the native list".
 
+> **Update 2026-10-14 (VS Code 1.140, measured on the shipped
+> `sessions.desktop.main.js`)**: the "Coverage" and "Dependency" bullets
+> above are partially stale. Native is now a multi-harness **Agents
+> window** — an Agent Host client covering Copilot CLI, Claude, Codex
+> (`agent-host-claude`, `agent-host-codex`,
+> `chat.agentHost.codexAgent.sdkRoot`), Cloud, and remote hosts — and it
+> reads `~/.copilot/session-state/*/events.jsonl` from disk inside the
+> bundle. What remains true: nothing appears without a running Agent Host
+> or a `chatSessionsProvider` extension (Codex/Claude arrive as
+> live-harness providers, never via `state_*.sqlite`/rollout disk
+> parsing), VSCodium is effectively dead (`sessionsWindowAllowedExtensions:
+> []`, no Copilot Chat on Open VSX), and ours stays read-only canonical
+> browse vs their mutation/management surface. Full map:
+> `docs/discovery/g1-decision-record.md` → "Coverage gaps".
+
 ## (a) Per-surface strategy
 
 ### `vscode-chat` — **vendor/adapt from SessionsAI**
