@@ -1,0 +1,66 @@
+name: release-agent-sessions
+
+# Per-extension release for packages/agent-sessions — the repo's only
+# TypeScript-only publishable (no wheel). Tag `agent-sessions-vX.Y.Z`
+# mints the GitHub release with the .vsix and fans out to the reusable
+# release.yml, whose detect job skips the wheel legs (no pyproject.toml)
+# and runs only the vscode-ext leg: manifest lint → vsce package →
+# VS Code Marketplace (Entra OIDC, when AZURE_* vars exist) → Open VSX
+# (when OVSX_PAT is forwarded below).
+#
+# Marketplace: the Entra federated credential `gh-<repo>-release` is
+# per-repo — if `Icaro0310/devin-powerups` is not yet on the
+# devin-vscode-marketplace app registration, the azure/login step fails
+# and the publish leg errors; the vsix artifact still uploads. Adding
+# the credential (Entra → App registrations → devin-vscode-marketplace
+# → Federated credentials → repo Icaro0310/devin-powerups,
+# environment:release) unblocks it with no code change.
+
+on:
+  push:
+    tags:
+      - "agent-sessions-v*"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    # GitHub release creation stays tag-only — a dispatch proves the
+    # fan-out legs without minting a release.
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+
+      - name: Build and package the extension
+        working-directory: packages/agent-sessions
+        run: |
+          npm ci
+          npm run build
+          npm run vscode:package
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release create "$RELEASE_TAG" \
+          packages/agent-sessions/agent-sessions.vsix \
+          --verify-tag --generate-notes
+
+  fanout:
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/release.yml
+    # Explicit mapping, not `inherit`: forwards only the Open VSX token.
+    secrets:
+      OVSX_PAT: ${{ secrets.OVSX_PAT }}
+    with:
+      package-dir: packages/agent-sessions
+      vscode-ext-dir: packages/agent-sessions

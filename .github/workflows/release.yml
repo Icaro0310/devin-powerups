@@ -47,9 +47,12 @@ on:
         description: >-
           GitHub environment gating the PyPI job — must match the
           environment configured on the project's Trusted Publisher
-          (pypi / pypi-devkit / pypi-skill-catalog / pypi-switch)
+          (pypi / pypi-devkit / pypi-skill-catalog / pypi-switch).
+          Unused when package-dir has no pyproject.toml (the wheel legs
+          skip by artifact detection).
         type: string
-        required: true
+        required: false
+        default: ""
       python-version:
         description: Interpreter used to build and verify the wheel
         type: string
@@ -86,12 +89,41 @@ on:
       version:
         description: Version resolved from the package's pyproject.toml
         value: ${{ jobs.publish-pypi.outputs.version }}
+      extension-version:
+        description: Version from the VS Code extension manifest, when vscode-ext-dir is set
+        value: ${{ jobs.detect.outputs.ext-version }}
 
 permissions:
   contents: read
 
 jobs:
+  # Artifact detection: a package without pyproject.toml is an
+  # extension-only release — the verify/pypi legs skip with a warning
+  # instead of failing the reusable contract. docker/vscode-ext keep
+  # running (they only need the wheel gate WHEN a wheel exists).
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      has-wheel: ${{ steps.d.outputs.has-wheel }}
+      ext-version: ${{ steps.d.outputs.ext-version }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - id: d
+        run: |
+          if [ -f "${{ inputs.package-dir }}/pyproject.toml" ]; then
+            echo "has-wheel=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has-wheel=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::no pyproject.toml under ${{ inputs.package-dir }} — wheel legs (verify, PyPI) skip; extension-only release"
+          fi
+          if [ -n "${{ inputs.vscode-ext-dir }}" ] && [ -f "${{ inputs.vscode-ext-dir }}/package.json" ]; then
+            v=$(python3 -c "import json; print(json.load(open('${{ inputs.vscode-ext-dir }}/package.json'))['version'])")
+            echo "ext-version=$v" >> "$GITHUB_OUTPUT"
+          fi
+
   verify:
+    needs: detect
+    if: needs.detect.outputs.has-wheel == 'true'
     permissions:
       contents: read
     uses: $/.github/workflows/verify-wheel-version.yml
@@ -101,7 +133,8 @@ jobs:
       python-version: ${{ inputs.python-version }}
 
   publish-pypi:
-    needs: verify
+    needs: [detect, verify]
+    if: always() && needs.detect.outputs.has-wheel == 'true' && needs.verify.result == 'success'
     runs-on: ubuntu-latest
     environment: ${{ inputs.pypi-environment }}
     permissions:
@@ -208,8 +241,8 @@ jobs:
     # Needs only the wheel gate: the image builds from source and the
     # version is read from pyproject below — a PyPI outage must not
     # block the container publish.
-    needs: verify
-    if: inputs.docker-image != ''
+    needs: [detect, verify]
+    if: always() && inputs.docker-image != '' && needs.verify.result != 'failure' && needs.verify.result != 'cancelled'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -268,8 +301,8 @@ jobs:
     # Needs only the wheel gate: the version is read from pyproject in
     # the lint step below — the extension artifact must survive a PyPI
     # outage or a pending environment approval.
-    needs: verify
-    if: inputs.vscode-ext-dir != ''
+    needs: [detect, verify]
+    if: always() && inputs.vscode-ext-dir != '' && needs.verify.result != 'failure' && needs.verify.result != 'cancelled'
     runs-on: ubuntu-latest
     # environment:release — the Entra federated credential on each
     # caller repo is scoped to this exact environment name, so the
@@ -322,9 +355,10 @@ jobs:
           if missing:
               errs.append("'activationEvents' is missing MCP provider hooks: "
                           + ', '.join(missing))
-          rel_version = tomllib.load(open(os.path.join(
-              os.environ['GITHUB_WORKSPACE'], os.environ['PACKAGE_DIR'],
-              'pyproject.toml'), 'rb'))['project']['version']
+          pyproject = os.path.join(os.environ['GITHUB_WORKSPACE'],
+                                   os.environ['PACKAGE_DIR'], 'pyproject.toml')
+          rel_version = (tomllib.load(open(pyproject, 'rb'))['project']['version']
+                         if os.path.exists(pyproject) else None)
           if rel_version and pkg.get('version') != rel_version:
               errs.append(f"'version' {pkg.get('version')} != release version "
                           f"{rel_version} — the extension ships in lockstep; "
