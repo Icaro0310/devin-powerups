@@ -68,7 +68,14 @@ SKIP_DIRS = {"node_modules", "out", "dist", ".git", ".powerups-sensor"}
 SRC_SUFFIXES = {".js", ".ts", ".mjs", ".cjs"}
 
 HELPER_NAME = "safe-executable.cjs"
-SPAWN_RE = re.compile(r"child_process|execFile|spawn\s*\(|execFileSync")
+# Spawning = actually importing child_process. A comment or test that
+# merely names execFile/spawn must not trip the rule (false positive
+# flagged in review).
+SPAWN_RE = re.compile(
+    r"""require\(\s*["'](?:node:)?child_process["']\s*\)"""
+    r"""|from\s+["'](?:node:)?child_process["']"""
+    r"""|import\s*\(\s*["'](?:node:)?child_process["']"""
+)
 HELPER_IMPORT_RE = re.compile(r"""safe-executable(\.cjs)?["']""")
 
 GET_CONFIGURATION = re.compile(r'getConfiguration\(\s*["\']([^"\']+)["\']')
@@ -226,7 +233,14 @@ def run(root: Path) -> tuple[list[str], int]:
                 continue
             if src.name == HELPER_NAME:
                 continue
-            if SPAWN_RE.search(text):
+            # Full-line // comments can still name the module; drop them
+            # before matching so docs never mark a file as spawning.
+            code = "\n".join(
+                line
+                for line in text.splitlines()
+                if not line.lstrip().startswith("//")
+            )
+            if SPAWN_RE.search(code):
                 spawns = True
             if "safe-executable" in text and HELPER_IMPORT_RE.search(text):
                 imports_helper = True
@@ -370,6 +384,18 @@ def selftest() -> int:
             'const { resolveSafeExecutable } = require("./safe-executable.cjs");\n')
         (helperok / HELPER_NAME).write_bytes(canonical_src.read_bytes())
 
+        # commented: naming child_process in a comment is not spawning
+        commented = base / "commented/adapters/vscode"
+        commented.mkdir(parents=True)
+        (commented / "package.json").write_text(json.dumps(ext_pkg(
+            {"untrustedWorkspaces": {
+                "supported": "limited",
+                "restrictedConfigurations": ["demo.executable"]}},
+            {"demo.executable": {"type": "string"}})))
+        (commented / "extension.js").write_text(
+            '// we never call child_process or execFile here\n'
+            'const x = 1;\n')
+
         # helper-drift: a mutated copy is a finding
         helperdrift = base / "helperdrift/adapters/vscode"
         helperdrift.mkdir(parents=True)
@@ -388,6 +414,7 @@ def selftest() -> int:
             ("clean", 0), ("nodecl", 1), ("gap", 1), ("srcgap", 1),
             ("supported", 0), ("badvalue", 1), ("unscoped", 1),
             ("nohelp", 1), ("helperok", 0), ("helperdrift", 1),
+            ("commented", 0),
         ):
             findings, _ = run(base / name)
             expect(name, len(findings) == expect_findings,

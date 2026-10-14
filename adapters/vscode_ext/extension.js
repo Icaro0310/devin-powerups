@@ -29,11 +29,12 @@ function config() {
   };
 }
 
-// First workspace folder, when one is open — used only to bound
-// resolveSafeExecutable's inside-workspace rejection, not as spawn cwd.
-function workspaceDir() {
+// All open workspace folders — a multi-root window has several roots and
+// a binary in any of them is workspace code (passing only the first
+// folder would let the rest through in Restricted Mode).
+function workspaceDirs() {
   const folders = vscode.workspace.workspaceFolders;
-  return folders && folders.length ? folders[0].uri.fsPath : null;
+  return folders ? folders.map((f) => f.uri.fsPath) : [];
 }
 
 // Runs the CLI once and resolves {code, stdout, stderr}. Never throws on a
@@ -42,7 +43,7 @@ function workspaceDir() {
 function runCli(args) {
   const { executable, extraArgs } = config();
   const spec = resolveSafeExecutable(executable, {
-    workspaceDir: workspaceDir(),
+    workspaceDirs: workspaceDirs(),
     trusted: vscode.workspace.isTrusted,
     npmPackage: null, // set to the npm package name if <pkg-cli> ships via npm
   });
