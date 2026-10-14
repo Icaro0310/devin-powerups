@@ -152,7 +152,9 @@ jobs:
     needs: [detect, verify]
     if: always() && needs.detect.outputs.has-wheel == 'true' && needs.verify.result == 'success'
     runs-on: ubuntu-latest
-    environment: ${{ inputs.pypi-environment }}
+    # `|| 'pypi'` — an empty expansion is an invalid environment name
+    # and fails workflow startup even though the `if` skips the job.
+    environment: ${{ inputs.pypi-environment || 'pypi' }}
     permissions:
       contents: read    # checkout reads pyproject for name+version
       id-token: write   # PyPI Trusted Publishing (OIDC)
