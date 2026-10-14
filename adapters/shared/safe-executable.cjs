@@ -154,7 +154,15 @@ function resolveSafeExecutable(exe, opts = {}) {
   const wsDirs = [opts.workspaceDirs || opts.workspaceDir || []]
     .flat()
     .filter(Boolean)
-    .map((d) => path.resolve(d));
+    // realpath the roots too: a symlinked workspace root must compare
+    // equal to the realpath'd candidates below, or isInside misses.
+    .map((d) => {
+      try {
+        return fs.realpathSync(d);
+      } catch {
+        return path.resolve(d);
+      }
+    });
   const pathEnv =
     opts.env && typeof opts.env.PATH === "string"
       ? opts.env.PATH

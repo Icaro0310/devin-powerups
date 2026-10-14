@@ -102,6 +102,27 @@ test("untrusted: a PATH symlink into the workspace is rejected", (t) => {
   }
 });
 
+test("untrusted: a symlinked workspace ROOT still rejects its binaries", (t) => {
+  const f = fixture();
+  const linkDir = fs.mkdtempSync(path.join(os.tmpdir(), "safeexe-wslink-"));
+  const wsLink = path.join(linkDir, "repo-link");
+  try {
+    fs.symlinkSync(f.ws, wsLink, "dir");
+  } catch {
+    t.skip("symlink needs privilege on this platform");
+    return;
+  }
+  try {
+    const r = resolveSafeExecutable("devin-demo", {
+      workspaceDirs: [wsLink], trusted: false,
+    });
+    assert.equal(r && r.file, f.real);
+  } finally {
+    fs.rmSync(linkDir, { recursive: true, force: true });
+    f.restore();
+  }
+});
+
 test("untrusted: multi-root — a binary in the SECOND folder is rejected", () => {
   const f = fixture();
   const ws2 = fs.mkdtempSync(path.join(os.tmpdir(), "safeexe-ws2-"));
