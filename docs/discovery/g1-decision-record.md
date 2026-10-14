@@ -117,11 +117,16 @@ prompt-derived content, not metadata — verified against real
 implementing the vendored port; content search then lands behind a flag as
 a later phase, redacting through it before anything is displayed.
 
-## Coverage gaps still open (validation, not gates)
+## Coverage gaps (validation, not gates)
+
+**Still open**
 
 - **Corporate run** — bundle at `~/agent-sessions-discovery/`. Validates
   coverage claims (env vars, managed layouts, corporate profiles) that the
   personal-machine evidence cannot. Does not block anything decided here.
+
+**Closed 2026-10-14**
+
 - **`@sessions` with a chat provider** — VERIFIED 2026-10-14 on VS Code
   stable 1.140 (Linux x64 tarball) with bundled `github.copilot-chat`
   0.69.0: `@sessions` appears in the `@` completion, accepts selection,
