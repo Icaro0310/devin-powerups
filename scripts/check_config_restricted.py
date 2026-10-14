@@ -29,6 +29,15 @@ Rules, for every ``package.json`` carrying ``engines.vscode`` (outside
    fails the gate until it is restricted.
 3. ``supported: true`` / ``false`` carry no configuration rule — the
    declaration itself is the gate.
+4. Helper lockstep: a ``limited`` extension whose sources spawn a
+   process (``child_process``/``execFile``/``spawn``) must resolve the
+   executable through the shared ``safe-executable.cjs`` helper — the
+   Windows CreateProcess cwd-search would otherwise run a binary
+   planted inside an untrusted repo. The file must sit next to the
+   manifest, be required/imported by a source file, and be
+   byte-identical to the canonical copy shipped with this scanner
+   (``adapters/shared/safe-executable.cjs``). Any copy found in the
+   repo that is not byte-identical is drift and fails.
 
 Sources scanned are ``*.js``/``*.ts``/``*.mjs``/``*.cjs`` under the
 extension directory (the directory containing the manifest), excluding
@@ -48,6 +57,7 @@ manifests exist the script prints a notice and exits 0.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -56,6 +66,10 @@ from pathlib import Path
 
 SKIP_DIRS = {"node_modules", "out", "dist", ".git", ".powerups-sensor"}
 SRC_SUFFIXES = {".js", ".ts", ".mjs", ".cjs"}
+
+HELPER_NAME = "safe-executable.cjs"
+SPAWN_RE = re.compile(r"child_process|execFile|spawn\s*\(|execFileSync")
+HELPER_IMPORT_RE = re.compile(r"""safe-executable(\.cjs)?["']""")
 
 GET_CONFIGURATION = re.compile(r'getConfiguration\(\s*["\']([^"\']+)["\']')
 GET_KEY = re.compile(r'\.get\(\s*["\']([^"\']+)["\']')
@@ -123,6 +137,19 @@ def read_keys(manifest_dir: Path, root: Path) -> tuple[dict[str, list[str]], lis
     return keys, unscoped
 
 
+def canonical_helper(root: Path) -> Path | None:
+    """The canonical safe-executable.cjs shipped next to this scanner —
+    <repo>/adapters/shared/ locally, .powerups-sensor/adapters/shared/
+    when the script was fetched for a caller."""
+    script_dir = Path(__file__).resolve().parent
+    cand = script_dir.parent / "adapters" / "shared" / HELPER_NAME
+    return cand if cand.is_file() else None
+
+
+def helper_sha(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def run(root: Path) -> tuple[list[str], int]:
     findings: list[str] = []
     checked = 0
@@ -165,6 +192,59 @@ def run(root: Path) -> tuple[list[str], int]:
             )
         if not exposed and not unscoped:
             checked += 1
+
+    # --- helper lockstep ----------------------------------------------------
+    canonical = canonical_helper(root)
+    canonical_sha = helper_sha(canonical) if canonical else None
+    for helper in sorted(root.rglob(HELPER_NAME)):
+        if _skipped(helper):
+            continue
+        if canonical and helper.resolve() != canonical.resolve():
+            if helper_sha(helper) != canonical_sha:
+                findings.append(
+                    f"{helper.relative_to(root)}: {HELPER_NAME} drifted "
+                    f"from the canonical copy — re-copy from "
+                    f"adapters/shared/{HELPER_NAME}"
+                )
+
+    for mpath, data in extension_manifests(root):
+        rel = mpath.relative_to(root)
+        caps = (data.get("capabilities") or {}).get("untrustedWorkspaces")
+        if not isinstance(caps, dict) or caps.get("supported") != "limited":
+            continue
+        mdir = mpath.parent
+        sources = [
+            s for s in sorted(mdir.rglob("*"))
+            if s.is_file() and s.suffix in SRC_SUFFIXES and not _skipped(s)
+        ]
+        spawns = False
+        imports_helper = False
+        for src in sources:
+            try:
+                text = src.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+            if src.name == HELPER_NAME:
+                continue
+            if SPAWN_RE.search(text):
+                spawns = True
+            if "safe-executable" in text and HELPER_IMPORT_RE.search(text):
+                imports_helper = True
+        if not spawns:
+            continue
+        helper = mdir / HELPER_NAME
+        if not helper.is_file():
+            findings.append(
+                f"{rel}: limited extension spawns a process without the "
+                f"shared resolver — copy adapters/shared/{HELPER_NAME} "
+                f"next to the manifest and resolve through it (Windows "
+                f"CreateProcess searches cwd before PATH)"
+            )
+        elif not imports_helper:
+            findings.append(
+                f"{rel}: {HELPER_NAME} present but no source imports it "
+                f"— resolve spawn targets through resolveSafeExecutable"
+            )
     return findings, checked
 
 
@@ -261,9 +341,53 @@ def selftest() -> int:
             'const c = require("vscode").workspace.getConfiguration();\n'
             'const exe = c.get("demo.executable");\n')
 
+        # helper-required: limited + child_process without the shared
+        # resolver is a violation (the Windows cwd-search vector)
+        nohelp = base / "nohelp/adapters/vscode"
+        nohelp.mkdir(parents=True)
+        (nohelp / "package.json").write_text(json.dumps(ext_pkg(
+            {"untrustedWorkspaces": {
+                "supported": "limited",
+                "restrictedConfigurations": ["demo.executable"]}},
+            {"demo.executable": {"type": "string"}})))
+        (nohelp / "extension.js").write_text(
+            'const cp = require("child_process");\n'
+            'cp.execFile("demo", [], {cwd: "/x"}, () => {});\n')
+
+        # helper-ok: limited + spawn resolved through the shared helper
+        canonical_src = canonical_helper(base.parent) or (
+            Path(__file__).resolve().parent.parent
+            / "adapters" / "shared" / HELPER_NAME)
+        helperok = base / "helperok/adapters/vscode"
+        helperok.mkdir(parents=True)
+        (helperok / "package.json").write_text(json.dumps(ext_pkg(
+            {"untrustedWorkspaces": {
+                "supported": "limited",
+                "restrictedConfigurations": ["demo.executable"]}},
+            {"demo.executable": {"type": "string"}})))
+        (helperok / "extension.js").write_text(
+            'const cp = require("child_process");\n'
+            'const { resolveSafeExecutable } = require("./safe-executable.cjs");\n')
+        (helperok / HELPER_NAME).write_bytes(canonical_src.read_bytes())
+
+        # helper-drift: a mutated copy is a finding
+        helperdrift = base / "helperdrift/adapters/vscode"
+        helperdrift.mkdir(parents=True)
+        (helperdrift / "package.json").write_text(json.dumps(ext_pkg(
+            {"untrustedWorkspaces": {
+                "supported": "limited",
+                "restrictedConfigurations": ["demo.executable"]}},
+            {"demo.executable": {"type": "string"}})))
+        (helperdrift / "extension.js").write_text(
+            'const cp = require("child_process");\n'
+            'const { resolveSafeExecutable } = require("./safe-executable.cjs");\n')
+        (helperdrift / HELPER_NAME).write_bytes(
+            canonical_src.read_bytes() + b"// drifted\n")
+
         for name, expect_findings in (
             ("clean", 0), ("nodecl", 1), ("gap", 1), ("srcgap", 1),
             ("supported", 0), ("badvalue", 1), ("unscoped", 1),
+            ("nohelp", 1), ("helperok", 0), ("helperdrift", 1),
         ):
             findings, _ = run(base / name)
             expect(name, len(findings) == expect_findings,
