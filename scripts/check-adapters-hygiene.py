@@ -328,6 +328,80 @@ def check_commands(root: Path, files) -> list[str]:
     return findings
 
 
+# --- hardcoded version pins in extension sources -----------------------------
+# A VS Code extension must read its own version at runtime
+# (``context.extension.packageJSON.version``); a literal semver assigned to
+# a ``*version*`` identifier drifts from package.json the next bump — this
+# exact class shipped once already (an endpoint advertising 0.1.0 for a
+# 0.1.2 build). Scope: source files of a real extension only — a directory
+# whose package.json declares ``engines.vscode``. package.json itself,
+# tests and build output are exempt; non-version constants (CLI compat
+# ranges, API levels) are not matched.
+
+EXT_SRC_SUFFIXES = {".ts", ".cts", ".mts", ".js", ".cjs", ".mjs"}
+EXT_SRC_SKIP_PARTS = {
+    "node_modules", "out", "dist", "build", "test", "tests",
+    "__tests__", "fixtures",
+}
+VERSION_PIN_RE = re.compile(
+    r"(?:^|[\s{,])(?:export\s+)?(?:const|let|var|readonly)\s+"
+    r"([A-Za-z_]*version[A-Za-z_]*)\s*=\s*"
+    r"['\"](\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]*)?)['\"]",
+    re.IGNORECASE,
+)
+VERSION_PROP_RE = re.compile(
+    r"[\s{,](?:version|VERSION)\s*:\s*"
+    r"['\"](\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]*)?)['\"]"
+)
+
+
+def extension_dirs(root: Path, files) -> set[Path]:
+    """Directories that ship a VS Code extension (package.json with
+    ``engines.vscode``)."""
+    import json
+
+    dirs: set[Path] = set()
+    for f in files:
+        if f.name != "package.json":
+            continue
+        try:
+            data = json.loads(f.read_text(errors="replace"))
+        except ValueError:
+            continue
+        if isinstance(data.get("engines"), dict) and "vscode" in data["engines"]:
+            dirs.add(f.parent)
+    return dirs
+
+
+def check_version_pins(root: Path, files) -> list[str]:
+    findings: list[str] = []
+    exts = extension_dirs(root, files)
+    if not exts:
+        return findings
+    for f in files:
+        if f.name == "package.json" or f.suffix.lower() not in EXT_SRC_SUFFIXES:
+            continue
+        if f.suffix == ".ts" and f.name.endswith(".d.ts"):
+            continue
+        if not any(d == f.parent or d in f.parents for d in exts):
+            continue
+        parts = set(f.relative_to(root).parts)
+        if parts & EXT_SRC_SKIP_PARTS or f.stem.endswith((".test", ".spec")):
+            continue
+        rel = f.relative_to(root).as_posix()
+        for lineno, line in enumerate(
+            f.read_text(errors="replace").splitlines(), start=1
+        ):
+            hit = VERSION_PIN_RE.search(line) or VERSION_PROP_RE.search(line)
+            if hit:
+                findings.append(
+                    f"{rel}:{lineno}: version-pin — hardcoded semver in an "
+                    f"extension source drifts from package.json "
+                    f"(use context.extension.packageJSON.version)"
+                )
+    return findings
+
+
 def run(root: Path) -> tuple[list[str], int]:
     """Return (findings, scanned-file-count)."""
     roots = scan_roots(root)
@@ -337,6 +411,7 @@ def run(root: Path) -> tuple[list[str], int]:
     pins = load_allowlist(root)
     findings = check_forbidden(root, files, pins)
     findings += check_commands(root, files)
+    findings += check_version_pins(root, files)
     return findings, len(files)
 
 
@@ -483,6 +558,40 @@ def selftest() -> int:
         expect("binary token flagged", "token/gh-oauth" in joined)
         expect("single-backslash C:\\Users flagged",
                "personal-path/cusers" in joined)
+
+        # ---- fixture: version pins in extension sources --------------
+        ext = base / "ext"
+        extpkg = ext / "adapters/vscode/package.json"
+        extpkg.parent.mkdir(parents=True)
+        extpkg.write_text(
+            '{"name": "demo-ext", "version": "0.1.2",'
+            ' "engines": {"vscode": "^1.90.0"}}\n'
+        )
+        bad = ext / "adapters/vscode/src/extension.ts"
+        bad.parent.mkdir(parents=True)
+        bad.write_text(
+            'const VERSION = "0.1.0";\n'
+            'const manifest = { version: "1.0.0" };\n'
+            'const runtime = context.extension.packageJSON.version;\n'
+            'const COMPATIBLE_CLI = { min: [0, 1], max: [1, 9] };\n'
+            'export function parseCompat(v: string): number[] { return []; }\n'
+        )
+        testfile = ext / "adapters/vscode/test/version.test.js"
+        testfile.parent.mkdir(parents=True)
+        testfile.write_text('assert.equal(VERSION, "0.1.0");\n')
+        built = ext / "adapters/vscode/out/extension.js"
+        built.parent.mkdir(parents=True)
+        built.write_text('const VERSION = "0.1.0";\n')
+        nonext = ext / "packages/tool/src/x.ts"
+        nonext.parent.mkdir(parents=True)
+        nonext.write_text('const VERSION = "9.9.9";\n')
+        findings, _ = run(ext)
+        joined = "\n".join(findings)
+        expect("const VERSION pin flagged", "version-pin" in joined)
+        expect("pin line numbers", ":1:" in joined and ":2:" in joined)
+        expect("test file exempt", "version.test.js" not in joined)
+        expect("build output exempt", "out/extension.js" not in joined)
+        expect("non-extension source exempt", "tool/src/x.ts" not in joined)
 
     if failures:
         print(f"selftest: {len(failures)} case(s) FAILED", file=sys.stderr)
