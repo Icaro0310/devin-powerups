@@ -1,9 +1,11 @@
 # G1 — Gate 1 Decision Record
 
-Status: **5 of 6 items decided on 2a evidence.** Item (c) is the only decision
-left for explicit owner ratification — it alone gates the `devin-redact` TS
-port. Everything else below is closed with cited evidence and marked
-revertible only if the corporate run contradicts it.
+Status: **CLOSED 2026-10-14 — all six items decided.** Items (a),(b),(d),
+(e),(f) were decided on 2a evidence; item (c) was owner-ratified with two
+conditions (bidirectional fixture parity; 7-day drift window explicitly
+accepted, tighten to release webhook on incident). The `devin-redact` TS
+port is unblocked. Decisions below are marked revertible only if the
+corporate run contradicts them.
 
 Written 2026-10-14. Supersedes "G1 pending" placeholders in
 `adoption-recommendation.md` and `agent-storage-report.md`.
@@ -32,18 +34,33 @@ most regular format (good first parser); codex-cli second (two backends,
 more edge cases); vscode-chat last (largest session count, most shapes).
 The TreeView renders in this fixed order (PR #169).
 
-## (c) Redact mechanism — PENDING OWNER RATIFICATION
+## (c) Redact mechanism — RATIFIED 2026-10-14 (owner, two conditions)
 
-**Recommendation:** vendored TypeScript port of `devin-redact` (~200 LOC),
-parity-locked by CI in this repo.
+**Decision:** vendored TypeScript port of `devin-redact` (~200 LOC),
+parity-locked by CI in this repo. Honors decision B (pure TS) and removes
+Python from the content-search path too.
 
 Rationale: zero Python anywhere in the runtime path (decision B already
 removed it from metadata mode); a vendored port removes the "Python absent"
 fail-closed case entirely; the binary surface is small enough that a port is
 a bounded task, not a project.
 
-**The parity problem (lockstep without a sensor):** a TS port and the Python
-original can silently diverge. Two sensors, both in this repo's CI:
+**Condition 1 — parity is bidirectional and fixture-based.** Same input →
+same output, run on **both** sides against a golden corpus living in the
+repo, on every PR touching the port. Drift counts in both directions: if
+the TS port adds a pattern the Python lacks, that is drift too (less
+dangerous, still drift). "TS matches pinned Python" alone is not
+sufficient.
+
+**Condition 2 — the 7-day window is an explicitly accepted risk.** The
+weekly drift job vs latest PyPI leaves up to 7 days where Python has a
+pattern the port lacks — a false-negative window for a secret scanner.
+Accepted for this use case: content search is local-only and exposes
+results only to the machine's owner. **Tighten to a release webhook
+(same mechanism class as `registry-drift.yml`, push not poll) if a real
+incident lands in that window.**
+
+The parity machinery, unchanged from the recommendation:
 
 1. `tools/check_redact_parity.py` — golden corpus through pinned
    `devin-redact==<pin>` and the TS port, fails on any diff. Runs on every
@@ -59,7 +76,8 @@ redaction and keeps a Python dependency for the optional feature only.
 
 **Blocks:** the redact port itself and the content-search flag in the
 extension. Nothing else — the extension ships metadata-only until this
-closes.
+closes. The port work may now start: this was the only genuine G1
+blocker.
 
 ## (d) Package location — DECIDED (by constraint)
 
@@ -140,3 +158,9 @@ displayed.
   **stale** — corrected here: native covers Codex as a live-harness
   provider, not as a disk reader. The delta sentence should be read with
   this mapping.
+
+  **Validity note**: the delta above was measured against VS Code
+  **1.140** (`sessions.desktop.main.js` in VSCodium 1.140.06880). It is a
+  snapshot, not a permanent property — re-verify on every VS Code minor
+  bump. If native ever resolves "dead sessions" or "Codex via files",
+  items 1–2 shrink.
