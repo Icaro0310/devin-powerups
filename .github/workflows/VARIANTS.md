@@ -236,7 +236,8 @@ Global parity checks after each migration wave:
 - **scorecard**: all callers byte-identical; `workflow_dispatch` present so
   validation never waits on the weekly schedule.
 - **codeql**: callers byte-identical except a documented `language` input.
-- **ci.yml**: callers byte-identical; jobs are only the two `uses:` entries.
+- **ci.yml**: callers byte-identical; jobs are only the `uses:` entries
+  matching the caller template above (currently three).
 
 Byte-identical callers are required for the no-input workflows because any
 difference is either a missing input (fix the reusable) or a variant

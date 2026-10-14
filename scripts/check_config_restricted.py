@@ -59,6 +59,10 @@ SRC_SUFFIXES = {".js", ".ts", ".mjs", ".cjs"}
 
 GET_CONFIGURATION = re.compile(r'getConfiguration\(\s*["\']([^"\']+)["\']')
 GET_KEY = re.compile(r'\.get\(\s*["\']([^"\']+)["\']')
+# getConfiguration() unscoped, or called on a dynamic (non-literal)
+# namespace: the static check cannot tell which section the .get() reads.
+UNSCOPED_CONFIGURATION = re.compile(
+    r'getConfiguration\(\s*\)|getConfiguration\(\s*[^"\'\s)]')
 
 
 def _skipped(path: Path) -> bool:
@@ -87,12 +91,16 @@ def contributed_keys(data: dict) -> set[str]:
     return keys
 
 
-def read_keys(manifest_dir: Path) -> set[str]:
-    """``<ns>.<key>`` pairs read via getConfiguration in the extension's
-    sources. Namespace is every getConfiguration("<ns>") in the file —
-    our adapters use exactly one per file; more is reported as the
-    cross-product, which fails loudly rather than silently missing."""
-    keys: set[str] = set()
+def read_keys(manifest_dir: Path, root: Path) -> tuple[dict[str, list[str]], list[str]]:
+    """Return ``{<ns>.<key>: [file:line, ...]}`` pairs read via scoped
+    getConfiguration calls in the extension's sources, plus a list of
+    ``file:line`` diagnostics for unscoped/dynamic-namespace reads the
+    static check cannot attribute. Namespace is every
+    getConfiguration("<ns>") in the file — our adapters use exactly one
+    per file; more is reported as the cross-product, which fails loudly
+    rather than silently missing."""
+    keys: dict[str, list[str]] = {}
+    unscoped: list[str] = []
     for src in sorted(manifest_dir.rglob("*")):
         if not src.is_file() or src.suffix not in SRC_SUFFIXES or _skipped(src):
             continue
@@ -101,12 +109,18 @@ def read_keys(manifest_dir: Path) -> set[str]:
         except (OSError, UnicodeDecodeError):
             continue
         namespaces = GET_CONFIGURATION.findall(text)
-        if not namespaces:
+        got_keys = [(m.group(1), m.start()) for m in GET_KEY.finditer(text)]
+        if not got_keys and not UNSCOPED_CONFIGURATION.search(text):
             continue
-        for key in GET_KEY.findall(text):
+        rel = src.relative_to(root)
+        if UNSCOPED_CONFIGURATION.search(text):
+            line = text[: UNSCOPED_CONFIGURATION.search(text).start()].count("\n") + 1
+            unscoped.append(f"{rel}:{line}")
+        for key, pos in got_keys:
+            line = text[:pos].count("\n") + 1
             for ns in namespaces:
-                keys.add(f"{ns}.{key}")
-    return keys
+                keys.setdefault(f"{ns}.{key}", []).append(f"{rel}:{line}")
+    return keys, unscoped
 
 
 def run(root: Path) -> tuple[list[str], int]:
@@ -121,19 +135,35 @@ def run(root: Path) -> tuple[list[str], int]:
                 f"the extension is silently inert in Restricted Mode"
             )
             continue
-        if caps.get("supported") != "limited":
+        supported = caps.get("supported")
+        if supported is not True and supported is not False and supported != "limited":
+            findings.append(
+                f"{rel}: invalid untrustedWorkspaces.supported="
+                f"{supported!r} — accepted values: true | false | \"limited\""
+            )
+            continue
+        if supported != "limited":
             checked += 1
             continue
         restricted = set(caps.get("restrictedConfigurations") or [])
-        exposed = sorted(
-            (contributed_keys(data) | read_keys(mpath.parent)) - restricted
-        )
+        read, unscoped = read_keys(mpath.parent, root)
+        exposed = sorted((contributed_keys(data) | set(read)) - restricted)
         if exposed:
+            detail = ", ".join(
+                f"{k} ({', '.join(read[k][:3])})" if k in read else k
+                for k in exposed
+            )
             findings.append(
                 f"{rel}: limited extension exposes workspace config — "
-                f"add to restrictedConfigurations: {', '.join(exposed)}"
+                f"add to restrictedConfigurations: {detail}"
             )
-        else:
+        for loc in unscoped:
+            findings.append(
+                f"{rel}: unscoped/dynamic getConfiguration() read at {loc} "
+                f"— the static check cannot tell which section it reads; "
+                f"use getConfiguration(\"<ns>\") or restrict the key"
+            )
+        if not exposed and not unscoped:
             checked += 1
     return findings, checked
 
@@ -212,9 +242,28 @@ def selftest() -> int:
             {"untrustedWorkspaces": {"supported": True}})))
         (supported / "extension.js").write_text("// ui only\n")
 
+        # badvalue: supported: "true" string is not the accepted shape
+        badvalue = base / "badvalue/adapters/vscode"
+        badvalue.mkdir(parents=True)
+        (badvalue / "package.json").write_text(json.dumps(ext_pkg(
+            {"untrustedWorkspaces": {"supported": "true"}})))
+        (badvalue / "extension.js").write_text("// ui only\n")
+
+        # unscoped: getConfiguration() with no literal namespace
+        unscoped = base / "unscoped/adapters/vscode"
+        unscoped.mkdir(parents=True)
+        (unscoped / "package.json").write_text(json.dumps(ext_pkg(
+            {"untrustedWorkspaces": {
+                "supported": "limited",
+                "restrictedConfigurations": ["demo.executable"]}},
+            {"demo.executable": {"type": "string"}})))
+        (unscoped / "extension.js").write_text(
+            'const c = require("vscode").workspace.getConfiguration();\n'
+            'const exe = c.get("demo.executable");\n')
+
         for name, expect_findings in (
             ("clean", 0), ("nodecl", 1), ("gap", 1), ("srcgap", 1),
-            ("supported", 0),
+            ("supported", 0), ("badvalue", 1), ("unscoped", 1),
         ):
             findings, _ = run(base / name)
             expect(name, len(findings) == expect_findings,
