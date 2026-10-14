@@ -27,7 +27,10 @@ the owner Windows partition (sqlite readable, `threads=0` → `no-sessions`).
 
 ## (b) Surface order — DECIDED
 
-**Decision:** `copilot-cli` → `codex-cli` → `vscode-chat` in every listing.
+**Decision:** `copilot-cli` → `codex-cli` → `vscode-chat` in every grouped
+listing (TreeView and per-surface sections). The filtered `@sessions`
+answer is exempt by design: it sorts newest-first across surfaces so a
+capped flat list keeps the recent rows.
 
 **Evidence:** `adoption-recommendation.md` — copilot-cli is the smallest and
 most regular format (good first parser); codex-cli second (two backends,
@@ -96,9 +99,10 @@ Merged via PRs #168 (parsers) and #169 (VS Code surface + .vsix).
 
 **Evidence:** owner Windows partition has both `~/.codex/state_5.sqlite`
 (readable via `node:sqlite`, `threads=0`) and rollout sessions. The
-Chronicle question resolved itself: Codex docs confirm it is rebuilt from
-the files (`/chronicle reindex`), so files/sqlite are primary and Chronicle
-is derived — never a source. `rollout_migration_*` tables exist but were
+Chronicle question resolved itself: `state_*.sqlite` and rollout JSONL are
+the Codex stores — written directly, not derived — so files/sqlite are
+primary. (`/chronicle reindex` is Copilot CLI's Chronicle command, not a
+Codex mechanism; the earlier citation was a misattribution.) `rollout_migration_*` tables exist but were
 empty on the owner machine: schema supports migration, does not prove it
 ran.
 
@@ -109,9 +113,9 @@ in the manifest. Titles are `null` structurally (auto-generated titles are
 prompt-derived content, not metadata — verified against real
 `customTitle`/`threads.title` values).
 
-**Consequence:** when (c) ratifies, content search lands behind a flag as a
-later phase, redacting through the vendored port before anything is
-displayed.
+**Consequence:** (c) ratified 2026-10-14 — the remaining step is
+implementing the vendored port; content search then lands behind a flag as
+a later phase, redacting through it before anything is displayed.
 
 ## Coverage gaps still open (validation, not gates)
 
