@@ -71,9 +71,12 @@ jobs:
           fi
 
   fanout:
+    # Every scope the reusable requests must be granted here — a
+    # missing scope fails the whole run at startup_failure.
     permissions:
       contents: read
-      id-token: write
+      id-token: write   # Entra OIDC + cosign keyless
+      packages: write   # docker leg scope (leg skips w/o docker-image)
     uses: ./.github/workflows/release.yml
     # Explicit mapping, not `inherit`: forwards only the Open VSX token.
     secrets:
