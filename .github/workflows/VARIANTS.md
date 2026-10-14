@@ -148,6 +148,10 @@ jobs:
 name: release
 on:
   push:
+    # `<pkg>-vX.Y.Z` repos keep `*-v*`; repos on the bare `vX.Y.Z`
+    # convention (e.g. devin-judge) need `tags: ["v*"]` instead — the
+    # reusable lint and the shared detect gate accept both, but the
+    # caller trigger decides whether the workflow runs at all.
     tags: ["*-v*"]
 permissions:
   contents: read

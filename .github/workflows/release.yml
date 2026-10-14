@@ -137,6 +137,51 @@ jobs:
             echo "ext-version=$v" >> "$GITHUB_OUTPUT"
           fi
 
+      # Shared tag gate — checked ONCE upstream of every publish leg so a
+      # mistagged release fails here instead of shipping a wrong artifact
+      # on legs that run no tag check of their own (docker) or only
+      # recognize one convention (the PyPI `-v` guard). Both conventions:
+      # bare vX.Y.Z first (a SemVer prerelease may itself contain '-v',
+      # e.g. v1.2.3-v2), then <pkg>-vX.Y.Z.
+      - name: Check tag matches detected versions
+        if: github.ref_type == 'tag'
+        env:
+          PACKAGE_DIR: ${{ inputs.package-dir }}
+          VSCODE_EXT_DIR: ${{ inputs.vscode-ext-dir }}
+        run: |
+          python3 - <<'PY'
+          import json, os, re, sys, tomllib
+          ref = os.environ['GITHUB_REF_NAME']
+          if re.match(r'^v\d+\.\d+', ref):
+              tag_version, tag_pkg = ref[1:], None
+          elif '-v' in ref:
+              tag_pkg, tag_version = ref.rsplit('-v', 1)
+          else:
+              print(f'::error::tag {ref} matches no release convention '
+                    '(vX.Y.Z or <pkg>-vX.Y.Z)')
+              sys.exit(1)
+          errs = []
+          pyproject = os.path.join(os.environ['PACKAGE_DIR'], 'pyproject.toml')
+          if os.path.exists(pyproject):
+              meta = tomllib.load(open(pyproject, 'rb'))['project']
+              if meta['version'] != tag_version:
+                  errs.append(f"pyproject version {meta['version']} != tag {ref}")
+              allowed = {meta['name'], os.path.basename(
+                  os.path.normpath(os.environ['PACKAGE_DIR']))}
+              if tag_pkg is not None and tag_pkg not in allowed:
+                  errs.append(f"tag prefix '{tag_pkg}' names neither {meta['name']} "
+                              f"nor {os.path.basename(os.path.normpath(os.environ['PACKAGE_DIR']))}")
+          ext_manifest = os.path.join(
+              os.environ.get('VSCODE_EXT_DIR') or '.', 'package.json')
+          if os.path.exists(ext_manifest):
+              v = json.load(open(ext_manifest))['version']
+              if v != tag_version:
+                  errs.append(f"package.json version {v} != tag {ref}")
+          for e in errs:
+              print(f'::error::{e}')
+          sys.exit(1 if errs else 0)
+          PY
+
   verify:
     needs: detect
     if: needs.detect.outputs.has-wheel == 'true'
@@ -150,7 +195,7 @@ jobs:
 
   publish-pypi:
     needs: [detect, verify]
-    if: always() && needs.detect.outputs.has-wheel == 'true' && needs.verify.result == 'success'
+    if: always() && needs.detect.result == 'success' && needs.detect.outputs.has-wheel == 'true' && needs.verify.result == 'success'
     runs-on: ubuntu-latest
     # `|| 'pypi'` — an empty expansion is an invalid environment name
     # and fails workflow startup even though the `if` skips the job.
@@ -186,23 +231,33 @@ jobs:
           REF_TYPE: ${{ github.ref_type }}
         run: |
           python3 - <<'PY'
-          import json, os, tomllib, urllib.error, urllib.request
+          import json, os, re, tomllib, urllib.error, urllib.request
           meta = tomllib.load(open(os.path.join(
               os.environ['PACKAGE_DIR'], 'pyproject.toml'), 'rb'))['project']
           name, version = meta['name'], meta['version']
           ref = os.environ['REF_NAME']
-          if os.environ['REF_TYPE'] == 'tag' and '-v' in ref:
-              tag_pkg, tag_ver = ref.rsplit('-v', 1)
-              # Tag prefix names the package: ecosystem tags use the
-              # pyproject name OR the package-dir basename
-              # (qa-pack-v0.1.0 vs devin-qa-pack-v0.1.0 — both seen).
-              allowed = {name, os.path.basename(
-                  os.path.normpath(os.environ['PACKAGE_DIR']))}
-              if tag_ver != version or tag_pkg not in allowed:
-                  print(f'::error::tag {ref} does not name {name} '
-                        f'{version} — a mistagged release would publish '
-                        'the wrong package or version; retag or bump.')
-                  raise SystemExit(1)
+          if os.environ['REF_TYPE'] == 'tag':
+              # Bare vX.Y.Z first — a SemVer prerelease may itself
+              # contain '-v' (v1.2.3-v2) — then <pkg>-vX.Y.Z. Bare tags
+              # carry no package prefix to validate, only the version.
+              if re.match(r'^v\d+\.\d+', ref):
+                  tag_pkg, tag_ver = None, ref[1:]
+              elif '-v' in ref:
+                  tag_pkg, tag_ver = ref.rsplit('-v', 1)
+              else:
+                  tag_pkg = tag_ver = None
+              if tag_ver is not None:
+                  # Tag prefix names the package: ecosystem tags use the
+                  # pyproject name OR the package-dir basename
+                  # (qa-pack-v0.1.0 vs devin-qa-pack-v0.1.0 — both seen).
+                  allowed = {name, os.path.basename(
+                      os.path.normpath(os.environ['PACKAGE_DIR']))}
+                  if tag_ver != version or (tag_pkg is not None
+                                            and tag_pkg not in allowed):
+                      print(f'::error::tag {ref} does not name {name} '
+                            f'{version} — a mistagged release would publish '
+                            'the wrong package or version; retag or bump.')
+                      raise SystemExit(1)
           published = set()
           try:
               data = json.load(urllib.request.urlopen(
@@ -260,7 +315,7 @@ jobs:
     # version is read from pyproject below — a PyPI outage must not
     # block the container publish.
     needs: [detect, verify]
-    if: always() && inputs.docker-image != '' && needs.verify.result != 'failure' && needs.verify.result != 'cancelled'
+    if: always() && needs.detect.result == 'success' && inputs.docker-image != '' && needs.verify.result != 'failure' && needs.verify.result != 'cancelled'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -329,7 +384,7 @@ jobs:
     # the lint step below — the extension artifact must survive a PyPI
     # outage or a pending environment approval.
     needs: [detect, verify]
-    if: always() && inputs.vscode-ext-dir != '' && needs.verify.result != 'failure' && needs.verify.result != 'cancelled'
+    if: always() && needs.detect.result == 'success' && inputs.vscode-ext-dir != '' && needs.verify.result != 'failure' && needs.verify.result != 'cancelled'
     runs-on: ubuntu-latest
     # environment:release — the Entra federated credential on each
     # caller repo is scoped to this exact environment name, so the
@@ -360,7 +415,7 @@ jobs:
           PACKAGE_DIR: ${{ inputs.package-dir }}
         run: |
           python3 - <<'PY'
-          import json, os, sys, tomllib
+          import json, os, re, sys, tomllib
           pkg = json.load(open('package.json'))
           errs = []
           events = pkg.get('activationEvents') or []
@@ -390,16 +445,22 @@ jobs:
               errs.append(f"'version' {pkg.get('version')} != release version "
                           f"{rel_version} — the extension ships in lockstep; "
                           "bump package.json before tagging")
-          # Tag convention `<pkg>-vX.Y.Z`: without a wheel the tag itself
-          # is the only release-version signal — a mistagged release
-          # would mint a GitHub/marketplace entry named X.Y.Z containing
-          # a different extension version.
-          if (os.environ.get('GITHUB_REF_TYPE') == 'tag'
-                  and '-v' in os.environ.get('GITHUB_REF_NAME', '')):
-              tag_version = os.environ['GITHUB_REF_NAME'].rsplit('-v', 1)[1]
-              if pkg.get('version') != tag_version:
-                  errs.append(f"'version' {pkg.get('version')} != tag suffix "
-                              f"{tag_version} — retag or bump package.json")
+          # Tag conventions `<pkg>-vX.Y.Z` and bare `vX.Y.Z`: the tag is
+          # the release-version signal — a mistagged release would mint
+          # a GitHub/marketplace entry named X.Y.Z containing a different
+          # extension version. Bare is tested FIRST and anchored on
+          # v<digit>.<digit> — a bare SemVer prerelease may itself contain
+          # '-v' (v1.2.3-v2 parses as 1.2.3-v2, not 2).
+          ref_name = os.environ.get('GITHUB_REF_NAME', '')
+          tag_version = None
+          if os.environ.get('GITHUB_REF_TYPE') == 'tag':
+              if re.match(r'^v\d+\.\d+', ref_name):
+                  tag_version = ref_name[1:]
+              elif '-v' in ref_name:
+                  tag_version = ref_name.rsplit('-v', 1)[1]
+          if tag_version is not None and pkg.get('version') != tag_version:
+              errs.append(f"'version' {pkg.get('version')} != tag "
+                          f"{ref_name} — retag or bump package.json")
           for err in errs:
               print(f'::error::{err}')
           sys.exit(1 if errs else 0)
