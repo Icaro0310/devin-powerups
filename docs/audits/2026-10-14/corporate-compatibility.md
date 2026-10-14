@@ -136,7 +136,7 @@ Recorded in `devin-powerups/DECISIONS.md` as D-2026-10-14.
 Bundle for a clean corporate VS Code (no Devin CLI/Desktop):
 
 1. `code --install-extension agent-sessions.vsix` and
-   `devin-judge.vsix` (built `2026-10-14` from `adapters/vscode/`).
+   `judge.vsix` (built `2026-10-14` from `adapters/vscode/`).
 2. `pipx install "poordjaevin[local,mcp]"` (or the uv tool equivalent).
 3. Verify per row of the CAT 3 table:
    - agent-sessions: tree view lists Copilot/Codex sessions; `@sessions` chat answers.
@@ -163,7 +163,7 @@ not inspected:
 
 | Step | Result |
 |---|---|
-| Install `devin-judge.vsix`, launch a fresh workspace | Endpoint file **never written**; zero `_doActivateExtension icaro0310.devin-judge` entries in `exthost.log` |
+| Install `judge.vsix`, launch a fresh workspace | Endpoint file **never written**; zero `_doActivateExtension icaro0310.judge` entries in `exthost.log` |
 | Root cause | The manifest did not declare `capabilities.untrustedWorkspaces`. A fresh workspace in a fresh profile is Restricted Mode; extensions without the capability are silently inert. `onStartupFinished` fired for other extensions, ours was never attempted |
 | Fix | `untrustedWorkspaces.supported: true` (honest: text -> `vscode.lm` + authenticated localhost endpoint, no workspace code execution) — same commit also replaced the hardcoded `VERSION` constant with `context.extension.packageJSON.version` after the endpoint advertised `0.1.0` for a `0.1.2` build |
 | After fix, default Restricted Mode | `vscode-lm-endpoint.json` written ~8s after launch, mode `0600` |

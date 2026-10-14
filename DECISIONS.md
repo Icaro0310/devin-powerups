@@ -22,14 +22,36 @@ Result. Records are not eternal — revisit when new evidence arrives.
   three non-Devin sources). The documented contract:
   *the Python CLIs observe Devin sessions; the VS Code extensions observe
   sessions from any agent.*
+- **Status:** B is the present state, not a permanent architectural
+  commitment. "Does A eventually pay off?" stays open in DIRECTIONS —
+  revisit on the evidence below, not on schedule.
 - **Evidence for revisiting to A:** a concrete corporate request for
   history/search/graph-shaped value over Copilot/Codex sessions, or the
   corporate run (audit §6) showing real demand. qa-pack already straddles
   the line — `--transcript` audits Aider/Claude Code today — and is the
   natural first parser port if A ever activates.
+- **Sanctioned exceptions recorded the same day (amendment):**
+  1. **Loopback.** The `vscode-lm` backend requires a `127.0.0.1` HTTP
+     endpoint served by the extension — `vscode.lm` only exists inside
+     the extension host, so the Python CLI cannot reach the model
+     directly. This is a sanctioned exception to the agent-sessions
+     rule "no network, including loopback": the endpoint is
+     extension-scoped, bearer-token-authenticated (token in the
+     `0600` discovery file), loopback-only, and removed on deactivate.
+     The discovery file lives in poordjaevin's own data dir
+     (`vscode-lm-endpoint.json` next to `djaevin_log.db`), not in any
+     agent-sessions store — the agent-sessions in-memory-only rule is
+     untouched.
+  2. **Naming.** The extension id is `icaro0310.judge` (renamed from
+     the initial `icaro0310.devin-judge` before first publish). The
+     same neutrality rule as `icaro0310.agent-sessions` applies —
+     extension ids/display names carry no `devin` token because
+     corporate extension policies can block by name. Judge is
+     multi-agent by design (any `vscode.lm` provider), not a
+     Devin-first exception.
 - **Corollary shipped the same day:** `POORDJAEVIN_BACKEND=vscode-lm` —
   the poordjaevin backend that scores through `vscode.lm` via the new
-  `icaro0310.devin-judge` extension (`devin-judge/adapters/vscode/`), so
+  `icaro0310.judge` extension (`devin-judge/adapters/vscode/`), so
   calibrated decisions in corporate need no Devin credentials, only whatever
   chat model VS Code serves (Copilot, Codex, BYOK). `nli` remains the
   fully-offline floor.
