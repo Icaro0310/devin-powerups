@@ -100,3 +100,10 @@ muitos ficheiros, superficies geradas, ou merges sob guardrails.
   vindos de exploracao alheia recebem grep de confirmacao na sessao
   principal antes de entrar em doc publicado (incidente
   sessions.desktop.main.js).
+- (2026-10-14) CI Windows e ambiente real, nao emulado: fixtures de
+  executavel devem declarar a plataforma desde o inicio — PATHEXT nunca
+  casa ficheiro sem extensao (12 falhas no bridge porque `devin`/
+  `devin-bridge` POSIX-style nao resolviam em windows-latest). Assercoes
+  de path/extensao sao platform-aware (`".EXE"` maiusculo casa o PATHEXT
+  default); um fixture nao-resoluvel torna o teste de "skip" falso-
+  positivo trivial — o binario plantado nunca sequer era candidato.
