@@ -78,3 +78,16 @@ publishing, OIDC federation ou checks de versao.
   mas so DEPOIS do OVSX ter corrido. Sem a camada 1, uma credencial
   por provisionar segura 4 legs por uma; sem a camada 2, o defer vira
   silencio permanente e ninguem nota que o marketplace nunca publicou.
+- (2026-10-15) floor-check CLI↔extensao tem 2 fases e a dependencia entre
+  elas nao e obvia: (heuristica) stderr do argparse `unrecognized
+  arguments|invalid choice` -> msg "CLI too old, upgrade" — detecta CLI
+  mais velho que a flag minima SEM probe; (estrutural) `version`
+  self-reported no payload JSON -> cliCompatStatus preciso. A heuristica
+  assume que o texto de erro do argparse e estavel entre versoes — se um
+  CLI futuro mudar a mensagem (outra flag, subcommand, reescrita), o
+  fallback deixa de detectar e volta ao silencio. Regra: o campo
+  `version` no payload e o que torna o check robusto; antes de remover a
+  heuristica de stderr confirmar que o payload-version esta em TODOS os
+  CLIs publicados (e vice-versa: nao apagar o caminho estrutural porque
+  "a heuristica ja cobre"). Fase actual: heuristic-only ate os CLIs
+  publicados emitirem version (qa-pack/search >=0.1.3).
