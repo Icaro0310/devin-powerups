@@ -504,7 +504,16 @@ jobs:
       # Contributor (members portal). Skips with a warning when the
       # caller repo does not define AZURE_CLIENT_ID/AZURE_TENANT_ID.
       - name: Azure login (federated)
+        id: azure-login
         if: vars.AZURE_CLIENT_ID != '' && vars.AZURE_TENANT_ID != ''
+        # The Entra federated credential is provisioned per-repo and may
+        # lag the repo vars — a login failure is a pending-setup state,
+        # not a publish failure, so it must not take the independent
+        # Open VSX leg down with it. `continue-on-error` keeps the step
+        # visibly red while the job proceeds; the publish below gates on
+        # `outcome` (the real result — `conclusion` would read success
+        # under continue-on-error).
+        continue-on-error: true
         uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
@@ -512,9 +521,13 @@ jobs:
           allow-no-subscriptions: true
 
       - name: Publish to VS Code Marketplace
-        if: vars.AZURE_CLIENT_ID != '' && vars.AZURE_TENANT_ID != ''
+        if: vars.AZURE_CLIENT_ID != '' && vars.AZURE_TENANT_ID != '' && steps.azure-login.outcome == 'success'
         working-directory: ${{ inputs.vscode-ext-dir }}
         run: npx @vscode/vsce publish --azure-credential --packagePath *.vsix --skip-duplicate
+
+      - name: Marketplace publish deferred — Azure login failed
+        if: vars.AZURE_CLIENT_ID != '' && vars.AZURE_TENANT_ID != '' && steps.azure-login.outcome != 'success'
+        run: echo "::warning::azure/login failed — the Entra federated credential is likely not provisioned for this repo yet. Marketplace publish deferred; re-run this workflow after it exists (Open VSX is unaffected)."
 
       - name: Marketplace publish skipped — Entra vars missing
         if: vars.AZURE_CLIENT_ID == '' || vars.AZURE_TENANT_ID == ''
