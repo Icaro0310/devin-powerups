@@ -209,11 +209,13 @@ trusted). Measured with real UI input via CDP:
   assumption "Restricted blocks MCP spawn but leaves the terminal" is
   false in this version.
 - **Consequence for the runbook**: in a corporate Restricted workspace,
-  every `devin-*` CLI is unreachable — CLIs require a Trusted workspace.
-  The reachable operational surface is extension-only (the 8 extensions
-  that activate in Restricted). The IT runbook must either grant
-  workspace trust where CLIs are needed, or accept an extension-only
-  experience.
+  no CLI is reachable *by the user* — the integrated terminal is
+  trust-gated, so interactive CLIs require a Trusted workspace. This is
+  a terminal boundary, not a spawn boundary: extensions that activate
+  in Restricted still launch an installed `devin-*` CLI from `runCli`,
+  so extension-mediated features keep working with a CLI on PATH. The
+  IT runbook must grant workspace trust only where *direct terminal
+  access* to a CLI is needed.
 - **MCP servers enumerate but never execute.** `.vscode/mcp.json`
   definitions and the `devin-memory` extension provider
   (`onMcpCollection:devin-memory` fires, definition appears in
