@@ -27,6 +27,8 @@ import type {
 const SURFACE = 'copilot-cli' as const;
 const STATE_DIRS = ['session-state', 'history-session-state'];
 const JSONL_EXT = '.jsonl';
+/** Spec §5.2: activity this recent means the session is probably live. */
+const FRESH_MS = 60_000;
 
 /** Event types observed in real session-state files (spec evidence list
  *  plus the extra types the reference parser knows). Anything else is
@@ -67,7 +69,11 @@ function normalizeSeed(p: string): string {
 }
 
 function timestamp(v: unknown): string | null {
-  if (typeof v === 'string' && v) return v;
+  if (typeof v === 'string' && v) {
+    // A non-ISO string is not a timestamp: lastTs/ended_at must never
+    // inherit an unparseable value from the last event in the file.
+    return Number.isNaN(Date.parse(v)) ? null : v;
+  }
   if (typeof v === 'number' && Number.isFinite(v)) return new Date(v).toISOString();
   return null;
 }
@@ -153,9 +159,11 @@ function toMeta(c: Candidate, scan: Scan): SessionMeta {
   let ended: string | null = null;
   let badVersion = false;
   let sawStart = false;
+  let lastTs: string | null = null;
   for (const ev of scan.events) {
     const t = timestamp(ev.timestamp);
     started ??= t;
+    if (t) lastTs = t;
     if (ev.type === 'session.start' && !sawStart) {
       sawStart = true;
       started = t ?? started;
@@ -172,10 +180,22 @@ function toMeta(c: Candidate, scan: Scan): SessionMeta {
   if (!sawStart) warnings.push(warn('missing-field', 'no session.start event'));
   else if (version === null) warnings.push(warn('missing-field', badVersion ? 'session.start version is not version-shaped; dropped' : 'session.start has no version field'));
   if (started === null) warnings.push(warn('missing-field', 'no start timestamp determinable', version));
+  // Spec §5 inference chain when no session.shutdown marker exists:
+  // fresh activity (<60s of read time) -> session-open, ended_at stays
+  // null; stale activity -> inferred close (ended_at = last activity) with
+  // a mandatory no-end-marker warning; no activity timestamp at all ->
+  // ended_at null, still no-end-marker.
   if (ended === null) {
-    warnings.push(scan.truncatedTail || scan.badLines > 0
-      ? warn('no-end-marker', 'no session.shutdown; end marker may be lost', version)
-      : warn('session-open', 'no session.shutdown event', version));
+    if (lastTs === null) {
+      warnings.push(warn('no-end-marker', 'no activity timestamp', version));
+    } else if (Date.now() - Date.parse(lastTs) < FRESH_MS) {
+      warnings.push(warn('session-open', 'activity in the last 60s; session appears open', version));
+    } else {
+      ended = lastTs;
+      warnings.push(warn('no-end-marker', scan.truncatedTail || scan.badLines > 0
+        ? 'no session.shutdown; end marker may be lost'
+        : 'closed state inferred from last activity', version));
+    }
   }
   if (scan.truncatedTail) warnings.push(warn('truncated-tail', 'last line not valid JSON; skipped', version));
   if (scan.badLines > 0) warnings.push(warn('partial-parse', `${scan.badLines} malformed line(s) skipped`, version));

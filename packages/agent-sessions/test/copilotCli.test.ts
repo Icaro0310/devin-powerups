@@ -70,11 +70,12 @@ test('ok: session.start v1 + shutdown -> ended_at, canonical native id', () => {
   assert.ok(s.display_key.startsWith('copilot-cli:ephemeral:'));
 });
 
-test('no shutdown -> session-open, ended_at null', () => {
+test('no shutdown + fresh last activity -> session-open, ended_at null', () => {
   const home = join(FIX, 'b');
+  const now = new Date().toISOString(); // spec §5.2: session-open only within 60s of read time
   writeSession(home, UUID, [
-    ev(0, 'session.start', { version: 1 }),
-    ev(1, 'user.message', { content: 'still typing' }),
+    ev(0, 'session.start', { version: 1 }, now),
+    ev(1, 'user.message', { content: 'still typing' }, now),
   ], YAML_UNNAMED);
   const r = copilotCliParser.collect(envFor(home), 'metadata');
   assert.equal(r.state, 'partial');
@@ -82,6 +83,33 @@ test('no shutdown -> session-open, ended_at null', () => {
   assert.equal(s.ended_at, null);
   assert.equal(s.title, null); // user_named false -> never a title
   assert.ok(s.parse_warnings.some((w) => w.code === 'session-open'));
+});
+
+test('no shutdown + stale last activity -> inferred close, no-end-marker', () => {
+  const home = join(FIX, 'b2');
+  writeSession(home, UUID, [
+    ev(0, 'session.start', { version: 1 }),
+    ev(1, 'user.message', { content: 'left open' }),
+  ], YAML_UNNAMED);
+  const r = copilotCliParser.collect(envFor(home), 'metadata');
+  assert.equal(r.state, 'partial');
+  const s = r.sessions[0]!;
+  assert.equal(s.ended_at, '2026-01-01T10:01:00.000Z'); // spec §5.3: inferred from last activity
+  assert.equal(s.parse_warnings.filter((w) => w.code === 'no-end-marker').length, 1);
+  assert.ok(!s.parse_warnings.some((w) => w.code === 'session-open'));
+});
+
+test('invalid trailing timestamp -> ended_at from last valid activity', () => {
+  const home = join(FIX, 'b3');
+  writeSession(home, UUID, [
+    ev(0, 'session.start', { version: 1 }),
+    ev(1, 'user.message', { content: 'hello' }),
+    JSON.stringify({ id: 'e9', parentId: 'e1', timestamp: 'not-a-date', type: 'assistant.message', data: {} }),
+  ], YAML_UNNAMED);
+  const r = copilotCliParser.collect(envFor(home), 'metadata');
+  const s = r.sessions[0]!;
+  assert.equal(s.ended_at, '2026-01-01T10:01:00.000Z'); // last *valid* activity, not the garbage string
+  assert.ok(!Number.isNaN(Date.parse(s.ended_at!)));
 });
 
 test('truncated last line -> truncated-tail + no-end-marker, rest parsed', () => {
@@ -95,7 +123,7 @@ test('truncated last line -> truncated-tail + no-end-marker, rest parsed', () =>
   assert.equal(r.state, 'partial');
   const s = r.sessions[0]!;
   assert.equal(s.event_count, 2);
-  assert.equal(s.ended_at, null);
+  assert.equal(s.ended_at, '2026-01-01T10:01:00.000Z'); // inferred from last readable activity
   assert.ok(s.parse_warnings.some((w) => w.code === 'truncated-tail'));
   assert.ok(s.parse_warnings.some((w) => w.code === 'no-end-marker'));
 });

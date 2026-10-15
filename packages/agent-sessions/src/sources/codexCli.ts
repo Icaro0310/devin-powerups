@@ -54,14 +54,15 @@ function toIso(v: unknown): string | null {
 const normCwd = (c: string): string => normalize(c).replace(/[\\/]+$/, '');
 const isFresh = (iso: string): boolean => Date.now() - Date.parse(iso) < FRESH_MS;
 
-/** ended_at: explicit close wins; missing activity → `no-end-marker`;
- *  fresh activity → `session-open` (stays null); otherwise infer close
- *  from last activity — silently when `quietInfer`, else with warning. */
-function deriveEndedAt(lastTs: string | null, explicitEnd: string | null, quietInfer: boolean, w: ParseWarning[], origin?: string): string | null {
+/** ended_at per spec §5: explicit close wins; missing activity →
+ *  `no-end-marker` (stays null); fresh activity → `session-open` (stays
+ *  null); otherwise infer close from last activity — the `no-end-marker`
+ *  warning is mandatory: an inferred close is not evidence of one. */
+function deriveEndedAt(lastTs: string | null, explicitEnd: string | null, w: ParseWarning[], origin?: string): string | null {
   if (explicitEnd) return explicitEnd;
   if (!lastTs) { w.push(warn('no-end-marker', 'no activity timestamp', origin)); return null; }
   if (isFresh(lastTs)) { w.push(warn('session-open', 'activity in the last 60s; session appears open', origin)); return null; }
-  if (!quietInfer) w.push(warn('no-end-marker', 'closed state inferred from last activity', origin));
+  w.push(warn('no-end-marker', 'closed state inferred from last activity', origin));
   return lastTs;
 }
 
@@ -125,8 +126,7 @@ function readThreads(path: string): Draft[] {
       if (!nativeId) w.push(warn('missing-field', 'native id missing', sv));
       if (!startedAt) w.push(warn('missing-field', 'start timestamp missing', sv));
       if (!cwd) w.push(warn('unknown-workspace', 'workspace path missing; session id stays null, not deduplicated', sv));
-      const hasUser = row.has_user_event === 1 || row.has_user_event === true;
-      const endedAt = deriveEndedAt(updated, null, hasUser, w, sv ?? undefined);
+      const endedAt = deriveEndedAt(updated, null, w, sv ?? undefined);
       return {
         nativeId, cwd: cwd ? normCwd(cwd) : null, startedAt, endedAt,
         sourceVersion: sv, eventCount: null, warnings: w,
@@ -189,7 +189,7 @@ function parseRollout(path: string): Draft | null {
     w.push(warn('session-open', 'task_started without matching task_complete; task may be in progress', 'rollout'));
     endedAt = null;
   } else {
-    endedAt = deriveEndedAt(lastTs, endTs, false, w, 'rollout');
+    endedAt = deriveEndedAt(lastTs, endTs, w, 'rollout');
   }
   return {
     nativeId, cwd: cwd ? normCwd(cwd) : null, startedAt, endedAt,
