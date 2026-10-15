@@ -97,3 +97,7 @@ publishing, OIDC federation ou checks de versao.
   manual de versao final no ID antigo com displayName "(Moved)" +
   description apontando o sucessor (feito: agent-sessions@0.1.1 →
   aponta icaro0310.agent-sessions-vscode).
+- (2026-10-15) OVSX deprecation API requires OAuth session; tombstone via
+  publish is the automatable equivalent and reaches the installed user,
+  not just the search. Um flag silencioso so remove da busca; o tombstone
+  entrega displayName+description no proximo update de quem instalou.
