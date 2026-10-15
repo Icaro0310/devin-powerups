@@ -139,8 +139,9 @@ test('emptyWindowChatSessions -> workspace_hash null, canonical id without works
   assert.equal(res.sessions.length, 1);
   const s = res.sessions[0]!;
   assert.equal(s.workspace_hash, null);
-  assert.equal(s.id, null); // no stable workspace identity -> never canonical
-  assert.ok(s.parse_warnings.some((w) => w.code === 'unknown-workspace'));
+  assert.equal(s.id, null); // hashless native id -> never canonical (spec §4)
+  // spec §6.5: globalStorage is a legitimate identity — no unknown-workspace
+  assert.ok(!s.parse_warnings.some((w) => w.code === 'unknown-workspace'));
 });
 
 test('truncated last mutation line -> truncated-tail warning', () => {

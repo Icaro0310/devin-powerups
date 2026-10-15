@@ -194,7 +194,9 @@ function metaOf(rb: Rebuild, f: ChatFile): SessionMeta {
   else if (!completed) w.push(warn('session-open', 'last request has no completion marker; session may be open'));
   const version = typeof doc.version === 'number' || typeof doc.version === 'string' ? String(doc.version) : null;
   if (version === null) w.push(warn('missing-field', 'session document has no version field'));
-  if (!f.wsHash) w.push(warn('unknown-workspace', 'no stable workspace identity; session not deduplicated'));
+  // Spec §6.5: a null wsHash means a globalStorage session — a legitimate
+  // identity of its own, so `unknown-workspace` does NOT apply (the id
+  // still stays null: hashless native ids never get canonical ids, §4).
   const ended = completed && times.length ? new Date(Math.max(...times)).toISOString() : null;
   return {
     surface: SURFACE,

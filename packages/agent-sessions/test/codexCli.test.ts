@@ -77,13 +77,14 @@ test('a) state db threads are listed with canonical ids', () => {
     { id: 'thr-2', created_at: '2025-01-02T10:00:00Z', updated_at: '2025-01-02T11:00:00Z', title: null, cwd: '/repo/b' },
   ]);
   const res = codexCliParser.collect(env, 'metadata');
-  assert.equal(res.state, 'ok');
+  assert.equal(res.state, 'partial'); // inferred closes carry mandatory no-end-marker (spec §5.3)
   assert.equal(res.sessions.length, 2);
   const wsA = workspaceHash('/repo/a');
   const s1 = res.sessions.find((s) => s.id === canonicalId('codex-cli', wsA, 'native', 'thr-1'));
   assert.ok(s1);
   assert.equal(s1.started_at, '2025-01-01T10:00:00.000Z');
   assert.equal(s1.ended_at, '2025-01-01T11:00:00.000Z');
+  assert.ok(s1.parse_warnings.some((w) => w.code === 'no-end-marker'));
   assert.equal(s1.source_version, 'state-5');
   assert.equal(s1.title, null); // threads.title (auto-generated) must not leak
   assert.equal(s1.workspace_hash, wsA);
