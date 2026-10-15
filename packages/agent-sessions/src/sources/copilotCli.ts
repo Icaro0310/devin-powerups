@@ -69,7 +69,11 @@ function normalizeSeed(p: string): string {
 }
 
 function timestamp(v: unknown): string | null {
-  if (typeof v === 'string' && v) return v;
+  if (typeof v === 'string' && v) {
+    // A non-ISO string is not a timestamp: lastTs/ended_at must never
+    // inherit an unparseable value from the last event in the file.
+    return Number.isNaN(Date.parse(v)) ? null : v;
+  }
   if (typeof v === 'number' && Number.isFinite(v)) return new Date(v).toISOString();
   return null;
 }

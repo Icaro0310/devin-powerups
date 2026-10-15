@@ -119,13 +119,19 @@ for (const fx of manifest.fixtures) {
   for (const entry of fx.sessions) {
     test(`${fx.surface}: session ${entry.native_id} matches canonical manifest`, () => {
       const s = findSession(res, fx, entry);
-      assert.ok(s, `no SessionMeta for native_id ${entry.native_id}`);
-
-      // expect.state refers to the session's parse outcome: 'ok' = the
-      // session parsed into a complete SessionMeta (warnings allowed —
-      // they are per-session metadata, and the result-level state already
-      // downgrades to 'partial' on their account).
-      assert.equal(entry.expect.state, 'ok');
+      // expect.state is the per-session parse outcome: 'ok' means the
+      // session must yield a complete SessionMeta (warnings allowed —
+      // they are per-session metadata and already downgrade the
+      // result-level state); any other state means the store row must
+      // NOT produce a SessionMeta at all. The assertion runs both ways
+      // so a parser regression is caught either direction.
+      if (entry.expect.state === 'ok') {
+        assert.ok(s, `no SessionMeta for native_id ${entry.native_id}`);
+      } else {
+        assert.equal(s, undefined,
+          `expect.state ${entry.expect.state} must not yield a SessionMeta`);
+        return;
+      }
 
       assert.deepEqual(codes(s), new Set(entry.expect.warning_codes), 'warning_codes (set)');
       assert.equal(s.event_count, entry.expect.event_count, 'event_count');
