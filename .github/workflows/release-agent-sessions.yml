@@ -84,3 +84,6 @@ jobs:
     with:
       package-dir: packages/agent-sessions
       vscode-ext-dir: packages/agent-sessions
+      # Entra-provisioned caller: a failed marketplace leg must fail the
+      # release, not finish green (devin-review on #197).
+      azure-marketplace-required: true

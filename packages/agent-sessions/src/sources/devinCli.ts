@@ -85,11 +85,14 @@ function dbCandidates(env: CollectEnv): string[] {
 function openReadOnly(Ctor: SqliteCtor, path: string) {
   const uri = 'file:' + path.split('/').map(encodeURIComponent).join('/') + '?mode=ro&immutable=1';
   for (const spec of [path, uri]) {
+    let db: { prepare(sql: string): { all(): unknown[] }; close(): void } | null = null;
     try {
-      const db = new Ctor(spec, { readOnly: true });
+      db = new Ctor(spec, { readOnly: true });
       db.prepare('SELECT 1').all(); // force the lazy open now
       return db;
-    } catch { /* try the next spec */ }
+    } catch {
+      try { db?.close(); } catch { /* best-effort */ }
+    }
   }
   throw new Error('sessions.db unreadable');
 }
