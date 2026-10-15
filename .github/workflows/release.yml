@@ -598,7 +598,7 @@ jobs:
       - name: Marketplace publish required
         if: inputs.azure-marketplace-required == true && steps.marketplace-publish.outcome != 'success'
         run: |
-          echo "::error::azure-marketplace-required=true but the marketplace leg did not publish (login outcome: ${{ steps.azure-login.outcome }}, publish outcome: ${{ steps.marketplace-publish.outcome }})."
+          echo "::error::azure-marketplace-required=true but the marketplace leg did not publish (login outcome: ${{ steps.azure-login.outcome }}, publish outcome: ${{ steps.marketplace-publish.outcome }}). Fix the Entra federated credential / AZURE_* vars, or drop the input from the caller."
           exit 1
 
   gh-marketplace:
