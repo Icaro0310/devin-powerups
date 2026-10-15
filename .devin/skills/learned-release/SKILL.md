@@ -78,6 +78,40 @@ publishing, OIDC federation ou checks de versao.
   mas so DEPOIS do OVSX ter corrido. Sem a camada 1, uma credencial
   por provisionar segura 4 legs por uma; sem a camada 2, o defer vira
   silencio permanente e ninguem nota que o marketplace nunca publicou.
+- (2026-10-15) floor-check CLI↔extensao tem 2 fases e a dependencia entre
+  elas nao e obvia: (heuristica) stderr do argparse `unrecognized
+  arguments|invalid choice` -> msg "CLI too old, upgrade" — detecta CLI
+  mais velho que a flag minima SEM probe; (estrutural) `version`
+  self-reported no payload JSON -> cliCompatStatus preciso. A heuristica
+  assume que o texto de erro do argparse e estavel entre versoes — se um
+  CLI futuro mudar a mensagem (outra flag, subcommand, reescrita), o
+  fallback deixa de detectar e volta ao silencio. Regra: o campo
+  `version` no payload e o que torna o check robusto; antes de remover a
+  heuristica de stderr confirmar que o payload-version esta em TODOS os
+  CLIs publicados (e vice-versa: nao apagar o caminho estrutural porque
+  "a heuristica ja cobre"). Fase actual: heuristic-only ate os CLIs
+  publicados emitirem version (qa-pack/search >=0.1.3).
+- (2026-10-15) Restricted Mode e MCP: a redaccao "VS Code nunca consulta
+  providers MCP untrusted" e imprecisa — medido em 1.141.2, o provider
+  exposto por extensao (vscode.lm.registerMcpServerDefinitionProvider)
+  E consultado para enumeracao mesmo em Restricted (a definicao aparece
+  no MCP: List Servers e Start Server e oferecido; onMcpCollection
+  dispara a activacao da extensao). O que fica bloqueado e o SPAWN:
+  clicar Start abre o dialogo "This MCP server definition is defined
+  in your workspace files" e cancelar = zero processo criado. Regra:
+  "enumera sem executar" — design docs e sensors devem assumir que a
+  definicao e visivel, so o processo e gated. Relacionado: o mesmo
+  trust-gate cobre .vscode/mcp.json (server do workspace) E terminal
+  integrado ("Cannot launch a terminal process in an untrusted
+  workspace") — em Restricted, CLIs sao inalcancaveis; a superficie e
+  extension-only.
+- (2026-10-15) VS Code 1.141+ arranca MCP servers via Agent Host
+  (sessao Copilot CLI), nao no exthost directo: spawn so acontece DEPOIS
+  do session runtime existir — erro literal "Cannot start an MCP server
+  before the session runtime has been created. Send a message first."
+  Testes E2E de .vscode/mcp.json devem enviar uma mensagem de chat antes
+  de avaliar Start/Error; sem isso todo o server reporta Error
+  espuriamente.
 - (2026-10-15) VS Code Marketplace exige unicidade GLOBAL em DOIS campos,
   nao so `name`: `name` colidiu com zarritas/agent-sessions (renomeado p/
   `agent-sessions-vscode`) e no publish seguinte o `displayName` "Agent

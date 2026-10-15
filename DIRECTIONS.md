@@ -148,6 +148,18 @@ here so they are not re-proposed.
 Filed from the wave-9/audit cycle. Same conversion rule: they stay here
 until the consumption point — and the pain — is concrete.
 
+- **Floor-check no template `adapters/vscode_ext`** — every shipped
+  CLI↔extension wrapper now carries `COMPATIBLE_CLI` + a `cli-contract`
+  test (doctor/devkit/bridge/memory natively; qa-pack/search via
+  assure#71 + explore#78), but the generator template still ships the
+  exec path with no version bounds. **Trigger: port the floor-check into
+  the template (`<pkg-cli>` pin field + payload-`version` probe +
+  argparse mapping) *before* the first real extension is generated from
+  it** — otherwise the class reopens silently in the new package, and
+  the fix propagates free to every future adapter instead of being
+  retrofitted per-repo. Not work today: agent-sessions execs nothing,
+  no consumer is blocked. Named so it does not resurface as a fresh
+  finding on generation day.
 - **`devin-bridge` ACP-server mode** — bridge is client-only today
   (`new`/`resume`/`prompt`/`sessions`/`policy`); a `serve`/`acp-server`
   mode enables policy-gated Zed/JetBrains agents. Needs spec; Rule 1

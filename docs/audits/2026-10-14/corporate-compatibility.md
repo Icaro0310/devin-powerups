@@ -195,3 +195,44 @@ not inspected:
    `selectChatModels()` returns `[]`, the endpoint returns 503 as designed.
    Copilot coverage requires the user's GitHub sign-in; BYOK coverage
    requires a BYOK extension with keys. Neither is testable headless.
+
+## 8. Restricted Mode second pass (2026-10-15, VS Code 1.141.2)
+
+Follow-up run on a fresh restricted profile (`--user-data-dir` never
+trusted). Measured with real UI input via CDP:
+
+- **The integrated terminal is entirely trust-gated.** `Terminal: Create
+  New Terminal` opens the dialog "Creating a terminal process requires
+  executing code"; cancelling yields `The terminal process failed to
+  launch: Cannot launch a terminal process in an untrusted workspace.`
+  In Restricted Mode no CLI runs, not even `echo` — the earlier
+  assumption "Restricted blocks MCP spawn but leaves the terminal" is
+  false in this version.
+- **Consequence for the runbook**: in a corporate Restricted workspace,
+  no CLI is reachable *by the user* — the integrated terminal is
+  trust-gated, so interactive CLIs require a Trusted workspace. This is
+  a terminal boundary, not a spawn boundary: extensions that activate
+  in Restricted still launch an installed `devin-*` CLI from `runCli`,
+  so extension-mediated features keep working with a CLI on PATH. The
+  IT runbook must grant workspace trust only where *direct terminal
+  access* to a CLI is needed.
+- **MCP servers enumerate but never execute.** `.vscode/mcp.json`
+  definitions and the `devin-memory` extension provider
+  (`onMcpCollection:devin-memory` fires, definition appears in
+  `MCP: List Servers`) are all *enumerated* in Restricted; clicking
+  Start opens the trust dialog and cancelling spawns zero processes.
+  Correct summary: "enumera sem executar" — the provider IS consulted
+  for enumeration, only the process is gated.
+- **MCP spawn requires a chat session runtime.** VS Code 1.141 runs MCP
+  servers through the Copilot Agent Host; clicking Start before the
+  first chat message fails with `Cannot start an MCP server before the
+  session runtime has been created. Send a message first.` After one
+  chat message, valid servers connect (`connected (ready)` in
+  `agenthost.log`).
+- **MCP servers installed without the `[mcp]` extra fail at the
+  handshake** (`exit code 1`). PATH-installed `devin-memory-mcp` already
+  exits cleanly (`error: The MCP server needs the 'mcp' extra…`); the
+  other ecosystem entry points printed a traceback until the boundary
+  guard PRs (devin-state#67, devin-explore, devin-devkit, devin-control#65,
+  devin-assure) added `except ImportError -> error: + SystemExit(1)` to
+  every `mcp_server.main()`.
