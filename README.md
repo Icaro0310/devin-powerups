@@ -313,9 +313,10 @@ committing:
    (that exact key — it only takes effect once merged to the default
    branch, so land it in a tiny PR first).
 2. **Repo CI `secrets-scan`** (`.github/workflows/secrets-scan.yml`)
-   greps the PR diff independently of GitHub. Escape: `.secrets-scan-allow`
-   entries `path sha256=<hash>` — recompute the pin whenever the fixture
-   changes (that re-trigger is the point of the hash pin).
+   recursively greps the whole checkout, independent of GitHub. Escape:
+   `.secrets-scan-allow` entries `path sha256=<hash>` — recompute the pin
+   whenever the fixture changes (that re-trigger is the point of the hash
+   pin).
 3. **`devin-redact` itself** scans any text — keep fixtures honest; the
    corpus is how we prove the redactor sees the same things as Python.
 
