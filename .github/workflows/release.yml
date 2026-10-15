@@ -587,11 +587,14 @@ jobs:
 
       # Strict gate for repos past the provisioning window: callers pass
       # `azure-marketplace-required: true` once the federated credential
-      # is live. With required, ANY non-success on the marketplace leg
-      # fails the job AFTER the Open VSX leg — including missing Entra
-      # vars (a misconfiguration must not pass silently), login failure,
-      # or vsce failure. The release goes red without blocking the
-      # other registry.
+      # is live — all seven release callers migrated to the input in the
+      # same change wave (the repo-var predecessor was never adopted:
+      # `gh variable get AZURE_MARKETPLACE_REQUIRED` returned unset in
+      # every caller repo). With required, ANY non-success on the
+      # marketplace leg fails the job AFTER the Open VSX leg — including
+      # missing Entra vars (a misconfiguration must not pass silently),
+      # login failure, or vsce failure. The release goes red without
+      # blocking the other registry.
       - name: Marketplace publish required
         if: inputs.azure-marketplace-required == true && steps.marketplace-publish.outcome != 'success'
         run: |
