@@ -25,6 +25,7 @@ their own pace. Concrete release tags (`v1.0.0`) mark the underlying commit.
 | `codeql.yml` | CodeQL analysis | `push`/`pull_request` main + `schedule` | `language` (default `python`) |
 | `secrets-scan.yml` | Secret-shaped string scan | called from repo `ci.yml` | none |
 | `adapters-check.yml` | Distributed-adapter hygiene scan (personal paths, internal names, token shapes, SKILL.md command coherence) | called from repo `ci.yml` | none |
+| `config-restricted-check.yml` | VS Code extension `untrustedWorkspaces` coverage (declaration required; `limited` is restricted-by-default) | called from repo `ci.yml` | none |
 | `python-test.yml` | pytest on windows+ubuntu | called from repo `ci.yml` | `python-version`, `package-dir` |
 | `adapter-test.yml` | One adapter face's own suite in isolation, on windows+ubuntu | called from per-package adapter workflows | `package-dir`, `adapter-dir`, `test-command`, `python-version`, `node-version`, `pre-install`, `skip-install` |
 | `pypi-publish.yml` | Verify wheel `__version__`, then publish the verified `dist` to PyPI | `workflow_call` only — the caller wires `release`/`workflow_dispatch` | `package-dir`, `python-version`, `module` |
@@ -147,6 +148,10 @@ jobs:
 name: release
 on:
   push:
+    # `<pkg>-vX.Y.Z` repos keep `*-v*`; repos on the bare `vX.Y.Z`
+    # convention (e.g. devin-judge) need `tags: ["v*"]` instead — the
+    # reusable lint and the shared detect gate accept both, but the
+    # caller trigger decides whether the workflow runs at all.
     tags: ["*-v*"]
 permissions:
   contents: read
@@ -194,6 +199,15 @@ jobs:
     permissions:
       contents: read
     uses: Icaro0310/devin-powerups/.github/workflows/adapters-check.yml@v1
+  # config-restricted-check — same wiring in every repo that ships VS
+  # Code extensions. The sensor fetches scripts/check_config_restricted.py
+  # from this repo at the same v1 tag when the caller does not ship its
+  # own copy; there is no allowlist — a finding is fixed by declaring or
+  # restricting the key, never suppressed.
+  config-restricted-check:
+    permissions:
+      contents: read
+    uses: Icaro0310/devin-powerups/.github/workflows/config-restricted-check.yml@v1
 ```
 
 Rule of thumb: the `permissions` on a `uses:` job must cover every scope the
@@ -226,7 +240,8 @@ Global parity checks after each migration wave:
 - **scorecard**: all callers byte-identical; `workflow_dispatch` present so
   validation never waits on the weekly schedule.
 - **codeql**: callers byte-identical except a documented `language` input.
-- **ci.yml**: callers byte-identical; jobs are only the two `uses:` entries.
+- **ci.yml**: callers byte-identical; jobs are only the `uses:` entries
+  matching the caller template above (currently three).
 
 Byte-identical callers are required for the no-input workflows because any
 difference is either a missing input (fix the reusable) or a variant

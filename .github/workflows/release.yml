@@ -47,9 +47,12 @@ on:
         description: >-
           GitHub environment gating the PyPI job — must match the
           environment configured on the project's Trusted Publisher
-          (pypi / pypi-devkit / pypi-skill-catalog / pypi-switch)
+          (pypi / pypi-devkit / pypi-skill-catalog / pypi-switch).
+          Unused when package-dir has no pyproject.toml (the wheel legs
+          skip by artifact detection).
         type: string
-        required: true
+        required: false
+        default: ""
       python-version:
         description: Interpreter used to build and verify the wheel
         type: string
@@ -86,12 +89,102 @@ on:
       version:
         description: Version resolved from the package's pyproject.toml
         value: ${{ jobs.publish-pypi.outputs.version }}
+      extension-version:
+        description: Version from the VS Code extension manifest, when vscode-ext-dir is set
+        value: ${{ jobs.detect.outputs.ext-version }}
 
 permissions:
   contents: read
 
 jobs:
+  # Artifact detection: a package without pyproject.toml is an
+  # extension-only release — the verify/pypi legs skip with a warning
+  # instead of failing the reusable contract. docker/vscode-ext keep
+  # running (they only need the wheel gate WHEN a wheel exists).
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      has-wheel: ${{ steps.d.outputs.has-wheel }}
+      ext-version: ${{ steps.d.outputs.ext-version }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      # When the wheel legs skip, detect becomes the publish-origin
+      # gate — the same ancestry check verify-wheel-version runs.
+      - name: Require publish origin merged into main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          status=$(gh api "repos/${{ github.repository }}/compare/main...${GITHUB_SHA}" --jq .status)
+          case "$status" in
+            behind|identical) ;;
+            *) echo "::error::publish origin is '$status' vs main — refusing to publish an unmerged commit"; exit 1 ;;
+          esac
+
+      - id: d
+        env:
+          PACKAGE_DIR: ${{ inputs.package-dir }}
+          VSCODE_EXT_DIR: ${{ inputs.vscode-ext-dir }}
+        run: |
+          if [ -f "$PACKAGE_DIR/pyproject.toml" ]; then
+            echo "has-wheel=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has-wheel=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::no pyproject.toml under $PACKAGE_DIR — wheel legs (verify, PyPI) skip; extension-only release"
+          fi
+          if [ -n "$VSCODE_EXT_DIR" ] && [ -f "$VSCODE_EXT_DIR/package.json" ]; then
+            v=$(python3 -c "import json,os; print(json.load(open(os.path.join(os.environ['VSCODE_EXT_DIR'],'package.json')))['version'])")
+            echo "ext-version=$v" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Shared tag gate — checked ONCE upstream of every publish leg so a
+      # mistagged release fails here instead of shipping a wrong artifact
+      # on legs that run no tag check of their own (docker) or only
+      # recognize one convention (the PyPI `-v` guard). Both conventions:
+      # bare vX.Y.Z first (a SemVer prerelease may itself contain '-v',
+      # e.g. v1.2.3-v2), then <pkg>-vX.Y.Z.
+      - name: Check tag matches detected versions
+        if: github.ref_type == 'tag'
+        env:
+          PACKAGE_DIR: ${{ inputs.package-dir }}
+          VSCODE_EXT_DIR: ${{ inputs.vscode-ext-dir }}
+        run: |
+          python3 - <<'PY'
+          import json, os, re, sys, tomllib
+          ref = os.environ['GITHUB_REF_NAME']
+          if re.match(r'^v\d+\.\d+', ref):
+              tag_version, tag_pkg = ref[1:], None
+          elif '-v' in ref:
+              tag_pkg, tag_version = ref.rsplit('-v', 1)
+          else:
+              print(f'::error::tag {ref} matches no release convention '
+                    '(vX.Y.Z or <pkg>-vX.Y.Z)')
+              sys.exit(1)
+          errs = []
+          pyproject = os.path.join(os.environ['PACKAGE_DIR'], 'pyproject.toml')
+          if os.path.exists(pyproject):
+              meta = tomllib.load(open(pyproject, 'rb'))['project']
+              if meta['version'] != tag_version:
+                  errs.append(f"pyproject version {meta['version']} != tag {ref}")
+              allowed = {meta['name'], os.path.basename(
+                  os.path.normpath(os.environ['PACKAGE_DIR']))}
+              if tag_pkg is not None and tag_pkg not in allowed:
+                  errs.append(f"tag prefix '{tag_pkg}' names neither {meta['name']} "
+                              f"nor {os.path.basename(os.path.normpath(os.environ['PACKAGE_DIR']))}")
+          ext_manifest = os.path.join(
+              os.environ.get('VSCODE_EXT_DIR') or '.', 'package.json')
+          if os.path.exists(ext_manifest):
+              v = json.load(open(ext_manifest))['version']
+              if v != tag_version:
+                  errs.append(f"package.json version {v} != tag {ref}")
+          for e in errs:
+              print(f'::error::{e}')
+          sys.exit(1 if errs else 0)
+          PY
+
   verify:
+    needs: detect
+    if: needs.detect.outputs.has-wheel == 'true'
     permissions:
       contents: read
     uses: $/.github/workflows/verify-wheel-version.yml
@@ -101,9 +194,12 @@ jobs:
       python-version: ${{ inputs.python-version }}
 
   publish-pypi:
-    needs: verify
+    needs: [detect, verify]
+    if: always() && needs.detect.result == 'success' && needs.detect.outputs.has-wheel == 'true' && needs.verify.result == 'success'
     runs-on: ubuntu-latest
-    environment: ${{ inputs.pypi-environment }}
+    # `|| 'pypi'` — an empty expansion is an invalid environment name
+    # and fails workflow startup even though the `if` skips the job.
+    environment: ${{ inputs.pypi-environment || 'pypi' }}
     permissions:
       contents: read    # checkout reads pyproject for name+version
       id-token: write   # PyPI Trusted Publishing (OIDC)
@@ -135,23 +231,33 @@ jobs:
           REF_TYPE: ${{ github.ref_type }}
         run: |
           python3 - <<'PY'
-          import json, os, tomllib, urllib.error, urllib.request
+          import json, os, re, tomllib, urllib.error, urllib.request
           meta = tomllib.load(open(os.path.join(
               os.environ['PACKAGE_DIR'], 'pyproject.toml'), 'rb'))['project']
           name, version = meta['name'], meta['version']
           ref = os.environ['REF_NAME']
-          if os.environ['REF_TYPE'] == 'tag' and '-v' in ref:
-              tag_pkg, tag_ver = ref.rsplit('-v', 1)
-              # Tag prefix names the package: ecosystem tags use the
-              # pyproject name OR the package-dir basename
-              # (qa-pack-v0.1.0 vs devin-qa-pack-v0.1.0 — both seen).
-              allowed = {name, os.path.basename(
-                  os.path.normpath(os.environ['PACKAGE_DIR']))}
-              if tag_ver != version or tag_pkg not in allowed:
-                  print(f'::error::tag {ref} does not name {name} '
-                        f'{version} — a mistagged release would publish '
-                        'the wrong package or version; retag or bump.')
-                  raise SystemExit(1)
+          if os.environ['REF_TYPE'] == 'tag':
+              # Bare vX.Y.Z first — a SemVer prerelease may itself
+              # contain '-v' (v1.2.3-v2) — then <pkg>-vX.Y.Z. Bare tags
+              # carry no package prefix to validate, only the version.
+              if re.match(r'^v\d+\.\d+', ref):
+                  tag_pkg, tag_ver = None, ref[1:]
+              elif '-v' in ref:
+                  tag_pkg, tag_ver = ref.rsplit('-v', 1)
+              else:
+                  tag_pkg = tag_ver = None
+              if tag_ver is not None:
+                  # Tag prefix names the package: ecosystem tags use the
+                  # pyproject name OR the package-dir basename
+                  # (qa-pack-v0.1.0 vs devin-qa-pack-v0.1.0 — both seen).
+                  allowed = {name, os.path.basename(
+                      os.path.normpath(os.environ['PACKAGE_DIR']))}
+                  if tag_ver != version or (tag_pkg is not None
+                                            and tag_pkg not in allowed):
+                      print(f'::error::tag {ref} does not name {name} '
+                            f'{version} — a mistagged release would publish '
+                            'the wrong package or version; retag or bump.')
+                      raise SystemExit(1)
           published = set()
           try:
               data = json.load(urllib.request.urlopen(
@@ -208,8 +314,8 @@ jobs:
     # Needs only the wheel gate: the image builds from source and the
     # version is read from pyproject below — a PyPI outage must not
     # block the container publish.
-    needs: verify
-    if: inputs.docker-image != ''
+    needs: [detect, verify]
+    if: always() && needs.detect.result == 'success' && inputs.docker-image != '' && needs.verify.result != 'failure' && needs.verify.result != 'cancelled'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -224,8 +330,17 @@ jobs:
           PACKAGE_DIR: ${{ inputs.package-dir }}
           OWNER: ${{ github.repository_owner }}
           IMAGE_NAME: ${{ inputs.docker-image }}
+          EXT_VERSION: ${{ needs.detect.outputs.ext-version }}
         run: |
-          ver=$(python3 -c "import tomllib,os; print(tomllib.load(open(os.path.join(os.environ['PACKAGE_DIR'],'pyproject.toml'),'rb'))['project']['version'])")
+          ver=$(python3 - <<'PY'
+          import os, tomllib
+          pp = os.path.join(os.environ['PACKAGE_DIR'], 'pyproject.toml')
+          if os.path.exists(pp):
+              print(tomllib.load(open(pp, 'rb'))['project']['version'])
+          else:
+              print(os.environ.get('EXT_VERSION', ''))
+          PY
+          )
           test -n "$ver"
           echo "version=$ver" >> "$GITHUB_OUTPUT"
           # Docker refs are lowercase-only — an owner like Icaro0310
@@ -268,8 +383,8 @@ jobs:
     # Needs only the wheel gate: the version is read from pyproject in
     # the lint step below — the extension artifact must survive a PyPI
     # outage or a pending environment approval.
-    needs: verify
-    if: inputs.vscode-ext-dir != ''
+    needs: [detect, verify]
+    if: always() && needs.detect.result == 'success' && inputs.vscode-ext-dir != '' && needs.verify.result != 'failure' && needs.verify.result != 'cancelled'
     runs-on: ubuntu-latest
     # environment:release — the Entra federated credential on each
     # caller repo is scoped to this exact environment name, so the
@@ -300,7 +415,7 @@ jobs:
           PACKAGE_DIR: ${{ inputs.package-dir }}
         run: |
           python3 - <<'PY'
-          import json, os, sys, tomllib
+          import json, os, re, sys, tomllib
           pkg = json.load(open('package.json'))
           errs = []
           events = pkg.get('activationEvents') or []
@@ -322,13 +437,30 @@ jobs:
           if missing:
               errs.append("'activationEvents' is missing MCP provider hooks: "
                           + ', '.join(missing))
-          rel_version = tomllib.load(open(os.path.join(
-              os.environ['GITHUB_WORKSPACE'], os.environ['PACKAGE_DIR'],
-              'pyproject.toml'), 'rb'))['project']['version']
+          pyproject = os.path.join(os.environ['GITHUB_WORKSPACE'],
+                                   os.environ['PACKAGE_DIR'], 'pyproject.toml')
+          rel_version = (tomllib.load(open(pyproject, 'rb'))['project']['version']
+                         if os.path.exists(pyproject) else None)
           if rel_version and pkg.get('version') != rel_version:
               errs.append(f"'version' {pkg.get('version')} != release version "
                           f"{rel_version} — the extension ships in lockstep; "
                           "bump package.json before tagging")
+          # Tag conventions `<pkg>-vX.Y.Z` and bare `vX.Y.Z`: the tag is
+          # the release-version signal — a mistagged release would mint
+          # a GitHub/marketplace entry named X.Y.Z containing a different
+          # extension version. Bare is tested FIRST and anchored on
+          # v<digit>.<digit> — a bare SemVer prerelease may itself contain
+          # '-v' (v1.2.3-v2 parses as 1.2.3-v2, not 2).
+          ref_name = os.environ.get('GITHUB_REF_NAME', '')
+          tag_version = None
+          if os.environ.get('GITHUB_REF_TYPE') == 'tag':
+              if re.match(r'^v\d+\.\d+', ref_name):
+                  tag_version = ref_name[1:]
+              elif '-v' in ref_name:
+                  tag_version = ref_name.rsplit('-v', 1)[1]
+          if tag_version is not None and pkg.get('version') != tag_version:
+              errs.append(f"'version' {pkg.get('version')} != tag "
+                          f"{ref_name} — retag or bump package.json")
           for err in errs:
               print(f'::error::{err}')
           sys.exit(1 if errs else 0)
@@ -346,6 +478,13 @@ jobs:
           else
             npm install --no-audit --no-fund
           fi
+
+      # Compiled extensions declare `main: ./out/…` with out/ ignored —
+      # without the build the packaged vsix lacks its entrypoint.
+      # --if-present keeps the step a no-op for plain-JS extensions.
+      - name: Build extension
+        working-directory: ${{ inputs.vscode-ext-dir }}
+        run: npm run build --if-present
 
       - name: Package .vsix
         working-directory: ${{ inputs.vscode-ext-dir }}
@@ -365,17 +504,41 @@ jobs:
       # Contributor (members portal). Skips with a warning when the
       # caller repo does not define AZURE_CLIENT_ID/AZURE_TENANT_ID.
       - name: Azure login (federated)
+        id: azure-login
         if: vars.AZURE_CLIENT_ID != '' && vars.AZURE_TENANT_ID != ''
+        # The Entra federated credential is provisioned per-repo and may
+        # lag the repo vars — a login failure is a pending-setup state,
+        # not a publish failure, so it must not take the independent
+        # Open VSX leg down with it. `continue-on-error` keeps the step
+        # visibly red while the job proceeds; the publish below gates on
+        # `outcome` (the real result — `conclusion` would read success
+        # under continue-on-error).
+        continue-on-error: true
         uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           allow-no-subscriptions: true
 
+      # `continue-on-error` here too: a marketplace publish failure must
+      # not take down the independent Open VSX leg (its `success()` gate
+      # would otherwise read this step's failure). The final
+      # `Marketplace publish required` gate below restores strictness for
+      # repos that set AZURE_MARKETPLACE_REQUIRED=true.
       - name: Publish to VS Code Marketplace
-        if: vars.AZURE_CLIENT_ID != '' && vars.AZURE_TENANT_ID != ''
+        id: marketplace-publish
+        if: vars.AZURE_CLIENT_ID != '' && vars.AZURE_TENANT_ID != '' && steps.azure-login.outcome == 'success'
+        continue-on-error: true
         working-directory: ${{ inputs.vscode-ext-dir }}
         run: npx @vscode/vsce publish --azure-credential --packagePath *.vsix --skip-duplicate
+
+      - name: Marketplace publish deferred — Azure login failed
+        if: vars.AZURE_CLIENT_ID != '' && vars.AZURE_TENANT_ID != '' && steps.azure-login.outcome != 'success'
+        run: echo "::warning::azure/login failed — the Entra federated credential is likely not provisioned for this repo yet. Marketplace publish deferred; re-run this workflow after it exists (Open VSX is unaffected)."
+
+      - name: Marketplace publish failed
+        if: vars.AZURE_CLIENT_ID != '' && vars.AZURE_TENANT_ID != '' && steps.azure-login.outcome == 'success' && steps.marketplace-publish.outcome == 'failure'
+        run: echo "::warning::vsce publish failed — the extension was NOT published to the VS Code Marketplace (Open VSX is unaffected; re-run after fixing)."
 
       - name: Marketplace publish skipped — Entra vars missing
         if: vars.AZURE_CLIENT_ID == '' || vars.AZURE_TENANT_ID == ''
@@ -410,6 +573,19 @@ jobs:
       - name: Open VSX publish skipped — OVSX_PAT not forwarded
         if: steps.ovsx.outputs.present == 'false'
         run: echo "::warning::OVSX_PAT not forwarded by the caller — Open VSX publish skipped (vsix stays as the 'vsix' artifact for manual `ovsx publish`)."
+
+      # Strict gate for repos past the provisioning window: set repo var
+      # AZURE_MARKETPLACE_REQUIRED=true once the federated credential is
+      # live. With required=true, ANY non-success on the marketplace leg
+      # fails the job AFTER the Open VSX leg — including missing Entra
+      # vars (a misconfiguration must not pass silently), login failure,
+      # or vsce failure. The release goes red without blocking the
+      # other registry.
+      - name: Marketplace publish required
+        if: vars.AZURE_MARKETPLACE_REQUIRED == 'true' && steps.marketplace-publish.outcome != 'success'
+        run: |
+          echo "::error::AZURE_MARKETPLACE_REQUIRED=true but the marketplace leg did not publish (login outcome: ${{ steps.azure-login.outcome }}, publish outcome: ${{ steps.marketplace-publish.outcome }})."
+          exit 1
 
   gh-marketplace:
     needs: verify

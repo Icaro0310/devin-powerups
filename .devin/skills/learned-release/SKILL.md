@@ -35,3 +35,103 @@ publishing, OIDC federation ou checks de versao.
   PyPI) existe na CLI mas a policy do marketplace ainda nao e
   configuravel no portal — caminho documentado, nao utilizavel hoje.
   Re-avaliar quando a issue do vsce fechar.
+- (2026-10-15) `gpg --batch --import --show-keys` e um par de comandos
+  CONFLITUOSO ("gpg: conflicting commands") — falhou em producao em 5
+  workflows (explore/assure/control/devkit). Extracao de fingerprint e
+  `gpg --batch --show-keys --with-colons` SOZINHO sobre a key armored;
+  o `--import` fica no step anterior separado. Padrao copiavel:
+  `KEYID=$(gpg --batch --show-keys --with-colons < key.asc | awk -F: '/^fpr/{print $10; exit}')`.
+- (2026-10-15) Caller workflows de release: `fanout` (reusable publish)
+  precisa de `needs: [validate, release]` E `if: github.event_name ==
+  'push' && github.ref_type == 'tag'`. Sem isso: (a) workflow_dispatch
+  publica em OVSX/Marketplace sem tag (o tag gate do reusable e
+  `ref_type=='tag'` e skipa em dispatch); (b) a extensao publica mesmo
+  quando o release GitHub falha. Dispatch fica dry-run de validate.
+- (2026-10-15) `gh workflow run` so enfileira — publish fire-and-forget
+  deixa o release verde com npm nao publicado. Poll bounded por
+  `gh run list --workflow X --commit $SHA` filtrando `createdAt >=`
+  instante do dispatch (sem o filtro, um retry le a conclusao do run
+  ANTERIOR no mesmo commit).
+- (2026-10-15) Publishers npm precisam de 2 guards proprios: merged-origin
+  (`gh api compare/main...SHA`) — uma tag num commit nao mergeado
+  publica codigo nao revisto — e dup-skip via `npm view pkg@ver` antes
+  de `npm publish` (retry falha E403 em versao existente).
+- (2026-10-15) Entra/Marketplace JA ESTA provisionado nos 6 repos —
+  `vsce publish --azure-credential` publicou em todos em 2026-10-15.
+  A premissa "Marketplace espera Entra" ficou obsoleta; o skip limpo do
+  reusable continua correto como fallback.
+- (2026-10-15) devin-brain tem 2 linhas de versao independentes: wheel
+  `devin-memory` 0.3.x (pypi-publish.yml) vs extensao 0.1.x
+  (release-memory.yml, tag `memory-v*`). O fanout usa
+  `package-dir: adapters/vscode` — sem pyproject ali, o reusable corre
+  o path extension-only e o tag gate so valida o manifest da extensao.
+  Lockstep NAO se aplica entre os dois artefactos.
+- (2026-10-15) leg com credencial opcional: o fix do azure/login
+  evoluiu em duas camadas — padrao reutilizavel para qualquer leg que
+  dependa de provisioning externo. (1) `continue-on-error: true` +
+  `id:` no passo de login, publish gated em `steps.X.outcome ==
+  'success'` (outcome, nao conclusion — continue-on-error mascara
+  conclusion): a credencial pendente vira warning e o resto do job
+  (Open VSX) corre. (2) gate opt-in `AZURE_MARKETPLACE_REQUIRED=true`
+  no fim do job: repos pos-provisioning voltam a falhar vermelho em
+  qualquer non-success do marketplace (vars em falta, login ou vsce),
+  mas so DEPOIS do OVSX ter corrido. Sem a camada 1, uma credencial
+  por provisionar segura 4 legs por uma; sem a camada 2, o defer vira
+  silencio permanente e ninguem nota que o marketplace nunca publicou.
+- (2026-10-15) floor-check CLI↔extensao tem 2 fases e a dependencia entre
+  elas nao e obvia: (heuristica) stderr do argparse `unrecognized
+  arguments|invalid choice` -> msg "CLI too old, upgrade" — detecta CLI
+  mais velho que a flag minima SEM probe; (estrutural) `version`
+  self-reported no payload JSON -> cliCompatStatus preciso. A heuristica
+  assume que o texto de erro do argparse e estavel entre versoes — se um
+  CLI futuro mudar a mensagem (outra flag, subcommand, reescrita), o
+  fallback deixa de detectar e volta ao silencio. Regra: o campo
+  `version` no payload e o que torna o check robusto; antes de remover a
+  heuristica de stderr confirmar que o payload-version esta em TODOS os
+  CLIs publicados (e vice-versa: nao apagar o caminho estrutural porque
+  "a heuristica ja cobre"). Fase actual: heuristic-only ate os CLIs
+  publicados emitirem version (qa-pack/search >=0.1.3).
+- (2026-10-15) Restricted Mode e MCP: a redaccao "VS Code nunca consulta
+  providers MCP untrusted" e imprecisa — medido em 1.141.2, o provider
+  exposto por extensao (vscode.lm.registerMcpServerDefinitionProvider)
+  E consultado para enumeracao mesmo em Restricted (a definicao aparece
+  no MCP: List Servers e Start Server e oferecido; onMcpCollection
+  dispara a activacao da extensao). O que fica bloqueado e o SPAWN:
+  clicar Start abre o dialogo "This MCP server definition is defined
+  in your workspace files" e cancelar = zero processo criado. Regra:
+  "enumera sem executar" — design docs e sensors devem assumir que a
+  definicao e visivel, so o processo e gated. Relacionado: o mesmo
+  trust-gate cobre .vscode/mcp.json (server do workspace) E terminal
+  integrado ("Cannot launch a terminal process in an untrusted
+  workspace") — em Restricted, CLIs sao inalcancaveis; a superficie e
+  extension-only.
+- (2026-10-15) VS Code 1.141+ arranca MCP servers via Agent Host
+  (sessao Copilot CLI), nao no exthost directo: spawn so acontece DEPOIS
+  do session runtime existir — erro literal "Cannot start an MCP server
+  before the session runtime has been created. Send a message first."
+  Testes E2E de .vscode/mcp.json devem enviar uma mensagem de chat antes
+  de avaliar Start/Error; sem isso todo o server reporta Error
+  espuriamente.
+- (2026-10-15) VS Code Marketplace exige unicidade GLOBAL em DOIS campos,
+  nao so `name`: `name` colidiu com zarritas/agent-sessions (renomeado p/
+  `agent-sessions-vscode`) e no publish seguinte o `displayName` "Agent
+  Sessions" tambem falhou ("This extension display name is taken").
+  Checklist pre-tag para extensao nova: `vsce`/Gallery API para `name` E
+  search de `displayName` exato — um livre nao garante o outro. OVSX nao
+  aplica esta regra: publicou ambas as tentativas sem queixa.
+- (2026-10-15) `agent-sessions-vscode` e EXCECAO deliberada de naming, nao
+  padrao: os outros 7 IDs publicados ficam `icaro0310.<nome>` sem sufixo
+  (judge, devin-doctor, devin-search, devin-qa-pack, devin-devkit,
+  devin-bridge, devin-memory). O sufixo existe so porque `agent-sessions`
+  (name+displayName) colidiu com zarritas no Marketplace — a proxima
+  extensao NAO deve copiar `-vscode`; escolher ID unico desde o inicio.
+- (2026-10-15) OVSX nao tem `deprecate` alcancavel por PAT (POST
+  /api/{ns}/{ext}/deprecate → 403 com token valido; requer sessao web).
+  Migracao de early installers apos rename = tombstone release: publish
+  manual de versao final no ID antigo com displayName "(Moved)" +
+  description apontando o sucessor (feito: agent-sessions@0.1.1 →
+  aponta icaro0310.agent-sessions-vscode).
+- (2026-10-15) OVSX deprecation API requires OAuth session; tombstone via
+  publish is the automatable equivalent and reaches the installed user,
+  not just the search. Um flag silencioso so remove da busca; o tombstone
+  entrega displayName+description no proximo update de quem instalou.

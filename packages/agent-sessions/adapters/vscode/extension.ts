@@ -1,5 +1,5 @@
 /**
- * Extension entry — agent-sessions (icaro0310.agent-sessions).
+ * Extension entry — agent-sessions (icaro0310.agent-sessions-vscode).
  * Wiring only: builds the real CollectEnv from the extension host,
  * runs the canonical collect, and registers the contributed surfaces
  * (TreeView = primary UI, `@sessions` chat participant = secondary,

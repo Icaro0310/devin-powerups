@@ -20,3 +20,5 @@ jobs:
     uses: ./.github/workflows/secrets-scan.yml
   adapters-check:
     uses: ./.github/workflows/adapters-check.yml
+  config-restricted-check:
+    uses: ./.github/workflows/config-restricted-check.yml

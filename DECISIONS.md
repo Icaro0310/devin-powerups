@@ -4,6 +4,93 @@ Structural decisions about the ecosystem, newest first. Format per
 `GOVERNANCE.md`: Decision / Date / Reason / Evidence / Expected outcome /
 Result. Records are not eternal — revisit when new evidence arrives.
 
+## D-2026-10-14 — Session-source split: Python CLIs read Devin, VS Code extensions read any agent
+
+- **Context:** a corporate-compatibility audit (`docs/audits/2026-10-14/corporate-compatibility.md`)
+  classified every `devin-*` tool by what it assumes at runtime. Nine tools
+  (history, search, graph, pm, metrics, qa-pack, evals, learning, janitor —
+  CAT 1) read `cli/sessions.db` and return empty/exit-error where no Devin
+  exists. Two adaptation paths were on the table: (A) extend the canonical
+  devin-internals-spec model so the nine CLIs also parse Copilot Chat /
+  Copilot CLI / Codex CLI sessions; (B) accept the split — Python CLIs
+  observe Devin sessions, the agent-sessions extension observes sessions
+  from any agent.
+- **Decision:** **B.** The deciding question — "is CAT 1 actually used in
+  corporate today?" — answers no: the corporate run that would notice has
+  never happened, every CAT 1 tool fails cleanly-but-empty rather than being
+  missed, and the multi-agent bet already shipped (agent-sessions covers all
+  three non-Devin sources). The documented contract:
+  *the Python CLIs observe Devin sessions; the VS Code extensions observe
+  sessions from any agent.*
+- **Status:** B is the present state, not a permanent architectural
+  commitment. "Does A eventually pay off?" stays open in DIRECTIONS —
+  revisit on the evidence below, not on schedule.
+- **Evidence for revisiting to A:** a concrete corporate request for
+  history/search/graph-shaped value over Copilot/Codex sessions, or the
+  corporate run (audit §6) showing real demand. qa-pack already straddles
+  the line — `--transcript` audits Aider/Claude Code today — and is the
+  natural first parser port if A ever activates.
+- **Sanctioned exceptions recorded the same day (amendment):**
+  1. **Loopback.** The `vscode-lm` backend requires a `127.0.0.1` HTTP
+     endpoint served by the extension — `vscode.lm` only exists inside
+     the extension host, so the Python CLI cannot reach the model
+     directly. This is a sanctioned exception to the agent-sessions
+     rule "no network, including loopback": the endpoint is
+     extension-scoped, bearer-token-authenticated (token in the
+     `0600` discovery file), loopback-only, and removed on deactivate.
+     The discovery file lives in poordjaevin's own data dir
+     (`vscode-lm-endpoint.json` next to `djaevin_log.db`), not in any
+     agent-sessions store — the agent-sessions in-memory-only rule is
+     untouched.
+  2. **Naming.** The extension id is `icaro0310.judge` (renamed from
+     the initial `icaro0310.devin-judge` before first publish). The
+     same neutrality rule as `icaro0310.agent-sessions` applies —
+     extension ids/display names carry no `devin` token because
+     corporate extension policies can block by name. Judge is
+     multi-agent by design (any `vscode.lm` provider), not a
+     Devin-first exception.
+- **Corollary shipped the same day:** `POORDJAEVIN_BACKEND=vscode-lm` —
+  the poordjaevin backend that scores through `vscode.lm` via the new
+  `icaro0310.judge` extension (`devin-judge/adapters/vscode/`), so
+  calibrated decisions in corporate need no Devin credentials, only whatever
+  chat model VS Code serves (Copilot, Codex, BYOK). `nli` remains the
+  fully-offline floor.
+- **Extension `untrustedWorkspaces` classification criterion (corrected):**
+  the axis is not "reads vs writes" but "can a hostile workspace inject
+  code via config or inputs?"
+  - `supported: true` — extension does not read workspace-controlled data
+    into execution paths. `agent-sessions`, `judge`.
+  - `supported: "limited"` + `restrictedConfigurations` — extension
+    executes a user-installed binary, but workspace-configured
+    executable/args (and auto-exec flags like `checkOnStartup`) are
+    ignored in Restricted Mode. All CLI-wrapper extensions (qa-pack,
+    doctor, search, devkit, bridge, brain, vscode_ext template).
+  - `supported: false` — extension surface too broad to safely degrade.
+    Reserved for extensions where workspace interaction alone constitutes
+    risk; `bridge` is the first candidate if the criterion tightens (the
+    CLI spawns the user-installed agent binary with the repo as cwd and
+    reads repo `policy.json`/`.sessions.json` — falsifiable output, not
+    code injection, but the widest repo→CLI surface of the adapters).
+  - **Rationale for the correction:** an earlier draft classified by
+    read/write semantics; that missed the
+    `execFile(configuration.get("executable"))` vector, which is exactly
+    what Restricted Mode exists to close.
+  - **Windows cwd-search amendment (same day):** `limited` was still
+    false on Windows even with `restrictedConfigurations` — CreateProcess
+    searches cwd before PATH, so `execFile("<cli>", {cwd: workspaceDir})`
+    executes a binary planted in the cloned repo. Every limited adapter
+    resolves through the shared `adapters/shared/safe-executable.cjs`
+    helper (manual PATH walk, absolute target, workspace-contained
+    candidates rejected when untrusted, npm `.cmd`/`.bat` shims unwrapped
+    to their `.js` entry via `process.execPath`), with hash lockstep in
+    `config-restricted-check`. Copies are byte-identical across repos;
+    what differs per copy is the **trust source, not the policy**: the
+    extension passes `vscode.workspace.isTrusted`, the bridge CLI (which
+    cannot see that API) defaults untrusted and grants trust only to
+    explicit user gestures (`--bin`, `DEVIN_CLI_PATH`). Do not "unify" the
+    two by plumbing `isTrusted` into the CLI — the divergence is the
+    security boundary, not drift.
+
 ## D-2026-10-10 — Out-of-diff findings: sanctioned clearance path
 
 - **Decision:** Devin Review does not re-resolve findings whose flagged

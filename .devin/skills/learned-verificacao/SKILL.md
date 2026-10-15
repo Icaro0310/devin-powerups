@@ -107,3 +107,29 @@ muitos ficheiros, superficies geradas, ou merges sob guardrails.
   apanhou. Plausibilidade nao e evidencia: campo de config, versao de
   action e path novo verificam-se na doc/origem antes de entrar no
   commit, nao a espera que o review apanhe.
+- (2026-10-14) "parece que sei o que precisa" != "li o que esta
+  escrito" — a direccao oposta do default invertido. O header de
+  release.yml documentava os scopes exactos que o reusable exige do
+  caller (contents:read, id-token:write, packages:write) e que um scope
+  em falta mata o run em startup_failure com zero jobs; nao foi lido,
+  dois tag-runs morreram (environment:"" invalido, depois
+  packages:write ausente). Antes de invocar um mecanismo com contrato
+  documentado (reusable workflow, sensor, shared helper), ler o header
+  e nao inferir o contrato. Documentacao estatica existente e ignorada
+  falha em silencio ate ao runtime.
+- (2026-10-14) CI Windows e ambiente real, nao emulado: fixtures de
+  executavel devem declarar a plataforma desde o inicio — PATHEXT nunca
+  casa ficheiro sem extensao (12 falhas no bridge porque `devin`/
+  `devin-bridge` POSIX-style nao resolviam em windows-latest). Assercoes
+  de path/extensao sao platform-aware (`".EXE"` maiusculo casa o PATHEXT
+  default); um fixture nao-resoluvel torna o teste de "skip" falso-
+  positivo trivial — o binario plantado nunca sequer era candidato.
+- (2026-10-15) teste de boundary guard: monkeypatch e subprocess/E2E sao
+  complementares, nao alternativos. O monkeypatch (`build_server` ->
+  ImportError -> assert exit 1 + hint + sem Traceback) cobre a ramificacao
+  deterministicamente e nao depende de um venv sem `[mcp]` — mas mocka o
+  ponto onde o hint nasce, entao NAO apanha regressao em `_make_app` (se o
+  hint deixar de viajar ate ao `main`, o teste continua verde). O nivel
+  subprocess/E2E (server real sem extra -> exit 1 + `error:` no stderr)
+  e o unico que apanha essa deriva. Os dois niveis ficam: unit para a
+  branch, E2E para o contrato. Aplicado nos 5 PRs mcp-extra-guard.
