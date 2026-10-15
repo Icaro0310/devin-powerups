@@ -576,11 +576,13 @@ jobs:
 
       # Strict gate for repos past the provisioning window: set repo var
       # AZURE_MARKETPLACE_REQUIRED=true once the federated credential is
-      # live. With vars configured but no successful marketplace publish
-      # (login failure or vsce failure), the job fails AFTER the Open VSX
-      # leg — the release goes red without blocking the other registry.
+      # live. With required=true, ANY non-success on the marketplace leg
+      # fails the job AFTER the Open VSX leg — including missing Entra
+      # vars (a misconfiguration must not pass silently), login failure,
+      # or vsce failure. The release goes red without blocking the
+      # other registry.
       - name: Marketplace publish required
-        if: vars.AZURE_MARKETPLACE_REQUIRED == 'true' && vars.AZURE_CLIENT_ID != '' && vars.AZURE_TENANT_ID != '' && steps.marketplace-publish.outcome != 'success'
+        if: vars.AZURE_MARKETPLACE_REQUIRED == 'true' && steps.marketplace-publish.outcome != 'success'
         run: |
           echo "::error::AZURE_MARKETPLACE_REQUIRED=true but the marketplace leg did not publish (login outcome: ${{ steps.azure-login.outcome }}, publish outcome: ${{ steps.marketplace-publish.outcome }})."
           exit 1
