@@ -168,6 +168,9 @@ jobs:
       # optional legs:
       # docker-image: devin-doctor
       # vscode-ext-dir: packages/doctor/adapters/vscode
+      # fail the release when the Marketplace leg does not publish
+      # (replaces the retired AZURE_MARKETPLACE_REQUIRED repo var):
+      # azure-marketplace-required: true
 ```
 
 ```yaml
