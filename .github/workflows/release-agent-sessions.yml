@@ -82,5 +82,6 @@ jobs:
     secrets:
       OVSX_PAT: ${{ secrets.OVSX_PAT }}
     with:
+      azure-marketplace-required: true
       package-dir: packages/agent-sessions
       vscode-ext-dir: packages/agent-sessions
