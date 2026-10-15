@@ -520,14 +520,25 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           allow-no-subscriptions: true
 
+      # `continue-on-error` here too: a marketplace publish failure must
+      # not take down the independent Open VSX leg (its `success()` gate
+      # would otherwise read this step's failure). The final
+      # `Marketplace publish required` gate below restores strictness for
+      # repos that set AZURE_MARKETPLACE_REQUIRED=true.
       - name: Publish to VS Code Marketplace
+        id: marketplace-publish
         if: vars.AZURE_CLIENT_ID != '' && vars.AZURE_TENANT_ID != '' && steps.azure-login.outcome == 'success'
+        continue-on-error: true
         working-directory: ${{ inputs.vscode-ext-dir }}
         run: npx @vscode/vsce publish --azure-credential --packagePath *.vsix --skip-duplicate
 
       - name: Marketplace publish deferred — Azure login failed
         if: vars.AZURE_CLIENT_ID != '' && vars.AZURE_TENANT_ID != '' && steps.azure-login.outcome != 'success'
         run: echo "::warning::azure/login failed — the Entra federated credential is likely not provisioned for this repo yet. Marketplace publish deferred; re-run this workflow after it exists (Open VSX is unaffected)."
+
+      - name: Marketplace publish failed
+        if: vars.AZURE_CLIENT_ID != '' && vars.AZURE_TENANT_ID != '' && steps.azure-login.outcome == 'success' && steps.marketplace-publish.outcome == 'failure'
+        run: echo "::warning::vsce publish failed — the extension was NOT published to the VS Code Marketplace (Open VSX is unaffected; re-run after fixing)."
 
       - name: Marketplace publish skipped — Entra vars missing
         if: vars.AZURE_CLIENT_ID == '' || vars.AZURE_TENANT_ID == ''
@@ -562,6 +573,17 @@ jobs:
       - name: Open VSX publish skipped — OVSX_PAT not forwarded
         if: steps.ovsx.outputs.present == 'false'
         run: echo "::warning::OVSX_PAT not forwarded by the caller — Open VSX publish skipped (vsix stays as the 'vsix' artifact for manual `ovsx publish`)."
+
+      # Strict gate for repos past the provisioning window: set repo var
+      # AZURE_MARKETPLACE_REQUIRED=true once the federated credential is
+      # live. With vars configured but no successful marketplace publish
+      # (login failure or vsce failure), the job fails AFTER the Open VSX
+      # leg — the release goes red without blocking the other registry.
+      - name: Marketplace publish required
+        if: vars.AZURE_MARKETPLACE_REQUIRED == 'true' && vars.AZURE_CLIENT_ID != '' && vars.AZURE_TENANT_ID != '' && steps.marketplace-publish.outcome != 'success'
+        run: |
+          echo "::error::AZURE_MARKETPLACE_REQUIRED=true but the marketplace leg did not publish (login outcome: ${{ steps.azure-login.outcome }}, publish outcome: ${{ steps.marketplace-publish.outcome }})."
+          exit 1
 
   gh-marketplace:
     needs: verify
