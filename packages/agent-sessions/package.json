@@ -1,8 +1,8 @@
 {
   "name": "agent-sessions-vscode",
-  "displayName": "Agent Sessions",
+  "displayName": "Agent Sessions Browser",
   "publisher": "icaro0310",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "type": "module",
   "license": "MIT",

@@ -78,3 +78,10 @@ publishing, OIDC federation ou checks de versao.
   mas so DEPOIS do OVSX ter corrido. Sem a camada 1, uma credencial
   por provisionar segura 4 legs por uma; sem a camada 2, o defer vira
   silencio permanente e ninguem nota que o marketplace nunca publicou.
+- (2026-10-15) VS Code Marketplace exige unicidade GLOBAL em DOIS campos,
+  nao so `name`: `name` colidiu com zarritas/agent-sessions (renomeado p/
+  `agent-sessions-vscode`) e no publish seguinte o `displayName` "Agent
+  Sessions" tambem falhou ("This extension display name is taken").
+  Checklist pre-tag para extensao nova: `vsce`/Gallery API para `name` E
+  search de `displayName` exato — um livre nao garante o outro. OVSX nao
+  aplica esta regra: publicou ambas as tentativas sem queixa.
