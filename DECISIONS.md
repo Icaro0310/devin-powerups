@@ -43,6 +43,21 @@ Result. Records are not eternal — revisit when new evidence arrives.
   Devin install gets non-empty, useful behavior from every extension
   whose domain is agent sessions — not just the two newest.
 
+- **Addendum (same day, owner): the definition of done.** Every extension
+  works in both scenarios with the same utility — (a) Devin user in
+  VS Code or Devin Desktop; (b) VS Code user with no Devin. The
+  diagnostic question per extension: *"what does it read, and where does
+  that come from when Devin doesn't exist?"* Matrix: `agent-sessions` ✅
+  both · `judge` ⚠️/✅ (503 in Devin Desktop is a host limitation —
+  Devin registers no `vscode.lm` provider; symmetric fix would be the
+  judge exposing its endpoint as an MCP server the Devin agent consumes —
+  design decision, not a bug fix) · `memory` ✅ both via MCP · `search`,
+  `qa-pack`, `doctor`, `bridge`, `devkit` fail scenario (b) today.
+  **Owner's real order:** 1) `search` multi-source — the pattern the
+  other four follow; 2) `qa-pack`; 3) `doctor` (agent-environment
+  doctor); 4) `bridge` (parameterize the ACP resolver); 5) `devkit`
+  (evaluate, may legitimately stay Devin-scoped).
+
 ## D-2026-10-14 — Session-source split: Python CLIs read Devin, VS Code extensions read any agent
 
 - **Context:** a corporate-compatibility audit (`docs/audits/2026-10-14/corporate-compatibility.md`)
