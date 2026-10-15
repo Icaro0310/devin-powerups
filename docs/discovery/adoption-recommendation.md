@@ -1,9 +1,69 @@
 # Adoption recommendation — input to Gate G1
 
-Status: recommendation only. The owner decides each item in writing at
-G1. Every claim carries its evidence label; nothing here is product code.
-Blocked until `agent-storage-report.md` reaches `owner-output-received`
-or each gap is explicitly accepted in writing.
+Status: **G1 PENDING** — skipped by written owner instruction
+(2026-10-13: "pule o G1 por agora, coloque como pending e siga em
+frente"). Phase 2b proceeds under the provisional decisions below; any
+of them may be reverted when the owner writes G1. Decisions assumed:
+(a) per-surface strategies as recommended here, (b) parser order
+copilot-cli → codex-cli → vscode-chat, (c) vendored TS redact port,
+(e) files as copilot-cli primary — the last two are settled by 2a
+evidence; (d) session-vault as UI: no; (f) corporate restrictions:
+unresolved — the corporate run is still owed; (g) codex-cli dual-source
+per recommendation (iii) thin below — sqlite probe first when present,
+rollout scan as fallback and legacy coverage.
+
+Status note: every claim carries its evidence label; nothing here is
+product code.
+`agent-storage-report.md` is now `owner-output-received` (collected
+offline via read-only NTFS mount + native Linux run); the remaining
+evidence gaps are listed at the end of that report and in the final
+section below.
+
+## The delta vs native "Agent Sessions" (read this first at G1)
+
+VS Code already ships a native *Agent Sessions* list `[EXTERNO]`. The
+delta, explicitly:
+
+- **Coverage**: native lists Copilot surfaces only (Copilot Chat +
+  Copilot CLI). It does not see Codex. We cover `vscode-chat`,
+  `copilot-cli` **and `codex-cli`** under one canonical model.
+- **Dependency**: native requires the Copilot Chat extension installed
+  and enabled. Owner-machine evidence: Copilot Chat is **currently
+  uninstalled yet 24 chat files persist** — native shows nothing for
+  them; we still list them `[LOCAL]`. Same reasoning covers
+  `chat.disableAIFeatures` and possibly policy-managed installs (a
+  `managed-settings/` dir exists under Copilot CLI's local data, but its
+  policy file was unread — presence alone cannot establish a
+  policy-disabled installation `[LOCAL]` existence only).
+- **Function**: native is a *management* surface (rename, pin, close,
+  archive within the Copilot product). We are a *read-only browse*
+  surface: canonical IDs, per-source state (`source-not-found`,
+  `no-sessions`, `read-error`, `unsupported-format`), metadata-first,
+  cross-agent.
+- **Zero-network**: native rides on the Copilot service path; ours is
+  statically network-free by construction — auditable per the spec's
+  five-section evidence model.
+
+So the overlap is real but narrow: an owner who only ever uses Copilot
+Chat, installed, for session management, is already served. The gap we
+fill is everything outside that cell — Codex, uninstalled/policy-disabled
+Copilot, and a uniform cross-agent view. If G1 narrows the product to
+Copilot-only, the honest answer is "use the native list".
+
+> **Update 2026-10-14 (VS Code 1.140, measured on the shipped
+> `sessions.desktop.main.js`)**: the "Coverage" and "Dependency" bullets
+> above are partially stale. Native is now a multi-harness **Agents
+> window** — an Agent Host client covering Copilot CLI, Claude, Codex
+> (`agent-host-claude`, `agent-host-codex`,
+> `chat.agentHost.codexAgent.sdkRoot`), Cloud, and remote hosts — and it
+> reads `~/.copilot/session-state/*/events.jsonl` from disk inside the
+> bundle. What remains true: nothing appears without a running Agent Host
+> or a `chatSessionsProvider` extension (Codex/Claude arrive as
+> live-harness providers, never via `state_*.sqlite`/rollout disk
+> parsing), VSCodium is effectively dead (`sessionsWindowAllowedExtensions:
+> []`, no Copilot Chat on Open VSX), and ours stays read-only canonical
+> browse vs their mutation/management surface. Full map:
+> `docs/discovery/g1-decision-record.md` → "Coverage gaps".
 
 ## (a) Per-surface strategy
 
@@ -29,20 +89,39 @@ or each gap is explicitly accepted in writing.
 - Fixtures: **do not vendor** SessionsAI's `test/fixtures/` — they embed
   a real username `[LOCAL]`. Generate synthetic fixtures.
 
-### `codex-cli` — **build fresh in TS**
+### `codex-cli` — **build fresh in TS — now dual-source**
 
 No TS coverage exists anywhere; all candidates are Go or Python.
+**New owner-machine evidence** (storage report): this install has **no**
+`~/.codex/sessions/` at all — Codex migrated to sqlite
+(`state_5.sqlite`, `threads` table with 41 cols incl. `rollout_path`,
+`cli_version`; `rollout_migration_state`/`rollout_migration_skipped_rollouts`
+prove the JSONL→sqlite transition) `[LOCAL]`. With 0 threads observed,
+neither source yields sessions *on this machine today*; the decision is
+about which formats the parser must support for correctness.
+
+- **G1 decision needed — Codex source(s)**: (i) `rollout-*.jsonl` only
+  (spec text; covers pre-migration installs), (ii) `state_*.sqlite`
+  `threads` only (covers migrated installs; `mode=ro`; metadata columns
+  rich — title, model, tokens, git refs), or (iii) both with deterministic
+  precedence. Recommendation: **(iii) thin** — sqlite probe first
+  (authoritative when present), rollout scan as fallback + legacy
+  coverage; ≤250-line budget still holds because the sqlite leg is a
+  schema-probed SELECT of metadata columns, never content.
 - Schema source: cc-session-core's discriminated-union models (port the
   *type list*, keep its `extra="allow"`/Unknown-record posture → unknown
   records become `unsupported-format`-adjacent warnings, not failures)
-  `[LOCAL]`.
+  `[LOCAL]` — valid for the rollout leg.
 - Operational semantics from AgentsView `[LOCAL]`: `session_meta`/
   `turn_context`/`response_item`/`event_msg` envelopes; `call_id`
   pairing; `token_count`; `task_started`/`task_complete`; fork
   suppression via `forked_from_id`; revert pages `<thread>_<rollout>`;
   `archived_sessions/`; `session_index.jsonl` titles. Only implement
   what the storage report confirms exists — the rest is backlog.
-- Cost/`files_touched`: only if 2a confirms the fields exist (spec rule).
+- Cost/`files_touched`: `threads.tokens_used` exists in sqlite `[LOCAL]`
+  — but it is a token *count*, not monetary cost; cost attribution needs
+  pricing/model evidence before that leg counts as supported.
+  Rollout-side fields still unconfirmed → spec rule applies per leg.
 
 ### `copilot-cli` — **vendor SessionsAI parser + widen event catalog**
 
@@ -104,11 +183,39 @@ No TS coverage exists anywhere; all candidates are Go or Python.
 ## (c) `devin-redact` mechanism — recommendation
 
 **Vendored TS port** of the redaction core (`patterns.py` + false-positive
-guard + `redact_text` ≈ 200 LOC) with a **parity test** generated from the
-Python reference at build time (ecosystem vendoring rule, D-2026-10-09).
-Rationale and fallback (CLI subprocess on temp excerpt) are in
-`redact-interface-report.md`. Without either, content search ships
-disabled (fail-closed) — acceptable but strictly worse.
+guard + `redact_text` ≈ 200 LOC). Three consequences of choosing the port
+over the spec's CLI-subprocess fallback: (i) zero Python in the content
+path too, not just the normal runtime; (ii) the fail-closed "no redactor"
+case shrinks to "port absent/broken", a build-time property; (iii) **new
+drift class: the TS port and the Python reference can diverge** — same
+class as the `plugin.json`/`pyproject` lockstep fix.
+
+**Parity test location (G1 must pin this)**: the parity test does not
+exist yet. G1 was deferred by owner instruction, so 2b writes the port
+under provisional decision (c) — the parity harness ships *with* the
+port in the same change, and G1 still owes the pin approval. When
+written it lives **in
+the repo that hosts the port** (the extension's repo — devin-powerups
+unless the owner places the extension elsewhere; the freeze forbids new
+repos until 2026-12-03) and runs in two places:
+
+1. **PR/push CI** — `tools/check_redact_parity.py` (name proposed):
+   installs `devin-redact==<pin>` from PyPI, runs a golden corpus through
+   both implementations, fails on any output diff. Corpus checked in;
+   pin checked in.
+2. **Weekly drift sensor** — same job against the **latest published**
+   `devin-redact` (not the pin), following the existing
+   `check_spec_pins.py` / `registry-drift.yml` pattern: a Python-side
+   pattern change between releases must fail loudly, not drift silently.
+
+Without leg (2) the parity guarantee decays between `devin-redact`
+releases — the exact gap this exercise exists to close. Caveat: both
+legs only cover patterns present in the checked-in corpus — a brand-new
+upstream pattern absent from it passes undetected either way, so the
+corpus must be regenerated (or widened) on each `devin-redact` release
+for the drift guarantee to hold. Fallback remains
+the CLI subprocess on temp excerpt (`redact-interface-report.md`);
+without either, content search ships disabled (fail-closed).
 
 ## (d) `session-vault` as UI — **no**
 
@@ -143,10 +250,24 @@ agent storage — the plan is corporate-compatible as proposed.
 
 ## What G1 must still supply that 2a cannot
 
-- Which discovery roots actually exist on owner machines (storage
-  report) — final authority on `COPILOT_DIR` vs `COPILOT_HOME`, flat vs
-  dir layouts, vscdb presence.
+- **Codex source decision** — rollout-JSONL vs `state_*.sqlite` vs both
+  (new evidence; see (a)).
+- `copilot`/`codex` **CLI versions** — binaries unlocatable offline;
+  owner may accept the gap or supply `copilot --version` /
+  `codex --version` output. `[NÃO VERIFICADO]`
+- Whether env roots (`COPILOT_DIR`/`COPILOT_HOME`, `CODEX_HOME`,
+  `CODEX_SESSIONS_DIR`) are set on any owner machine — not observable
+  offline; default `~/.copilot`/`~/.codex` confirmed sufficient on the
+  observed install `[LOCAL]`.
+- `managed-settings/` exists under `AppData/Local/copilot` `[LOCAL]` —
+  owner should confirm whether corporate Copilot policy applies (G1-f).
 - Whether `sql.js` (WASM) is acceptable as a bundled dependency if vscdb
   indexing is wanted later.
-- Written acceptance of each `not-verified` cell the owner chooses to
-  waive — or the decision to keep them blocking.
+- Written acceptance of each remaining `not-verified` cell the owner
+  chooses to waive — or the decision to keep them blocking.
+- **Post-MVP backlog surfaced by evidence**: per-session
+  `session.db` (`todos`/`inbox_entries`) under Copilot CLI session dirs;
+  `chatEditingSessions/` state; `github.copilot-chat` globalStorage
+  agent dirs (`ask-agent`, `plan-agent`, `explore-agent`, `copilotCli`);
+  `transferredChatSessions`. All `[LOCAL]` — none is required for MVP
+  listing.
