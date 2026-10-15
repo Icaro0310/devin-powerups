@@ -13,7 +13,7 @@ export type SessionNode =
   | { kind: 'session'; meta: SessionMeta };
 
 /** Stable root order — mirrors the parser registry (sources/index.ts). */
-export const SURFACE_ORDER: readonly Surface[] = ['copilot-cli', 'codex-cli', 'vscode-chat'];
+export const SURFACE_ORDER: readonly Surface[] = ['copilot-cli', 'codex-cli', 'vscode-chat', 'devin-cli'];
 
 const KEY_TAIL = 12;
 const WS_HEAD = 8;

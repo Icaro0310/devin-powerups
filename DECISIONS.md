@@ -4,6 +4,45 @@ Structural decisions about the ecosystem, newest first. Format per
 `GOVERNANCE.md`: Decision / Date / Reason / Evidence / Expected outcome /
 Result. Records are not eternal — revisit when new evidence arrives.
 
+## D-2026-10-15 — Path A activated incrementally: multi-source corpus for all tools (partial reversal of D-2026-10-14)
+
+- **Decision:** the "empty for non-Devin users" state of the six `devin-*`
+  tools is classified as a bug, not scope. Path A from D-2026-10-14 is
+  activated ahead of its named evidence trigger (concrete corporate
+  request / corporate run), on owner's product-vision directive: *the
+  adaptation was always meant to cover all initially Devin-only tools.*
+- **Enabling discovery (the substrate already existed on both sides, never
+  connected):** `agent-sessions` shipped a pluggable parser registry over
+  three non-Devin surfaces; `devin-search`'s index schema was born
+  multi-source (`source` column, `by_source` stats) but its `paths.py`
+  only points at Devin stores. Path A is mostly *wiring*, not new
+  architecture — the same was verified for `devin-bridge`, whose
+  `acp-client.js` is a generic ACP client (initialize → session/new →
+  session/prompt over stdio JSON-RPC, `bin` injected as a parameter)
+  behind a ~70-line Devin binary/credential resolver. An earlier
+  "Devin by definition" verdict was wrong — classified by assumption,
+  corrected by reading the code.
+- **Sequence:** (1) `devin-cli` parser joins the agent-sessions registry
+  (Devin becomes one surface among N — shipped this record); (2)
+  multi-source corpus for `devin-search` reusing the documented TS
+  layouts; (3) `qa-pack` (already straddles: `--transcript` audits
+  Aider/Claude Code) and `doctor` (reframe as agent-environment doctor —
+  a bigger redesign than a parser port, do not plan it as one); (4)
+  `memory` is agent-agnostic at the MCP layer already; (5) `devkit`
+  stays Devin-scoped (`installed_uv_tools`/`profiles` is genuinely a
+  `devin-*` installer — weak generalization case, verified); (6)
+  `bridge` generalizes by parameterizing the resolver, not rewriting.
+- **Naming tension — recorded as open roadmap item, NOT resolved:**
+  `devin-*` ids signal "not for you" to the VS Code+Copilot+Codex
+  audience the product now targets. The neutrality precedent already
+  exists (D-2026-10-14 amendment: `judge`, `agent-sessions` carry no
+  `devin` token). Renaming published extensions is deferred — domain
+  generalizes first; id/display-name strategy is a separate future
+  decision.
+- **Expected outcome:** a VS Code user with Copilot/Codex sessions and no
+  Devin install gets non-empty, useful behavior from every extension
+  whose domain is agent sessions — not just the two newest.
+
 ## D-2026-10-14 — Session-source split: Python CLIs read Devin, VS Code extensions read any agent
 
 - **Context:** a corporate-compatibility audit (`docs/audits/2026-10-14/corporate-compatibility.md`)

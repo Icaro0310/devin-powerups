@@ -1,8 +1,9 @@
 # Agent Sessions
 
 Read-only, local-first browser for AI-agent chat sessions. Inventories
-persisted sessions from three surfaces — **VS Code Copilot Chat**,
-**Copilot CLI**, and **Codex CLI** — in one canonical model.
+persisted sessions from four surfaces — **VS Code Copilot Chat**,
+**Copilot CLI**, **Codex CLI**, and **Devin CLI** (`sessions.db`) — in
+one canonical model.
 
 - **No backend, no daemon, no network** — reads local files only.
 - **No writes** — never modifies agent storage.

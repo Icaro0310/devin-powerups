@@ -6,7 +6,7 @@
   "private": true,
   "type": "module",
   "license": "MIT",
-  "description": "Read-only multi-agent session browser (vscode-chat, copilot-cli, codex-cli). Local-first, zero network, metadata-first.",
+  "description": "Read-only multi-agent session browser (vscode-chat, copilot-cli, codex-cli, devin-cli). Local-first, zero network, metadata-first.",
   "engines": {
     "vscode": "^1.100.0"
   },
@@ -74,7 +74,7 @@
         "id": "agent-sessions.sessions",
         "fullName": "Agent Sessions",
         "name": "sessions",
-        "description": "Browse local agent sessions (vscode-chat, copilot-cli, codex-cli) — read-only, offline",
+        "description": "Browse local agent sessions (vscode-chat, copilot-cli, codex-cli, devin-cli) — read-only, offline",
         "isSticky": false
       }
     ]

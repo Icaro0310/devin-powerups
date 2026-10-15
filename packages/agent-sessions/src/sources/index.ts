@@ -9,8 +9,9 @@ import { warn } from '../model.ts';
 import { copilotCliParser } from './copilotCli.ts';
 import { codexCliParser } from './codexCli.ts';
 import { vscodeChatParser } from './vscodeChat.ts';
+import { devinCliParser } from './devinCli.ts';
 
-export const parsers: SurfaceParser[] = [copilotCliParser, codexCliParser, vscodeChatParser];
+export const parsers: SurfaceParser[] = [copilotCliParser, codexCliParser, vscodeChatParser, devinCliParser];
 
 export function collectAll(env: CollectEnv, mode: CollectMode = 'metadata'): SourceResult[] {
   return parsers.map(p => {

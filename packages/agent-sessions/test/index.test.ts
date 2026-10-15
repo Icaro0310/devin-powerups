@@ -8,9 +8,9 @@ import { collectAll } from '../src/sources/index.ts';
 test('collectAll returns one result per surface, no cross-surface coupling', () => {
   const home = mkdtempSync(join(tmpdir(), 'as-empty-'));
   const out = collectAll({ home, platform: 'linux' }, 'metadata');
-  assert.equal(out.length, 3);
+  assert.equal(out.length, 4);
   const surfaces = out.map(r => r.surface).sort();
-  assert.deepEqual(surfaces, ['codex-cli', 'copilot-cli', 'vscode-chat']);
+  assert.deepEqual(surfaces, ['codex-cli', 'copilot-cli', 'devin-cli', 'vscode-chat']);
   // Empty synthetic home: every surface reports source-not-found, never no-sessions
   for (const r of out) assert.equal(r.state, 'source-not-found', `${r.surface} should be source-not-found`);
 });

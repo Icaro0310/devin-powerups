@@ -74,6 +74,17 @@ on:
         type: string
         required: false
         default: ""
+      azure-marketplace-required:
+        description: >-
+          When true, a non-successful marketplace leg (missing Entra
+          vars, failed federated login, failed vsce publish) fails the
+          vscode-ext job AFTER Open VSX ran — for repos past the
+          Entra credential provisioning window. Declared per-caller so
+          the intent lives in versioned code, not repo settings; a new
+          caller defaults to false until it opts in.
+        type: boolean
+        required: false
+        default: false
     secrets:
       OVSX_PAT:
         description: >-
@@ -524,7 +535,7 @@ jobs:
       # not take down the independent Open VSX leg (its `success()` gate
       # would otherwise read this step's failure). The final
       # `Marketplace publish required` gate below restores strictness for
-      # repos that set AZURE_MARKETPLACE_REQUIRED=true.
+      # callers that pass `azure-marketplace-required: true`.
       - name: Publish to VS Code Marketplace
         id: marketplace-publish
         if: vars.AZURE_CLIENT_ID != '' && vars.AZURE_TENANT_ID != '' && steps.azure-login.outcome == 'success'
@@ -574,17 +585,17 @@ jobs:
         if: steps.ovsx.outputs.present == 'false'
         run: echo "::warning::OVSX_PAT not forwarded by the caller — Open VSX publish skipped (vsix stays as the 'vsix' artifact for manual `ovsx publish`)."
 
-      # Strict gate for repos past the provisioning window: set repo var
-      # AZURE_MARKETPLACE_REQUIRED=true once the federated credential is
-      # live. With required=true, ANY non-success on the marketplace leg
+      # Strict gate for repos past the provisioning window: callers pass
+      # `azure-marketplace-required: true` once the federated credential
+      # is live. With required, ANY non-success on the marketplace leg
       # fails the job AFTER the Open VSX leg — including missing Entra
       # vars (a misconfiguration must not pass silently), login failure,
       # or vsce failure. The release goes red without blocking the
       # other registry.
       - name: Marketplace publish required
-        if: vars.AZURE_MARKETPLACE_REQUIRED == 'true' && steps.marketplace-publish.outcome != 'success'
+        if: inputs.azure-marketplace-required == true && steps.marketplace-publish.outcome != 'success'
         run: |
-          echo "::error::AZURE_MARKETPLACE_REQUIRED=true but the marketplace leg did not publish (login outcome: ${{ steps.azure-login.outcome }}, publish outcome: ${{ steps.marketplace-publish.outcome }})."
+          echo "::error::azure-marketplace-required=true but the marketplace leg did not publish (login outcome: ${{ steps.azure-login.outcome }}, publish outcome: ${{ steps.marketplace-publish.outcome }})."
           exit 1
 
   gh-marketplace:
