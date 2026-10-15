@@ -2,7 +2,9 @@
  * Canonical model — locked by spec v3.4.4 (Parte 2b).
  *
  * `surface` values are a closed set; a session may never report a surface
- * outside this union. `ended_at`/`source_version` semantics: null means
+ * outside this union. `'devin-cli'` extends the spec'd trio — the set
+ * stays closed, the union grows only by deliberate addition
+ * (D-2026-10-15, path-A activation). `ended_at`/`source_version` semantics: null means
  * "not determinable" and the reason must surface in `parse_warnings`
  * (`session-open`, `no-end-marker`, `missing-field`, …) — never guessed.
  *
@@ -12,7 +14,7 @@
  * technical detail = codes and counts only.
  */
 
-export type Surface = 'vscode-chat' | 'copilot-cli' | 'codex-cli';
+export type Surface = 'vscode-chat' | 'copilot-cli' | 'codex-cli' | 'devin-cli';
 
 export type SessionState =
   | 'ok'                  // full parse, no warnings

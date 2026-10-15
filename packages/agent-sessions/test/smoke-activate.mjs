@@ -18,17 +18,17 @@ assert.ok(
 );
 assert.equal(subscriptions.length, 6, 'six disposables pushed');
 
-// Tree provider: 3 surface nodes always, expanded, correct contextValue
+// Tree provider: 4 surface nodes always, expanded, correct contextValue
 const tree = r.views[0].provider;
 const roots = tree.getChildren();
-assert.equal(roots.length, 3, 'one node per surface');
+assert.equal(roots.length, 4, 'one node per surface');
 for (const n of roots) {
   const item = tree.getTreeItem(n);
   assert.equal(item.contextValue, 'surface');
   for (const child of tree.getChildren(n)) assert.equal(tree.getTreeItem(child).contextValue, 'session');
 }
 
-// Participant: empty prompt → overview mentioning all three surfaces
+// Participant: empty prompt → overview mentioning all four surfaces
 const chunks = [];
 const stream = { markdown(m) { chunks.push(typeof m === 'string' ? m : m.value); } };
 await r.participants[0].handler({ prompt: '' }, {}, stream, {});
