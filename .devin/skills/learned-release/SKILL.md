@@ -112,3 +112,26 @@ publishing, OIDC federation ou checks de versao.
   Testes E2E de .vscode/mcp.json devem enviar uma mensagem de chat antes
   de avaliar Start/Error; sem isso todo o server reporta Error
   espuriamente.
+- (2026-10-15) VS Code Marketplace exige unicidade GLOBAL em DOIS campos,
+  nao so `name`: `name` colidiu com zarritas/agent-sessions (renomeado p/
+  `agent-sessions-vscode`) e no publish seguinte o `displayName` "Agent
+  Sessions" tambem falhou ("This extension display name is taken").
+  Checklist pre-tag para extensao nova: `vsce`/Gallery API para `name` E
+  search de `displayName` exato — um livre nao garante o outro. OVSX nao
+  aplica esta regra: publicou ambas as tentativas sem queixa.
+- (2026-10-15) `agent-sessions-vscode` e EXCECAO deliberada de naming, nao
+  padrao: os outros 7 IDs publicados ficam `icaro0310.<nome>` sem sufixo
+  (judge, devin-doctor, devin-search, devin-qa-pack, devin-devkit,
+  devin-bridge, devin-memory). O sufixo existe so porque `agent-sessions`
+  (name+displayName) colidiu com zarritas no Marketplace — a proxima
+  extensao NAO deve copiar `-vscode`; escolher ID unico desde o inicio.
+- (2026-10-15) OVSX nao tem `deprecate` alcancavel por PAT (POST
+  /api/{ns}/{ext}/deprecate → 403 com token valido; requer sessao web).
+  Migracao de early installers apos rename = tombstone release: publish
+  manual de versao final no ID antigo com displayName "(Moved)" +
+  description apontando o sucessor (feito: agent-sessions@0.1.1 →
+  aponta icaro0310.agent-sessions-vscode).
+- (2026-10-15) OVSX deprecation API requires OAuth session; tombstone via
+  publish is the automatable equivalent and reaches the installed user,
+  not just the search. Um flag silencioso so remove da busca; o tombstone
+  entrega displayName+description no proximo update de quem instalou.
