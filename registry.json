@@ -462,7 +462,7 @@
       },
       "agent-tools": {
         "label": "Agent Tools",
-        "description": "Installs the agent-agnostic toolset: qa-pack, doctor, search, memory and judge — no Devin install required; Copilot, Codex and VS Code Chat store support is merged on main and lands in the next releases.",
+        "description": "Installs the agent-agnostic toolset: qa-pack, doctor, search, memory and judge — no Devin install required; the pinned releases carry Copilot, Codex and VS Code Chat store support.",
         "tools": [
           "devin-assure",
           "devin-explore",
