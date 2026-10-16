@@ -1,6 +1,6 @@
 {
   "$schema": "https://github.com/Icaro0310/devin-powerups/registry.schema.json",
-  "version": 29,
+  "version": 30,
   "generated": "2026-10-16",
   "owner": "Icaro0310",
   "note": "Public maintainer toolkit: registry, template, scaffolder, and public-project report. Public Devin tools are listed below; the maintainer's private runtime remains kind=system and is excluded from public-project reports. Unrelated personal repositories are not part of this catalog. CI is inline per public project; see README.md.",
@@ -60,7 +60,7 @@
         "manager": "uv",
         "source": "pypi",
         "package": "devin-internals-spec",
-        "version": "0.3.0",
+        "version": "0.3.2",
         "commands": [
           "devin-inspect"
         ],
@@ -108,7 +108,7 @@
         "manager": "uv",
         "source": "pypi",
         "package": "devin-metrics",
-        "version": "0.2.0",
+        "version": "0.2.1",
         "commands": [
           "devin-metrics",
           "devin-dashboard"
@@ -141,7 +141,7 @@
         "manager": "uv",
         "source": "pypi",
         "package": "devin-search",
-        "version": "0.1.2",
+        "version": "0.2.0",
         "commands": [
           "devin-search"
         ],
@@ -327,7 +327,7 @@
         "manager": "uv",
         "source": "pypi",
         "package": "devin-redact",
-        "version": "0.2.1",
+        "version": "0.2.2",
         "commands": [
           "devin-redact"
         ],
@@ -343,7 +343,7 @@
         "manager": "uv",
         "source": "pypi",
         "package": "devin-qa-pack",
-        "version": "0.1.2",
+        "version": "0.2.0",
         "commands": [
           "devin-qa-pack"
         ],
@@ -359,7 +359,7 @@
         "manager": "uv",
         "source": "pypi",
         "package": "devin-doctor",
-        "version": "0.2.0",
+        "version": "0.3.0",
         "commands": [
           "devin-doctor"
         ],
@@ -715,7 +715,7 @@
       "maturity": "usable",
       "official_overlap": "none",
       "overlap_note": null,
-      "version": "0.3.0",
+      "version": "0.3.2",
       "session": "parallel-food",
       "stack": "python",
       "ci": "inline",
@@ -785,7 +785,7 @@
       "maturity": "usable",
       "official_overlap": "none",
       "overlap_note": null,
-      "version": "0.2.1",
+      "version": "0.2.2",
       "session": "sparkling-metal",
       "stack": "python",
       "ci": "inline",
@@ -932,7 +932,7 @@
       "maturity": "usable",
       "official_overlap": "none",
       "overlap_note": null,
-      "version": "0.2.0",
+      "version": "0.3.0",
       "session": "basalt-chill",
       "stack": "python",
       "ci": "inline",
@@ -1080,7 +1080,7 @@
       "maturity": "usable",
       "official_overlap": "none",
       "overlap_note": null,
-      "version": "0.1.2",
+      "version": "0.2.0",
       "session": "smooth-beanie",
       "stack": "python",
       "ci": "inline",
@@ -1157,7 +1157,7 @@
       "maturity": "usable",
       "official_overlap": "none",
       "overlap_note": null,
-      "version": "0.2.0",
+      "version": "0.2.1",
       "session": "young-quasar",
       "stack": "python",
       "ci": "inline",
@@ -1303,7 +1303,7 @@
       "maturity": "usable",
       "official_overlap": "none",
       "overlap_note": null,
-      "version": "0.1.2",
+      "version": "0.2.0",
       "session": "gusty-bite",
       "stack": "python",
       "ci": "inline",
