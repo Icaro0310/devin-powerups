@@ -1,7 +1,7 @@
 {
   "$schema": "https://github.com/Icaro0310/devin-powerups/registry.schema.json",
-  "version": 28,
-  "generated": "2026-10-11",
+  "version": 29,
+  "generated": "2026-10-16",
   "owner": "Icaro0310",
   "note": "Public maintainer toolkit: registry, template, scaffolder, and public-project report. Public Devin tools are listed below; the maintainer's private runtime remains kind=system and is excluded from public-project reports. Unrelated personal repositories are not part of this catalog. CI is inline per public project; see README.md.",
   "ci": {
@@ -45,7 +45,7 @@
     }
   },
   "devkit": {
-    "version": 1,
+    "version": 2,
     "installer": "uv",
     "supported_platforms": [
       "windows",
@@ -141,7 +141,7 @@
         "manager": "uv",
         "source": "pypi",
         "package": "devin-search",
-        "version": "0.1.0",
+        "version": "0.1.2",
         "commands": [
           "devin-search"
         ],
@@ -286,7 +286,7 @@
         "manager": "uv",
         "source": "pypi",
         "package": "devin-memory",
-        "version": "0.3.0",
+        "version": "0.3.1",
         "commands": [
           "devin-memory",
           "devin-learning",
@@ -343,7 +343,7 @@
         "manager": "uv",
         "source": "pypi",
         "package": "devin-qa-pack",
-        "version": "0.1.0",
+        "version": "0.1.2",
         "commands": [
           "devin-qa-pack"
         ],
@@ -359,7 +359,7 @@
         "manager": "uv",
         "source": "pypi",
         "package": "devin-doctor",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "commands": [
           "devin-doctor"
         ],
@@ -459,6 +459,29 @@
           "devin-janitor"
         ],
         "alias_of": "security"
+      },
+      "agent-tools": {
+        "label": "Agent Tools",
+        "description": "Installs the agent-agnostic toolset: qa-pack, doctor, search, memory and judge — works with Copilot, Codex and VS Code Chat session stores, no Devin install required.",
+        "tools": [
+          "devin-assure",
+          "devin-explore",
+          "devin-search",
+          "devin-brain",
+          "devin-judge"
+        ]
+      },
+      "no-devin": {
+        "label": "No Devin",
+        "description": "Convenience alias for the agent-agnostic toolset.",
+        "tools": [
+          "devin-assure",
+          "devin-explore",
+          "devin-search",
+          "devin-brain",
+          "devin-judge"
+        ],
+        "alias_of": "agent-tools"
       },
       "full": {
         "label": "Full",
@@ -909,7 +932,7 @@
       "maturity": "usable",
       "official_overlap": "none",
       "overlap_note": null,
-      "version": "0.1.0",
+      "version": "0.2.0",
       "session": "basalt-chill",
       "stack": "python",
       "ci": "inline",
@@ -1057,7 +1080,7 @@
       "maturity": "usable",
       "official_overlap": "none",
       "overlap_note": null,
-      "version": "0.1.0",
+      "version": "0.1.2",
       "session": "smooth-beanie",
       "stack": "python",
       "ci": "inline",
@@ -1280,7 +1303,7 @@
       "maturity": "usable",
       "official_overlap": "none",
       "overlap_note": null,
-      "version": "0.1.0",
+      "version": "0.1.2",
       "session": "gusty-bite",
       "stack": "python",
       "ci": "inline",
@@ -1504,7 +1527,7 @@
       "maturity": "usable",
       "official_overlap": "partial",
       "overlap_note": "Complements official Devin Memory with local evidence provenance and quarantine.",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "session": "goldenrod-gadget",
       "stack": "python",
       "ci": "inline",
