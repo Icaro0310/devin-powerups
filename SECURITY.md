@@ -26,15 +26,22 @@ public key published on the maintainer's GitHub profile:
 curl -sL https://github.com/Icaro0310.gpg -o icaro0310.asc
 gpg --show-keys --with-colons icaro0310.asc | awk -F: '/^fpr/ {print $10; exit}'
 # must print exactly: E224176EE96D21B2F8D4AD5DB9475711795E531E — abort if it does not
+
+# verify inside an isolated keyring that holds only this key: in your own
+# keyring `gpg --verify` succeeds for ANY trusted signer, so a substituted
+# artifact signed by another key you hold would also pass.
+export GNUPGHOME="$(mktemp -d)"
 gpg --import icaro0310.asc
 gpg --verify <artifact>.asc <artifact>
+rm -rf "$GNUPGHOME"; unset GNUPGHOME
 ```
 
-The fingerprint check is mandatory: importing whatever key the profile
-serves and calling `gpg --verify` would accept artifacts signed by any
-key placed there. The signature is only trustworthy if the key's
-fingerprint matches `E224 176E E96D 21B2 F8D4 AD5D B947 5711 795E 531E`
-exactly.
+Both checks are mandatory: importing whatever key the profile serves and
+calling `gpg --verify` would accept artifacts signed by any key placed
+there, and verifying in a shared keyring would accept artifacts signed by
+any key already trusted there. The signature is only trustworthy if the
+key's fingerprint matches `E224 176E E96D 21B2 F8D4 AD5D B947 5711 795E
+531E` exactly and the keyring holds no other keys.
 
 Scope and limits: `*.asc` files sign the Python distributions and the
 SBOM only — the packaged `.vsix` extension is currently unsigned. PyPI
