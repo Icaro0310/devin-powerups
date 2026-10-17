@@ -23,18 +23,26 @@ carry detached GPG signatures (`*.asc`). Verify any artifact with the
 public key published on the maintainer's GitHub profile:
 
 ```sh
-curl -sL https://github.com/Icaro0310.gpg | gpg --import
+curl -sL https://github.com/Icaro0310.gpg -o icaro0310.asc
+gpg --show-keys --with-colons icaro0310.asc | awk -F: '/^fpr/ {print $10; exit}'
+# must print exactly: E224176EE96D21B2F8D4AD5DB9475711795E531E — abort if it does not
+gpg --import icaro0310.asc
 gpg --verify <artifact>.asc <artifact>
 ```
 
-Expected fingerprint:
-`E224 176E E96D 21B2 F8D4 AD5D B947 5711 795E 531E`
+The fingerprint check is mandatory: importing whatever key the profile
+serves and calling `gpg --verify` would accept artifacts signed by any
+key placed there. The signature is only trustworthy if the key's
+fingerprint matches `E224 176E E96D 21B2 F8D4 AD5D B947 5711 795E 531E`
+exactly.
 
 Scope and limits: `*.asc` files sign the Python distributions and the
-SBOM only — the packaged `.vsix` extension is currently unsigned, and
-PyPI itself carries no signature (verify against the GitHub release
-asset of the same name, not the PyPI file). The SBOM signature attests
-the manifest's integrity; it is not a build attestation.
+SBOM only — the packaged `.vsix` extension is currently unsigned. PyPI
+itself carries no signatures; to authenticate a PyPI download, fetch the
+same-named asset from the GitHub release, verify its `.asc`, then compare
+`sha256sum` digests of the PyPI file and the verified GitHub asset —
+matching filenames alone prove nothing about the bytes. The SBOM
+signature attests the manifest's integrity; it is not a build attestation.
 
 ## Reporting a vulnerability
 
