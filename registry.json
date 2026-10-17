@@ -1691,7 +1691,7 @@
       "maturity": "usable",
       "official_overlap": "none",
       "overlap_note": null,
-      "version": "0.1.0",
+      "version": "0.2.0",
       "session": "massive-waltz",
       "stack": "node",
       "ci": "inline",
