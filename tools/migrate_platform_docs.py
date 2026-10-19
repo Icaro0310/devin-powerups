@@ -121,11 +121,14 @@ def _install_line(entry: dict[str, Any], tool: dict[str, Any] | None, platform: 
         ]
     if entry["name"] == "devin-office":
         command = "py -3" if platform == "windows" else "python3"
+        src_path = "packages/office/src/devin_office/daemon.py"
         return [
-            "From a repository checkout, run the standalone read-only dashboard:",
+            "Run the standalone read-only dashboard — installed CLI, or",
+            "straight from a repository checkout (PyPI publish pending):",
             "",
             "```" + ("powershell" if platform == "windows" else "bash"),
-            f"{command} daemon.py --port 8788",
+            "devin-office --port 8788  # installed package",
+            f"{command} {src_path} --port 8788  # checkout",
             "```",
             "",
             "Open `http://localhost:8788`; the process stops with Ctrl+C.",
