@@ -32,6 +32,19 @@ their own pace. Concrete release tags (`v1.0.0`) mark the underlying commit.
 | `verify-wheel-version.yml` | Build + `__version__` gate; uploads the verified `dist` artifact | called from publish workflows | `package-dir`, `module`, `python-version` |
 | `release.yml` | Release fan-out: wheel gate → PyPI OIDC → GHCR+cosign → `.vsix` artifact → marketplace notes | `workflow_call` from per-repo release workflows | `package-dir`, `module`, `pypi-environment`, `python-version`, `vscode-ext-dir`, `docker-image` → output `version` |
 
+**Rollout note — `tools/dev-deps-pin-check.py` (dev-dep pin sensor):**
+wired only into this repo's `ci.yml` for now (scans the hub checkout +
+`template/`). Per-repo rollout is a follow-up — callers currently fail it
+(`ruff>=x` in `[dependency-groups]`, `astral-sh/ruff-action` without a
+`version:` input, `pip install build twine` on publish paths). When that
+rollout happens the check belongs either (a) as a step in
+`python-test.yml` — it is already in every Python repo's CI via `@v1`, so
+one retag propagates it to all callers with zero pin-bump PRs — or (b) as
+its own reusable on the `adapters-check.yml`/`config-restricted-check.yml`
+pattern (script fetched from `v1` when the caller does not ship it).
+Option (a) is the cheaper path; (b) is the right one only if the check
+needs to run without a pytest job.
+
 ### Caller templates
 
 ```yaml

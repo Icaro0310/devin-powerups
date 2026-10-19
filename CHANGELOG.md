@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `tools/dev-deps-pin-check.py`: dev-dep drift sensor — fails when a lint/test/build tool (ruff, pytest, mypy, bandit, black, coverage, hatch/hatchling, setuptools, wheel, build, twine; overridable via `--tools`) carries a floating specifier (`bare >=`/`*`/`latest`/`@main`) in `pyproject.toml` (optional-deps, dependency-groups, tool.uv, build-system.requires, hatch envs), `requirements*.txt`, or workflow install lines (`pip`/`pipx`/`uvx`/`uv tool`), including `astral-sh/ruff-action` steps without a `version:` input. Wired into `ci.yml` against the repo + `template/`; `tools/test_dev_deps_pin_check.py` + `--selftest` fixtures cover every site.
+
 - `GOVERNANCE.md` + `BACKLOG.md`: central rules (measurement-window scope, merge evidence rule, `@v1` caller pinning, named-file staging) and the parked-work tracker. `tools/fork_visibility.py` measures the upstream awesome-list PR funnel. `.github/workflows/baseline-snapshot.yml` automates weekly P5 collection (Mon 08:15 UTC, commits snapshots, opens an issue on failure).
 
 - `tools/snapshot_baseline.py` + `BASELINE.md`: P5 adoption/reliability baseline — per-repo GitHub stats and traffic (14d), PyPI/npm downloads for published tools, day-1 snapshot at `snapshots/2026-10-08.json`. Collection window 2026-10-08 → 2026-12-03.
@@ -31,6 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `tools/new-repo.py --kind system` now requires `--visibility private`.
 - The starter template now uses one shared README with separate Windows and Linux guides; macOS is marked planned/unverified.
 - Package metadata in 11 Python projects now references the published `devin-internals-spec` version range instead of a direct Git URL, making the distributions eligible for PyPI upload.
+- `template/pyproject.toml` dev deps are pinned (`pytest~=9.0`, `ruff~=0.17.0`, `setuptools>=77,<82`) — a bare `>=` floats to every new release, which is how ruff 0.17 broke generated repos' main.
+- `verify-wheel-version.yml` installs `build==1.2.2`/`twine==6.1.0` instead of floating latest on the publish path.
 
 ### Fixed
 

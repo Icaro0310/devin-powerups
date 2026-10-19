@@ -1,5 +1,7 @@
 [build-system]
-requires = ["setuptools>=77"]
+# Build backend floats to every new setuptools release otherwise —
+# same drift class as the lint tools below.
+requires = ["setuptools>=77,<82"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -12,8 +14,14 @@ requires-python = ">=3.10"
 authors = [{ name = "Icaro0310" }]
 dependencies = []
 
+# Dev/test/lint tools carry bounded pins, never bare >=: a floating
+# specifier resolves "newest release" in every CI run — that is how
+# ruff 0.17 broke two repos' main by flagging previously-valid # noqa
+# directives (tools/dev-deps-pin-check.py enforces this). Pin to the
+# breaking boundary: ~=X.Y for >=1.0 tools (major-locked), ~=X.Y.Z for
+# 0.x tools (minor-locked — ruff minors add lints that fail main).
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+dev = ["pytest~=9.0", "ruff~=0.17.0"]
 
 [project.scripts]
 devin-{{name}} = "devin_{{module}}.cli:main"
