@@ -111,13 +111,20 @@ RUFF_ACTION_RE = re.compile(r"\buses:\s*astral-sh/ruff-action(?:@|\b)")
 # requirement). --spec/--from/--with are deliberately absent: their
 # values ARE package specs and get checked.
 _VALUE_OPTIONS = {
-    "-r", "--requirement", "-c", "--constraint", "-e", "--editable",
+    "-r", "--requirement", "-c", "--constraint",
     "-t", "--target", "-f", "--find-links", "-i", "--index-url",
     "--extra-index-url", "-d", "--download", "--src", "--root",
     "--prefix", "-p", "--python", "--platform", "--abi",
     "--implementation",
 }
-SPEC_OPTIONS = {"--spec", "--from", "--with"}
+# --spec/--from/--with name the resolved package; -e/--editable also
+# pass a requirement through (a VCS URL can hide there) — both get
+# checked. Local paths like `-e .` simply match no tool name.
+SPEC_OPTIONS = {"--spec", "--from", "--with", "-e", "--editable"}
+
+# Tokens that end one shell command and start the next inside a single
+# run: line — every segment is inspected independently.
+_SHELL_SEPARATORS = {"&&", "||", ";", "|"}
 
 
 def normalize(name: str) -> str:
@@ -142,7 +149,10 @@ def ref_is_floating(ref: str) -> bool:
 
 def spec_is_floating(spec: str) -> bool:
     """PEP 440 specifier part: floating = bare, wildcard, or lower
-    bounds only (``>=x`` with no ceiling drifts to every new release)."""
+    bounds only (``>=x`` with no ceiling drifts to every new release).
+    Precision also matters: ``~=0.9`` on a 0.x tool resolves to
+    ``>=0.9,<1.0`` — every future minor — and ``==0.*`` matches any
+    0.x release, so both float just like a bare name."""
     s = spec.strip()
     if not s or s == "*":
         return True
@@ -151,16 +161,34 @@ def spec_is_floating(spec: str) -> bool:
     ops = set(CLAUSE_RE.findall(s))
     if not ops:
         return True  # unparseable — fail closed, not silently ok
-    return ops <= {">=", ">", "!="}
+    if ops <= {">=", ">", "!="}:
+        return True
+    for clause in s.split(","):
+        m = re.match(r"(===|==|~=)\s*([0-9A-Za-z.*]+)", clause.strip())
+        if not m:
+            continue
+        op, release = m.groups()
+        if op == "~=":
+            parts = release.split(".")
+            if parts[0] == "0" and len(parts) < 3:
+                return True  # ~=0.9 → >=0.9,<1 — minors still float
+        elif ".*" in release:
+            prefix = release.split(".*")[0]
+            if prefix.count(".") < 1:
+                return True  # ==0.* / ==1.* → any release of the major
+    return False
 
 
 def _url_spec_floating(target: str) -> bool:
     """Direct reference target: an archive URL is immutable, a bare repo
-    URL tracks the default branch, ``@ref`` defers to ref_is_floating."""
+    URL tracks the default branch, ``@ref`` defers to ref_is_floating.
+    Query/fragment suffixes (``#egg=``, ``?subdirectory=``) are pip
+    metadata, not part of the ref."""
     if ARCHIVE_RE.search(target):
         return False
-    if "@" in target:
-        return ref_is_floating(target.rsplit("@", 1)[1])
+    base = re.split(r"[?#]", target, maxsplit=1)[0]
+    if "@" in base:
+        return ref_is_floating(base.rsplit("@", 1)[1])
     return True
 
 
@@ -299,7 +327,15 @@ def check_requirements_file(path: Path, tools: set[str]) -> list[str]:
         if not s or s.startswith("#"):
             continue
         token = s.split()[0]
-        if token.startswith("-"):  # -r/-c/-e/--option lines
+        # `-e <v>` / `--editable=<v>` still install a package — a VCS
+        # URL can hide behind them, so re-check the editable target.
+        if token in ("-e", "--editable"):
+            s = s[len(token):].strip()
+        elif token.startswith(("--editable=", "-e=")):
+            s = token.split("=", 1)[1].strip()
+        elif token.startswith("-"):  # -r/-c/--option lines
+            continue
+        if not s:
             continue
         finding = requirement_finding(s, tools, "requirements")
         if finding:
@@ -403,16 +439,31 @@ def _ruff_action_version(lines: list[tuple[int, str]], index: int) -> str | None
     or below that indent — the next ``- step``, job or jobs: key."""
     _, first = lines[index]
     indent = len(first) - len(first.lstrip())
+    with_indent: int | None = None
     for _, line in lines[index + 1 : index + 15]:
         stripped = line.strip()
         if not stripped or stripped.startswith("#"):
             continue
-        if len(line) - len(line.lstrip()) <= indent:
+        ind = len(line) - len(line.lstrip())
+        if ind <= indent:
             break
+        if with_indent is None:
+            # Only `with:` keys are action inputs — `env:` or any other
+            # step key carrying `version:` is unrelated.
+            wm = re.match(r"with\s*:\s*(.*)$", stripped)
+            if wm:
+                with_indent = ind
+                inline = wm.group(1)
+                vm = re.search(r"version\s*:\s*([^,}\s]+)", inline)
+                if vm:
+                    return vm.group(1).strip("'\"")
+            continue
+        if ind <= with_indent:
+            with_indent = None  # left the with: block
+            continue
         m = re.match(r"version\s*:\s*(.+?)\s*$", stripped)
         if m:
             return m.group(1).strip("'\"")
-    return None
 
 
 def check_workflow(path: Path, tools: set[str]) -> list[str]:
@@ -433,6 +484,13 @@ def check_workflow(path: Path, tools: set[str]) -> list[str]:
                 findings.append(
                     f"{path}:{lineno}: ruff-action version '{version}' is not a pin"
                 )
+            elif not VERSIONISH_RE.match(version):
+                # "${{ vars.X }}"/"$VAR" resolve at run time — nothing
+                # in the repo pins what lands.
+                findings.append(
+                    f"{path}:{lineno}: ruff-action version '{version}' "
+                    "is not a literal pin"
+                )
         for regex, argger in (
             (PIP_INSTALL_RE, _install_args),
             (UV_INSTALL_RE, _install_args),
@@ -440,13 +498,22 @@ def check_workflow(path: Path, tools: set[str]) -> list[str]:
             (UV_RUN_RE, _run_args),
             (PIPX_RUN_RE, _run_args),
         ):
-            m = regex.search(line)
-            if not m:
-                continue
-            for spec in argger(_shell_tokens(line[m.end() :])):
-                finding = requirement_finding(spec, tools, "workflow install")
-                if finding:
-                    findings.append(f"{path}:{lineno}: {finding}")
+            for m in regex.finditer(line):
+                tokens = _shell_tokens(line[m.end() :])
+                # stop at a shell separator — `a && b` is two commands,
+                # and the next one gets its own match.
+                cut = next(
+                    (i for i, t in enumerate(tokens)
+                     if t in _SHELL_SEPARATORS),
+                    len(tokens),
+                )
+                for spec in argger(tokens[:cut]):
+                    finding = requirement_finding(
+                        spec, tools, "workflow install")
+                    if finding:
+                        entry = f"{path}:{lineno}: {finding}"
+                        if entry not in findings:
+                            findings.append(entry)
     return findings
 
 

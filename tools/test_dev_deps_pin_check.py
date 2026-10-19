@@ -47,8 +47,11 @@ class TestSpecClassification:
             ("==*", True),
             ("==0.9.0", False),
             ("===0.9.0", False),
-            ("~=0.9", False),
-            ("~=0.9.0", False),
+            ("~=0.9", True),          # >=0.9,<1 — minors float on 0.x
+            ("~=0.9.0", False),       # patch-precision ~= is the pin
+            ("~=9.0", False),         # >=9.0,<10 — sensor targets 0.x
+            ("==0.*", True),          # any 0.x release
+            ("==1.*", True),
             (">=0.9,<0.10", False),   # bounded range
             (">=0.9,<=0.10", False),
             ("<=0.9", False),         # has a ceiling: cannot jump newer
@@ -348,3 +351,80 @@ class TestSelftestFixtures:
         )
         findings, nfiles = ddp.check_tree(tmp_path, TOOLSET)
         assert findings == [] and nfiles == 2
+
+
+class TestReviewRoundFixes:
+    """Regressions for the devin-review findings on the sensor."""
+
+    def test_ruff_action_env_version_is_not_an_input(self, tmp_path):
+        wf = write_workflow(
+            tmp_path,
+            "steps:\n"
+            "  - uses: astral-sh/ruff-action@abc123\n"
+            "    env:\n"
+            '      version: "0.9.0"\n',
+        )
+        findings = ddp.check_workflow(wf, TOOLSET)
+        assert len(findings) == 1 and "version" in findings[0]
+
+    def test_ruff_action_dynamic_version_fails(self, tmp_path):
+        wf = write_workflow(
+            tmp_path,
+            "steps:\n"
+            "  - uses: astral-sh/ruff-action@abc123\n"
+            "    with:\n"
+            "      version: ${{ vars.RUFF_VERSION }}\n",
+        )
+        findings = ddp.check_workflow(wf, TOOLSET)
+        assert len(findings) == 1 and "not a literal pin" in findings[0]
+
+    def test_editable_vcs_install_flagged(self, tmp_path):
+        wf = write_workflow(
+            tmp_path,
+            "steps:\n"
+            "  - run: pip install -e "
+            "git+https://github.com/astral-sh/ruff.git#egg=ruff\n",
+        )
+        findings = ddp.check_workflow(wf, TOOLSET)
+        assert len(findings) == 1
+
+    def test_editable_vcs_in_requirements_flagged(self, tmp_path):
+        req = tmp_path / "requirements.txt"
+        req.write_text(
+            "-e git+https://github.com/astral-sh/ruff.git#egg=ruff\n"
+        )
+        findings = ddp.check_requirements_file(req, TOOLSET)
+        assert len(findings) == 1
+
+    def test_editable_local_path_still_passes(self, tmp_path):
+        req = tmp_path / "requirements-dev.txt"
+        req.write_text("-e .\n--editable=./tools\n")
+        assert ddp.check_requirements_file(req, TOOLSET) == []
+
+    def test_vcs_tag_pin_with_fragment_passes(self, tmp_path):
+        wf = write_workflow(
+            tmp_path,
+            "steps:\n"
+            "  - run: pip install "
+            "git+https://github.com/astral-sh/ruff.git@v0.9.0#egg=ruff\n",
+        )
+        assert ddp.check_workflow(wf, TOOLSET) == []
+
+    def test_vcs_branch_with_fragment_still_flagged(self, tmp_path):
+        wf = write_workflow(
+            tmp_path,
+            "steps:\n"
+            "  - run: pip install "
+            "git+https://github.com/astral-sh/ruff.git@main#egg=ruff\n",
+        )
+        findings = ddp.check_workflow(wf, TOOLSET)
+        assert len(findings) == 1
+
+    def test_chained_commands_each_inspected(self, tmp_path):
+        wf = write_workflow(
+            tmp_path,
+            "steps:\n"
+            "  - run: uvx 'ruff==0.9.0' check . && uvx pytest\n",
+        )
+        findings = ddp.check_workflow(wf, TOOLSET)
+        assert len(findings) == 1 and "pytest" in findings[0]
