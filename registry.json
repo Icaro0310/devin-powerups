@@ -13,7 +13,7 @@
   },
   "known_issues": [
     "PyPI publishing is partial; unlisted packages install from pinned GitHub sources until released.",
-    "devin-office is a source-only service, not yet a distributable CLI; macOS support is planned, not claimed."
+    "devin-office macOS support is planned, not claimed; the CLI is packaged (control#73) but not yet on PyPI."
   ],
   "environments": {
     "linux": {
@@ -239,7 +239,11 @@
         "package": "devin-office",
         "version": "0.1.0",
         "commands": [
-          "python daemon.py"
+          "devin-office",
+          "devin-office-hub",
+          "devin-office-probe",
+          "devin-office-executor",
+          "devin-office-procmap"
         ],
         "runtime": "python>=3.10",
         "platforms": [
@@ -248,7 +252,7 @@
         ],
         "status": "manual",
         "category": "operations",
-        "manual_note": "Source-only dashboard service; no distributable package metadata yet."
+        "manual_note": "Packaged at packages/office (src/devin_office, five console scripts); PyPI publish pending — installs from checkout until released."
       },
       "devin-switch": {
         "manager": "uv",
@@ -1909,9 +1913,15 @@
         "name": "devin-office",
         "path": "packages/office"
       },
-      "entrypoints": [],
+      "entrypoints": [
+        "devin-office",
+        "devin-office-hub",
+        "devin-office-probe",
+        "devin-office-executor",
+        "devin-office-procmap"
+      ],
       "legacy": null,
-      "note": "Absorbed into the devin-control monorepo (F4.4); stays source-only at packages/office (mode mixed). Original repo archived with MOVED banner."
+      "note": "Absorbed into the devin-control monorepo (F4.4); packaged as src/devin_office with console scripts (control#73); PyPI publish pending. Original repo archived with MOVED banner."
     },
     {
       "name": "qwenpaw-suite",
