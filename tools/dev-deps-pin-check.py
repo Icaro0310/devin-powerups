@@ -96,15 +96,9 @@ VERSIONISH_RE = re.compile(r"^v?\d[0-9A-Za-z.\-]*$")
 SHA_RE = re.compile(r"^[0-9a-f]{7,40}$", re.IGNORECASE)
 ARCHIVE_RE = re.compile(r"\.(whl|zip|tar\.gz|tgz|tar\.bz2|tar\.xz)$", re.IGNORECASE)
 
-PIP_INSTALL_RE = re.compile(
-    r"\b(?:python3?|py)\s+-m\s+pip3?\s+install\b"
-    r"|\buv\s+pip\s+install\b"
-    r"|\bpip3?\s+install\b"
-)
-UV_RUN_RE = re.compile(r"\b(?:uvx|uv\s+tool\s+run)\b")
-UV_INSTALL_RE = re.compile(r"\buv\s+tool\s+install\b")
-PIPX_RUN_RE = re.compile(r"\bpipx\s+run\b")
-PIPX_INSTALL_RE = re.compile(r"\bpipx\s+(?:install|inject)\b")
+# Workflow install/run commands are matched on shlex tokens in
+# _iter_install_tails (echo "pip install x" is one quoted token and
+# must not match); only the ruff-action check stays regex-based.
 RUFF_ACTION_RE = re.compile(r"\buses:\s*astral-sh/ruff-action(?:@|\b)")
 
 # Options that consume the NEXT token (which is then never a
@@ -491,23 +485,11 @@ def check_workflow(path: Path, tools: set[str]) -> list[str]:
                     f"{path}:{lineno}: ruff-action version '{version}' "
                     "is not a literal pin"
                 )
-        for regex, argger in (
-            (PIP_INSTALL_RE, _install_args),
-            (UV_INSTALL_RE, _install_args),
-            (PIPX_INSTALL_RE, _install_args),
-            (UV_RUN_RE, _run_args),
-            (PIPX_RUN_RE, _run_args),
-        ):
-            for m in regex.finditer(line):
-                tokens = _shell_tokens(line[m.end() :])
-                # stop at a shell separator — `a && b` is two commands,
-                # and the next one gets its own match.
-                cut = next(
-                    (i for i, t in enumerate(tokens)
-                     if t in _SHELL_SEPARATORS),
-                    len(tokens),
-                )
-                for spec in argger(tokens[:cut]):
+        for seg in _segments(_shell_tokens(line)):
+            if not seg or seg[0] in _TEXT_CMDS:
+                continue  # echo/printf print argv literally — not installs
+            for tail, argger in _iter_install_tails(seg):
+                for spec in argger(tail):
                     finding = requirement_finding(
                         spec, tools, "workflow install")
                     if finding:
@@ -515,6 +497,53 @@ def check_workflow(path: Path, tools: set[str]) -> list[str]:
                         if entry not in findings:
                             findings.append(entry)
     return findings
+
+
+def _segments(tokens: list[str]) -> list[list[str]]:
+    """Split a token list into shell command segments at separators."""
+    segs: list[list[str]] = [[]]
+    for tok in tokens:
+        if tok in _SHELL_SEPARATORS or tok == "|&":
+            segs.append([])
+        else:
+            segs[-1].append(tok)
+    return segs
+
+
+_TEXT_CMDS = {"echo", "printf"}  # print argv literally — not installs
+
+
+def _iter_install_tails(seg: list[str]):
+    """Yield (tail_tokens, argger) for every install/run command in a
+    segment. Token-based so `echo "pip install pytest"` — a single
+    quoted token — never matches, unlike substring regexes."""
+    i = 0
+    while i < len(seg):
+        tok = seg[i]
+        if tok in ("pip", "pip3") and seg[i + 1 : i + 2] == ["install"]:
+            yield seg[i + 2 :], _install_args
+        elif (
+            tok in ("python", "python3", "py")
+            and seg[i + 1 : i + 2] == ["-m"]
+            and seg[i + 2] in ("pip", "pip3")
+            and seg[i + 3 : i + 4] == ["install"]
+        ):
+            yield seg[i + 4 :], _install_args
+        elif tok == "uv" and seg[i + 1 : i + 3] == ["pip", "install"]:
+            yield seg[i + 3 :], _install_args
+        elif tok == "uv" and seg[i + 1 : i + 3] == ["tool", "install"]:
+            yield seg[i + 3 :], _install_args
+        elif tok == "uv" and seg[i + 1 : i + 3] == ["tool", "run"]:
+            yield seg[i + 3 :], _run_args
+        elif tok == "uvx":
+            yield seg[i + 1 :], _run_args
+        elif tok == "pipx" and i + 1 < len(seg) and seg[i + 1] in (
+            "install", "inject",
+        ):
+            yield seg[i + 2 :], _install_args
+        elif tok == "pipx" and seg[i + 1 : i + 2] == ["run"]:
+            yield seg[i + 2 :], _run_args
+        i += 1
 
 
 def iter_files(root: Path) -> tuple[list[Path], list[Path], list[Path]]:
