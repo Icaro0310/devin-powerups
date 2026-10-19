@@ -224,6 +224,7 @@ reports. Archived so they are not re-proposed.
 | social-media-skills / marketing lists | archived | promotion tooling; deferred with the HN/forum item |
 | Open SEO | archived | promotion tool, not ecosystem capability |
 | design-automation / social-media / automation-master (fabianocarvalhojr) | archived | no felt pain; same unverified-source caveat |
+| AgentsView (clone `fd3eeb0`, Kenn Software LLC) | **candidate — Personal/Linux; blocked elsewhere** | re-classified 2026-10-19: daemon + HTTP/SSE API + archive is a candidate in Personal/Linux (`external_compute: true`, `delegation: optional`); blocked in Corporate by policy (`local_only: true`), and blocked in the extension by architecture (in-process vs daemon) — independent of policy. The original verdict ("rejected, contradicts local-first") collapsed three environments into one environment's policy. Format knowledge still valuable `[LOCAL]` — see `docs/discovery/existing-tools-evaluation.md` |
 
 ## Deferred/registered (BAIXO, 2026-10-13)
 
