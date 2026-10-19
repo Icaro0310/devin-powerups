@@ -266,6 +266,8 @@ def check_pyproject(pyproject: Path, tools: set[str]) -> list[str]:
     text = pyproject.read_text(encoding="utf-8", errors="replace")
     findings = []
     for section, req in sites:
+        if not isinstance(req, str):
+            continue  # non-string table entries are not requirements
         finding = requirement_finding(req, tools, f"[{section}]")
         if finding:
             findings.append(f"{pyproject}:{_line_no(text, req)}: {finding}")

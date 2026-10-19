@@ -1472,3 +1472,33 @@ Closure of the MÉDIO-3/4 + skill-audit flagged list. Two were factual and fixed
 - **`pm digest` / `weekly-report` in MCP/SKILL:** **deferred until CLI usage justifies.** MCP/SKILL is convenience over a working CLI; revisit on request or real usage.
 
 **Spec rule (formalizing a convention from an earlier round, was only in conversation):** a good spec is **not** revised after it becomes executable — once the spec drives shipped work, corrections happen in code + D-record, and the spec table is updated to `shipped`, never retro-edited to match what got built. The spec stays the record of intent; the code + D-records are the record of truth.
+
+## D-2026-10-19 — Dev-dep drift class closed by sensor, not by pins alone
+
+- **Context:** ruff silently bumped three times across the ecosystem;
+  0.17 broke main on two repos by flagging previously-valid `# noqa`
+  directives. The resolution points that actually fetch the tool were
+  all floating: `ruff>=x` in `[dependency-groups]`/optional-deps,
+  `pip install build twine` on publish paths, and
+  `astral-sh/ruff-action` (SHA-pinned action installing the *latest*
+  ruff every run — the literal 0.17 mechanism). A one-time pin edit
+  does not hold: specs get re-added floating and new sites appear.
+- **Decision:** `tools/dev-deps-pin-check.py` fails CI when a
+  lint/test/build tool carries a floating specifier at any declaration
+  site (pyproject tables incl. `build-system.requires` and
+  `[dependency-groups]`, `requirements*.txt`, workflow
+  `pip`/`pipx`/`uvx`/`uv tool` args, `ruff-action` without `version:`).
+  Checked names are a configurable whitelist so runtime deps never
+  false-positive. Wired into this repo's `ci.yml` against the checkout +
+  `template/` only — per-repo rollout is a documented follow-up
+  (VARIANTS.md: ride `python-test.yml@v1` or a dedicated reusable).
+- **Pin convention:** bound to the breaking boundary — `~=X.Y` for
+  >=1.0 tools (major-locked), `~=X.Y.Z`/`==` for 0.x tools
+  (minor-locked, because 0.x minors carry new lints that fail main).
+  The sensor accepts any non-floating spec (`==`, `~=`, bounded range);
+  the convention is what reviewers enforce in `template/pyproject.toml`.
+- **Expected outcome:** the next ruff/pytest/build release reaches a
+  repo only via a PR that edits a pin — never via a silent re-resolve.
+- **Result:** sensor green on the hub + template; flags 13–15 floats on
+  real sibling checkouts (dep-groups, ruff-action, publish installs),
+  confirming it catches the class, not just the fixtures.

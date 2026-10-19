@@ -5,7 +5,6 @@ loaded via importlib (same convention as ``test_new_repo.py``).
 """
 
 import importlib.util
-import sys
 from pathlib import Path
 
 import pytest
