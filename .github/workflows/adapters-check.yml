@@ -17,6 +17,13 @@ name: adapters-check (reusable)
 # carries its own copy of the script (this one, on a PR that edits it)
 # runs that copy instead, so scanner changes are exercised by the PR
 # that introduces them.
+#
+# A second sensor, scripts/check-safe-executable-lockstep.py, pins every
+# distributed safe-executable.cjs copy byte-identical to the canonical
+# adapters/shared/ file. In this repo it compares against the local
+# canonical (so a PR editing the canonical must sync its copies); in
+# callers it resolves the canonical from the .powerups-sensor checkout
+# at `v1`. Same fetch-from-v1 contract as the hygiene scanner.
 
 on:
   workflow_call:
@@ -39,10 +46,27 @@ jobs:
           path: .powerups-sensor
           persist-credentials: false
 
+      - name: Fetch the sensor checkout when the lockstep script or canonical is missing
+        if: (hashFiles('scripts/check-safe-executable-lockstep.py') == '' || hashFiles('adapters/shared/safe-executable.cjs') == '') && hashFiles('.powerups-sensor/scripts/check-safe-executable-lockstep.py') == ''
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: Icaro0310/devin-powerups
+          ref: v1
+          path: .powerups-sensor
+          persist-credentials: false
+
       - name: Scan distributed adapter files
         run: |
           set -e
           SCRIPT=scripts/check-adapters-hygiene.py
+          [ -f "$SCRIPT" ] || SCRIPT=".powerups-sensor/$SCRIPT"
+          python3 "$SCRIPT" --root .
+          python3 "$SCRIPT" --selftest
+
+      - name: Check safe-executable.cjs copies against the canonical file
+        run: |
+          set -e
+          SCRIPT=scripts/check-safe-executable-lockstep.py
           [ -f "$SCRIPT" ] || SCRIPT=".powerups-sensor/$SCRIPT"
           python3 "$SCRIPT" --root .
           python3 "$SCRIPT" --selftest
