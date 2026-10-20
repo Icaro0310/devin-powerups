@@ -24,7 +24,7 @@ their own pace. Concrete release tags (`v1.0.0`) mark the underlying commit.
 | `scorecard.yml` | OpenSSF Scorecard | `push` main + `schedule` + `workflow_dispatch` | none |
 | `codeql.yml` | CodeQL analysis | `push`/`pull_request` main + `schedule` | `language` (default `python`) |
 | `secrets-scan.yml` | Secret-shaped string scan | called from repo `ci.yml` | none |
-| `adapters-check.yml` | Distributed-adapter hygiene scan (personal paths, internal names, token shapes, SKILL.md command coherence) | called from repo `ci.yml` | none |
+| `adapters-check.yml` | Distributed-adapter hygiene scan (personal paths, internal names, token shapes, SKILL.md command coherence) + `safe-executable.cjs` byte-lockstep against `adapters/shared/` | called from repo `ci.yml` | none |
 | `config-restricted-check.yml` | VS Code extension `untrustedWorkspaces` coverage (declaration required; `limited` is restricted-by-default) | called from repo `ci.yml` | none |
 | `python-test.yml` | pytest on windows+ubuntu | called from repo `ci.yml` | `python-version`, `package-dir` |
 | `adapter-test.yml` | One adapter face's own suite in isolation, on windows+ubuntu | called from per-package adapter workflows | `package-dir`, `adapter-dir`, `test-command`, `python-version`, `node-version`, `pre-install`, `skip-install` |
@@ -210,7 +210,10 @@ jobs:
   # at the same v1 tag when the caller does not ship its own copy;
   # known-legitimate hits pin per file in a repo-root
   # `.adapters-hygiene-allow` (`path sha256=<hex>`), same mechanism as
-  # .secrets-scan-allow.
+  # .secrets-scan-allow. The same job also runs
+  # check-safe-executable-lockstep.py: every vendored safe-executable.cjs
+  # must hash-identically match adapters/shared/ (local canonical in
+  # this repo, the v1 sensor checkout in callers).
   adapters-check:
     permissions:
       contents: read
