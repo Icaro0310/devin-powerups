@@ -307,7 +307,8 @@
             "description": "Delivery wave; 0 = hub/standalone entries."
           },
           "status": {
-            "enum": ["active", "delivered"]
+            "enum": ["absorbed", "active", "delivered"],
+            "description": "Lifecycle state: active = live repository; delivered = shipped artifact; absorbed = entry folded into another repo (see `url`/`local_dir`) — it documents where the code lives now, it does not name a repository."
           },
           "public": {
             "type": "boolean",

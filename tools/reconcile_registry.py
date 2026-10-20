@@ -44,6 +44,7 @@ GH_TIMEOUT = 30
 TAG_LIMIT = 100
 
 _TAG_RE = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)$")
+_GITHUB_URL_RE = re.compile(r"^https?://github\.com/([^/]+)/([^/]+?)/?$")
 
 
 def _norm_version(tag: str) -> str | None:
@@ -116,8 +117,19 @@ def find_local_clones(roots: list[Path]) -> dict[str, Path]:
     return clones
 
 
+def _url_repo_name(entry: dict) -> str:
+    """Repo name the entry's ``url`` points at ('' when there is no url)."""
+    return str(entry.get("url", "")).rstrip("/").rsplit("/", 1)[-1]
+
+
+def _github_url_ref(entry: dict) -> tuple[str, str] | None:
+    """(owner, repo) for a github.com/<owner>/<repo> url; None otherwise."""
+    match = _GITHUB_URL_RE.match(str(entry.get("url", "")).strip())
+    return (match.group(1), match.group(2)) if match else None
+
+
 def _is_repository_entry(name: str, entry: dict) -> bool:
-    url_name = str(entry.get("url", "")).rstrip("/").rsplit("/", 1)[-1]
+    url_name = _url_repo_name(entry)
     return not (
         entry.get("kind") == "system"
         and url_name
@@ -142,6 +154,7 @@ def reconcile(
         },
         "github_only": [],
         "registry_only": [],
+        "dead_url_targets": [],
         "stale_fields": [],
         "missing_local": [],
         "local_only": [],
@@ -176,6 +189,20 @@ def reconcile(
         key=lambda item: item["name"],
     )
     report["registry_only"] = sorted(reg_names - gh_names)
+
+    # Virtual entries (absorbed system components that never had their own
+    # repo) name no repository of their own — their ``url`` points at the
+    # repo that hosts them, and that host must still resolve on GitHub.
+    # Only same-owner github.com urls are verifiable through the repo list;
+    # anything else is out of scope for this check.
+    report["dead_url_targets"] = sorted(
+        name
+        for name, entry in registry.items()
+        if not _is_repository_entry(name, entry)
+        and (ref := _github_url_ref(entry)) is not None
+        and ref[0].casefold() == owner.casefold()
+        and ref[1] not in gh_names
+    )
 
     # Field-level drift for entries present on both sides.
     for name in sorted(reg_names & gh_names):
@@ -263,6 +290,7 @@ def reconcile(
         "local_clones": len(clones),
         "github_only": len(report["github_only"]),
         "registry_only": len(report["registry_only"]),
+        "dead_url_targets": len(report["dead_url_targets"]),
         "stale_fields": len(report["stale_fields"]),
         "missing_local": len(report["missing_local"]),
         "local_only": len(report["local_only"]),
@@ -285,6 +313,7 @@ def render_text(report: dict) -> str:
     sections = (
         ("on GitHub but missing from registry", "github_only"),
         ("in registry but missing on GitHub", "registry_only"),
+        ("virtual entries whose url target is missing on GitHub", "dead_url_targets"),
         ("in registry but no local clone found", "missing_local"),
         ("local clones not in registry", "local_only"),
     )
@@ -361,6 +390,7 @@ def main(argv: list[str] | None = None) -> int:
     drift = (
         report["github_only"]
         or report["registry_only"]
+        or report["dead_url_targets"]
         or report["stale_fields"]
         or report["missing_local"]
     )

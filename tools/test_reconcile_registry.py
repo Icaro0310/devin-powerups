@@ -51,8 +51,29 @@ def test_absorbed_system_alias_is_not_reported_as_missing_repository(tmp_path: P
     report = reconcile_module.reconcile(registry_path, "Icaro0310", [], fetch_tags=True)
 
     assert report["registry_only"] == []
+    assert report["dead_url_targets"] == []
     assert report["missing_local"] == []
     assert report["summary"]["registry_entries"] == 2
+
+
+def test_virtual_entry_whose_url_target_is_missing_is_drift(tmp_path: Path, monkeypatch):
+    registry_path = tmp_path / "registry.json"
+    registry_path.write_text(json.dumps({
+        "repositories": [
+            {"name": "devin-powerups", "url": "https://github.com/Icaro0310/devin-powerups", "kind": "infra", "visibility": "public"},
+            {"name": "devin-ghost-component", "url": "https://github.com/Icaro0310/devin-ghost", "kind": "system", "visibility": "private", "status": "absorbed"},
+        ]
+    }), encoding="utf-8")
+    monkeypatch.setattr(reconcile_module, "fetch_github_repos", lambda owner: {
+        "devin-powerups": {"visibility": "public", "latestRelease": None}
+    })
+    monkeypatch.setattr(reconcile_module, "fetch_github_tags", lambda owner, name: [])
+    monkeypatch.setattr(reconcile_module, "find_local_clones", lambda roots: {"devin-powerups": tmp_path / "devin-powerups"})
+
+    report = reconcile_module.reconcile(registry_path, "Icaro0310", [], fetch_tags=True)
+
+    assert report["dead_url_targets"] == ["devin-ghost-component"]
+    assert report["summary"]["dead_url_targets"] == 1
 
 
 def test_archived_repo_is_not_reported_as_github_only(tmp_path: Path, monkeypatch):

@@ -2233,7 +2233,7 @@
       ],
       "visibility": "private",
       "wave": 0,
-      "status": "delivered",
+      "status": "absorbed",
       "public": false,
       "maturity": "usable",
       "description": "Learning-loop runtime (SessionEnd hooks → .devin/skills/learned-*, hook-fires.jsonl). Absorbed into devin-powerups — never had its own repo; entry exists so devin-pm verify reconciles session history.",
