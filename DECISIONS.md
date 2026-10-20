@@ -4,6 +4,54 @@ Structural decisions about the ecosystem, newest first. Format per
 `GOVERNANCE.md`: Decision / Date / Reason / Evidence / Expected outcome /
 Result. Records are not eternal — revisit when new evidence arrives.
 
+## D-2026-10-20 — Gate fallback: verified fix-commit replies clear blocking threads (option A, in-workflow)
+
+- **Decision:** `pr-approve.yml` v1.4 gains a fallback inside the
+  existing findings step (option A — additive, where the veto lives)
+  over option B (a separate checker workflow + label). A blocking
+  review thread stops counting when ALL hold: (1) it is unresolved or
+  resolved by a non-bot (same predicate as before — `resolvedBy: bot`
+  stays the primary path); (2) a reply after the finding comment by the
+  PR author or a repo-collaborator account (`OWNER`/`MEMBER`/
+  `COLLABORATOR` association, or the PR author's own login) cites a hex
+  7-40 commit token that exists in the repo AND is an ancestor of the
+  reviewed head (`compare {sha}...{head}` status `ahead`/`identical`);
+  (3) the head carries a `Devin Review` commit status `success` — the
+  fix commit was itself re-reviewed clean (the "2 re-review passes"
+  proxy). Cleared threads stay UNRESOLVED — only the veto lifts; the
+  run logs `fallback-resolved:` lines, emits `fallback_resolutions`
+  (pr→count) + `fallback_threads` outputs, and the approval posts a
+  public `gate-resolved-via: fallback` PR comment naming thread+sha.
+- **Why A over B:** the mechanism lives where the veto lives — no
+  second workflow to drift out of sync with the blocking predicate, no
+  label plumbing across ~26 caller repos, and the merge-time comment
+  exposes every fallback use publicly instead of hiding it in a label.
+- **Trigger:** devin-explore PR #104 and devin-state PR #74 — both
+  STATUS_CLEAN across 2+ re-review passes with every finding fixed and
+  replies citing fix commits, but the bot never self-resolved the
+  threads (known gap per the D-2026-10-14 lesson set), so the gate held
+  forever and both needed admin merges (count 6/5).
+- **Kill-switch verification (pre-implementation):** #74 reproduces
+  exactly — unresolved bug thread, author reply cites `55ded04`,
+  compare status `ahead` of head `3eeaf7f`, head status `success`; the
+  fallback would have cleared it. #104 does NOT satisfy the strict
+  criterion — its cited sha `b0cf8e3` was rewritten by a pre-merge
+  rebase (compare `diverged`; same patch as head `5a2077d`). Accepted
+  limit: sha-rewriting rebases need patch-id equivalence, deferred —
+  replies should cite the post-rebase sha. The mechanism is confirmed
+  non-speculative by #74, and the safety rail that rejects #104's
+  diverged sha is the same one that rejects unrelated-commit quotes.
+- **Safety rails:** never fires on reply-less threads, non-ancestor or
+  nonexistent shas, replies by non-collaborator accounts, or a
+  missing/non-success head status; strictly additive to the old
+  predicate (it can only remove threads from the blocking set).
+- **Tests:** `tools/test_pr_approve_gate_fallback.py` executes the
+  workflow's real `run:` blocks against a stubbed `gh` — 14 tests
+  covering the four spec fixtures plus the rails.
+- **Expected outcome:** repeat failure class closed — verified-fix PRs
+  no longer need admin merges when the bot leaves threads open; every
+  fallback use is auditable in the run log and on the PR itself.
+
 ## D-2026-10-15 — Path A activated incrementally: multi-source corpus for all tools (partial reversal of D-2026-10-14)
 
 - **Decision:** the "empty for non-Devin users" state of the six `devin-*`

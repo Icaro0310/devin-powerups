@@ -1,5 +1,9 @@
 name: pr-approve
 
+# Version: v1.4 (gate fallback resolution — D-2026-10-20). Callers pin
+# @v<minor> tags; the owner moves the tag on merge, caller pins roll
+# forward after that.
+
 # Approves pull requests from trusted automation authors, but only after
 # Devin Review (devin-ai-integration[bot]) has submitted a review on the
 # current head commit with no unresolved blocking findings (kind: bug or
@@ -43,6 +47,21 @@ name: pr-approve
 #     (unresolved or resolved by someone other than the Devin bot) — a PR
 #     author resolving threads by hand does not clear the gate, and threads
 #     marked outdated by a push don't hold it either.
+#   - Gate fallback (v1.4): a blocking thread ALSO clears when a reply
+#     from the PR author or a repo collaborator cites a commit sha that
+#     is an ancestor of the head (compare status ahead/identical) AND
+#     the "Devin Review" commit status on the head is success — i.e. the
+#     fix itself was re-reviewed clean but the bot never self-resolved
+#     (seen: devin-explore#104, devin-state#74 held forever after
+#     verified fixes, admin merges required). The thread stays
+#     UNRESOLVED — only the veto lifts; the run logs
+#     `fallback-resolved:` lines, emits a `fallback_resolutions` map,
+#     and the approval posts a `gate-resolved-via: fallback` comment
+#     naming thread + commit. Fallback never fires on reply-less
+#     threads, on shas that are not ancestors of the head (quoting an
+#     unrelated commit stays blocking), on replies by non-collaborator
+#     accounts, or without a success status on the head. Bot-resolved
+#     remains the primary path — the fallback is strictly additive.
 #
 # Trusted authors are the owner's own PRs, dependabot, and workflows
 # (open-pr-bot opens PRs as github-actions[bot]; dispatch needs write
@@ -222,22 +241,32 @@ jobs:
           # A status run can cover several PRs sharing one head — count
           # blocking findings per PR, not just the first one.
           blocking_map="{}"
+          fallback_map="{}"
+          fallback_threads="{}"
           blocking=0
+          devin_state=""
           for pr in $PR_NUMBERS; do
-            count=$(gh api graphql --paginate \
+            # Fetch the whole thread (first 50 comments — findings never
+            # grow past a handful of replies) so the fallback can read
+            # reply authors + bodies in one pass. pullRequest.author is
+            # the reply-author check's PR-author leg.
+            threads=$(gh api graphql --paginate \
               -f owner="${REPO%%/*}" -f name="${REPO##*/}" -F pr="$pr" -f query='
                 query($owner: String!, $name: String!, $pr: Int!, $endCursor: String) {
                   repository(owner: $owner, name: $name) {
                     pullRequest(number: $pr) {
+                      author { login }
                       reviewThreads(first: 100, after: $endCursor) {
                         pageInfo { hasNextPage endCursor }
                         nodes {
+                          id
                           isResolved
                           isOutdated
                           resolvedBy { login }
-                          comments(first: 1) {
+                          comments(first: 50) {
                             nodes {
                               author { login }
+                              authorAssociation
                               originalCommit { oid }
                               body
                             }
@@ -246,29 +275,84 @@ jobs:
                       }
                     }
                   }
-                }' \
-              | jq -s --arg sha "$HEAD_SHA" '
-                  [ .[].data.repository.pullRequest.reviewThreads.nodes[]
-                    # Still blocking when unresolved, or when resolved by anyone
-                    # other than the Devin bot — a PR author resolving a finding
-                    # by hand must not clear the gate. Exact login match: a
-                    # devin-ai-integration-* prefixed account is not the bot.
-                    # Outdated threads do not block: the push that moved the
-                    # code already answered them (the re-review re-flags if
-                    # needed).
-                    | select(.isOutdated == false)
-                    | select(.isResolved == false
-                        or ([(.resolvedBy.login // "")] | inside(["devin-ai-integration", "devin-ai-integration[bot]"]) | not))
-                    | .comments.nodes[0]
-                    | select(([.author.login // ""] | inside(["devin-ai-integration", "devin-ai-integration[bot]"]))
-                        and (.body | test("\"kind\": \"(bug|security)\"")))
-                  ] | length')
-            echo "unresolved blocking findings on $HEAD_SHA for PR #$pr: $count"
+                }')
+            pr_author=$(echo "$threads" | jq -rs \
+              '.[0].data.repository.pullRequest.author.login // ""')
+            # Blocking candidates = same predicate as before: not
+            # outdated AND (unresolved or resolved by non-bot) AND first
+            # comment is a devin bug|security note. The fallback pass
+            # below can only REMOVE threads from this set — resolvedBy:
+            # bot stays the primary clear and never reaches the loop.
+            candidates=$(echo "$threads" | jq -s --arg pra "$pr_author" '
+                [ .[].data.repository.pullRequest.reviewThreads.nodes[]
+                  | select(.isOutdated == false)
+                  | select(.isResolved == false
+                      or ([(.resolvedBy.login // "")] | inside(["devin-ai-integration", "devin-ai-integration[bot]"]) | not))
+                  | .comments.nodes as $cs
+                  | select(([($cs[0].author.login // "")] | inside(["devin-ai-integration", "devin-ai-integration[bot]"]))
+                      and ($cs[0].body | test("\"kind\": \"(bug|security)\"")))
+                  # Fallback material: hex 7-40 tokens from qualified
+                  # replies (any comment after the first by the PR
+                  # author or a repo-collaborator account — OWNER,
+                  # MEMBER, COLLABORATOR associations). Replies by
+                  # anyone else never feed the sha list, so a random
+                  # commenter cannot quote a commit into the gate.
+                  | { id: .id,
+                      shas: ([ $cs[1:][]
+                               | select(([.authorAssociation // ""] | inside(["OWNER", "MEMBER", "COLLABORATOR"]))
+                                   or ((.author.login // "") == $pra))
+                               | .body | scan("\\b[0-9a-fA-F]{7,40}\\b") | ascii_downcase ]
+                             | unique) }
+                ]')
+            count=0
+            fb_count=0
+            fb_pairs=()
+            while IFS=$'\t' read -r tid sha_list; do
+              resolved=""
+              # A thread with no qualified replies yields an empty sha
+              # list and stays blocking — zero-reply safety rail.
+              for sha in ${sha_list//,/ }; do
+                [ -n "$sha" ] || continue
+                # The cited commit must exist in this repo AND be an
+                # ancestor of the reviewed head — a reply quoting an
+                # unrelated (or rewritten-by-rebase) sha never clears.
+                gh api "repos/$REPO/commits/$sha" >/dev/null 2>&1 || continue
+                cmp_status=$(gh api "repos/$REPO/compare/${sha}...${HEAD_SHA}" --jq .status 2>/dev/null || true)
+                [ "$cmp_status" = "ahead" ] || [ "$cmp_status" = "identical" ] || continue
+                # Clean re-verification on the head: the "Devin Review"
+                # status must be success — the fix commit was itself
+                # re-reviewed clean (the "2 re-review passes" proxy).
+                # Per-head signal, lazily fetched once per run.
+                if [ -z "$devin_state" ]; then
+                  devin_state=$(gh api "repos/$REPO/commits/$HEAD_SHA/status" \
+                    | jq -r '[.statuses[] | select(.context == "Devin Review"
+                        and ((.avatar_url // "") | contains("/in/811515")))]
+                      | .[0].state // "none"')
+                fi
+                # Not success -> no token can rescue this thread.
+                [ "$devin_state" = "success" ] || break
+                resolved="$sha"
+                break
+              done
+              if [ -n "$resolved" ]; then
+                echo "fallback-resolved: PR #$pr thread $tid via commit $resolved"
+                fb_count=$((fb_count + 1))
+                fb_pairs+=("$tid@$resolved")
+              else
+                count=$((count + 1))
+              fi
+            done < <(echo "$candidates" | jq -r '.[] | .id + "\t" + (.shas | join(","))')
+            echo "unresolved blocking findings on $HEAD_SHA for PR #$pr: $count${fb_count:+ ($fb_count cleared by fallback)}"
             blocking_map=$(echo "$blocking_map" | jq -c --arg p "$pr" --argjson c "$count" '. + {($p): $c}')
+            fallback_map=$(echo "$fallback_map" | jq -c --arg p "$pr" --argjson c "$fb_count" '. + {($p): $c}')
+            pairs_json=$(printf '%s\n' "${fb_pairs[@]:-}" | jq -R . | jq -cs 'map(select(length > 0))')
+            fallback_threads=$(echo "$fallback_threads" | jq -c --arg p "$pr" --argjson t "$pairs_json" '. + {($p): $t}')
             blocking=$((blocking + count))
           done
           echo "blocking=$blocking" >> "$GITHUB_OUTPUT"
           echo "blocking_map=$blocking_map" >> "$GITHUB_OUTPUT"
+          echo "fallback_resolutions=$fallback_map" >> "$GITHUB_OUTPUT"
+          echo "fallback_threads=$fallback_threads" >> "$GITHUB_OUTPUT"
 
       - name: Approve PRs with no blocking findings
         if: steps.review.outputs.any_approvable == 'true'
@@ -278,6 +362,9 @@ jobs:
           PR_NUMBERS: ${{ steps.review.outputs.pr_numbers }}
           VERDICT_MAP: ${{ steps.review.outputs.verdict_map }}
           BLOCKING_MAP: ${{ steps.findings.outputs.blocking_map }}
+          FALLBACK_MAP: ${{ steps.findings.outputs.fallback_resolutions }}
+          FALLBACK_THREADS: ${{ steps.findings.outputs.fallback_threads }}
+          HEAD_SHA: ${{ steps.review.outputs.head_sha }}
         run: |
           set -euo pipefail
           # Each PR is judged by its own verdict and findings: APPROVED
@@ -289,6 +376,10 @@ jobs:
           [ -z "$vmap" ] && vmap='{}'
           bmap="${BLOCKING_MAP:-}"
           [ -z "$bmap" ] && bmap='{}'
+          fmap="${FALLBACK_MAP:-}"
+          [ -z "$fmap" ] && fmap='{}'
+          fthreads="${FALLBACK_THREADS:-}"
+          [ -z "$fthreads" ] && fthreads='{}'
           for pr in $PR_NUMBERS; do
             v=$(echo "$vmap" | jq -r --arg p "$pr" '.[$p] // "no-review"')
             count=$(echo "$bmap" | jq -r --arg p "$pr" '.[$p] // 0')
@@ -297,6 +388,20 @@ jobs:
                 if [ "$v" = "APPROVED" ] || [ "$count" = "0" ]; then
                   gh pr review --approve "https://github.com/$REPO/pull/$pr"
                   echo "approved PR #$pr ($v${count:+ with $count blocking})"
+                  # Approving via fallback: the veto lifted on threads
+                  # the bot never self-resolved — say so publicly, naming
+                  # thread + commit, and leave the threads unresolved so
+                  # the findings stay visible for audit.
+                  fb=$(echo "$fmap" | jq -r --arg p "$pr" '.[$p] // 0')
+                  if [ "$fb" != "0" ]; then
+                    list=""
+                    for pair in $(echo "$fthreads" | jq -r --arg p "$pr" '.[$p][]?'); do
+                      list="$list"$'\n'"- thread ${pair%%@*} via commit ${pair##*@}"
+                    done
+                    gh pr comment "https://github.com/$REPO/pull/$pr" --body \
+                      "gate-resolved-via: fallback — $fb blocking thread(s) cleared by replies citing verified fix commits, with the Devin Review status on ${HEAD_SHA} re-verified clean:$list"$'\n\n'"Threads left unresolved — the findings stay visible."
+                    echo "posted gate-resolved-via: fallback comment on PR #$pr ($fb thread(s))"
+                  fi
                 else
                   echo "::warning::PR #$pr held ($v) with $count unresolved blocking finding(s) — fix, reply to the threads and push"
                 fi ;;
@@ -316,4 +421,4 @@ jobs:
           BLOCKING: ${{ steps.findings.outputs.blocking }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.sha }}
         run: |
-          echo "::warning::Auto-approve held on $HEAD_SHA: verdicts $VERDICT_MAP${BLOCKING:+ with $BLOCKING unresolved blocking finding(s) total}. Fix, reply to the finding threads and push — Devin's re-review resolves them and re-runs this job."
+          echo "::warning::Auto-approve held on $HEAD_SHA: verdicts $VERDICT_MAP${BLOCKING:+ with $BLOCKING unresolved blocking finding(s) total}. Fix, reply to the finding threads citing the fix commit and push — Devin's re-review resolves them and re-runs this job (a reply citing a fix commit inside a clean-re-reviewed head also clears via the gate fallback)."
