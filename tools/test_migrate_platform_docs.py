@@ -153,11 +153,25 @@ def test_monorepo_member_install_points_at_package_subdirectory():
 
 def test_office_guides_use_native_python_commands():
     entry = {"name": "devin-office", "description": "Dashboard"}
-    windows = migration.render_guide(entry, {"manager": "manual"}, "windows")
+    tool = {"manager": "uv", "source": "pypi", "package": "devin-office", "version": "0.1.0"}
+    windows = migration.render_guide(entry, tool, "windows")
+    linux = migration.render_guide(entry, tool, "linux")
+
+    src = "packages/office/src/devin_office/daemon.py"
+    assert 'uv tool install "devin-office"' in windows
+    assert "devin-office --port 8788" in windows
+    assert f"py -3 {src} --port 8788" in windows
+    assert "uv tool install 'devin-office'" in linux
+    assert "devin-office --port 8788" in linux
+    assert f"python3 {src} --port 8788" in linux
+
+
+def test_office_guide_without_installable_tool_still_runs_from_checkout():
+    entry = {"name": "devin-office", "description": "Dashboard"}
     linux = migration.render_guide(entry, {"manager": "manual"}, "linux")
 
-    assert "py -3 daemon.py --port 8788" in windows
-    assert "python3 daemon.py --port 8788" in linux
+    assert "uv tool install 'devin-office'" not in linux
+    assert "python3 packages/office/src/devin_office/daemon.py --port 8788" in linux
 
 
 def test_corporate_guide_uses_explicit_unsupported_reason():
