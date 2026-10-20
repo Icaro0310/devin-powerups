@@ -200,7 +200,7 @@ def reconcile(
         for name, entry in registry.items()
         if not _is_repository_entry(name, entry)
         and (ref := _github_url_ref(entry)) is not None
-        and ref[0] == owner
+        and ref[0].casefold() == owner.casefold()
         and ref[1] not in gh_names
     )
 
