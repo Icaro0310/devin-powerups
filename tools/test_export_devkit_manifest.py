@@ -66,8 +66,8 @@ def test_manifest_uses_pypi_names_and_real_cli_entrypoints():
     assert tools["devin-brain"]["install_spec"].startswith("devin-memory[mcp]==")
     assert manifest["git_required_tools"] == []
     assert {t["id"] for t in manifest["tools"] if t["requires_git"]} == set()
-    assert tools["devin-office"]["install_spec"] is None
-    assert tools["devin-office"]["status"] == "manual"
+    assert tools["devin-office"]["install_spec"] == "devin-office==0.1.0"
+    assert tools["devin-office"]["status"] == "published"
 
 
 def test_install_spec_follows_the_registry_source():
@@ -93,7 +93,8 @@ def test_install_spec_follows_the_registry_source():
                 assert spec == f"{repos[tool['id']]['url']}/archive/{declared['ref']}.tar.gz"
         else:
             assert spec is None
-    assert {"pypi", "npm", "manual"} <= seen
+    # Channels present are registry-derived; only guard against unknown values.
+    assert {"pypi", "npm"} <= seen <= {"pypi", "npm", "github", "manual"}
 
 
 def test_profiles_only_reference_known_tools():
@@ -110,7 +111,7 @@ def test_manifest_carries_artifact_interfaces_audiences_and_platforms():
     tools = {tool["id"]: tool for tool in manifest["tools"]}
 
     assert tools["devin-office"]["artifact"] == "tool"
-    assert tools["devin-office"]["interfaces"] == ["service", "dashboard"]
+    assert tools["devin-office"]["interfaces"] == ["service", "dashboard", "cli"]
     assert tools["devin-control"]["artifact"] == "tool"
     assert "bridge" in tools["devin-control"]["interfaces"]
     assert "ai-engineers" in tools["devin-control"]["audiences"]

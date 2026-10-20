@@ -156,8 +156,11 @@ def test_office_guides_use_native_python_commands():
     windows = migration.render_guide(entry, {"manager": "manual"}, "windows")
     linux = migration.render_guide(entry, {"manager": "manual"}, "linux")
 
-    assert "py -3 daemon.py --port 8788" in windows
-    assert "python3 daemon.py --port 8788" in linux
+    src = "packages/office/src/devin_office/daemon.py"
+    assert "devin-office --port 8788" in windows
+    assert f"py -3 {src} --port 8788" in windows
+    assert "devin-office --port 8788" in linux
+    assert f"python3 {src} --port 8788" in linux
 
 
 def test_corporate_guide_uses_explicit_unsupported_reason():
