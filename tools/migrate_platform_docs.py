@@ -122,17 +122,24 @@ def _install_line(entry: dict[str, Any], tool: dict[str, Any] | None, platform: 
     if entry["name"] == "devin-office":
         command = "py -3" if platform == "windows" else "python3"
         src_path = "packages/office/src/devin_office/daemon.py"
-        return [
+        lines = [
             "Run the standalone read-only dashboard — installed CLI, or",
             "straight from a repository checkout:",
             "",
             "```" + ("powershell" if platform == "windows" else "bash"),
+        ]
+        if tool and tool.get("manager") == "uv":
+            spec = _install_spec(entry, tool)
+            quoted = json.dumps(spec) if platform == "windows" else repr(spec)
+            lines.append(f"uv tool install {quoted}")
+        lines += [
             "devin-office --port 8788  # installed package",
             f"{command} {src_path} --port 8788  # checkout",
             "```",
             "",
             "Open `http://localhost:8788`; the process stops with Ctrl+C.",
         ]
+        return lines
     if not tool:
         return ["This related project is not installed by the DevKit. See its main README for current setup instructions."]
     spec = _install_spec(entry, tool)

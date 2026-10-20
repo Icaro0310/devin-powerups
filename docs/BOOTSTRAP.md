@@ -105,5 +105,4 @@ dry-run é a fonte para repetir.
 - Corporate Windows atrás de Zscaler: **não testado** — rode o plano de
   teste em `audits/2026-10-10/REPORT.md` §Zscaler na máquina real antes de declarar pronto.
 - macOS: planejado, não suportado.
-- `devin-office` é manual/source-only; `qwenpaw-suite` não entra em perfis
-  corporate.
+- `qwenpaw-suite` é source-only e não entra em perfis corporate.

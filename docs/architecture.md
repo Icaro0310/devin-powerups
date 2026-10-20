@@ -104,10 +104,8 @@ public repo and fails when any generated surface diverges.
 ## Known asymmetries (honest notes)
 
 - `devin-control` is polyglot: `bridge` is Node/npm, the rest Python/uv.
-- `devin-office` ships source-only inside devin-control (manual install).
-- `devin-switch`, `devin-skill-catalog`, `devin-devkit` may sit at
-  `source_only` while PyPI rate limits clear — DevKit installs them via
-  git subdirectory specs until then.
+- `qwenpaw-suite` is the only remaining `source_only` product — DevKit
+  installs it via a git subdirectory spec until it publishes.
 - Package names are preserved for continuity (e.g. `devin-redact` lives
   in the `devin-state` product; `devin-fanout` is the orchestrator).
 
