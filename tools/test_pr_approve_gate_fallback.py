@@ -30,6 +30,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "pr-approve.yml"
 HEAD_SHA = "3eeaf7f91a1e4382785746f20a944790033860f6"
 FIX_SHA = "55ded04"
+FBASE_SHA = "aaa111aaa111aaa111aaa111aaa111aaa111aaa1"
 PR_AUTHOR = "Icaro0310"
 BOT = "devin-ai-integration"
 
@@ -85,26 +86,38 @@ if [ -n "$jqexpr" ]; then echo "$out" | jq -r "$jqexpr"; else echo "$out"; fi
 FINDING_BODY = '{"kind": "bug", "severity": "high"} finding text'
 
 
-def comment(author, body, assoc="NONE"):
+def comment(cid, author, body, assoc="NONE", base=FBASE_SHA):
     return {
+        "id": cid,
         "author": {"login": author},
         "authorAssociation": assoc,
-        "originalCommit": {"oid": "0" * 40},
+        "originalCommit": {"oid": base},
         "body": body,
     }
 
 
 def thread(tid, replies=(), resolved=False, resolved_by=None,
-           outdated=False, first_body=FINDING_BODY, first_author=BOT):
-    nodes = [comment(first_author, first_body)]
-    for author, assoc, body in replies:
-        nodes.append(comment(author, body, assoc))
+           outdated=False, first_body=FINDING_BODY, first_author=BOT,
+           base=FBASE_SHA, deep=False):
+    """`comments(first: 1)` + `replies: comments(last: 50)` shape.
+
+    Short threads: the finding rides inside the last-50 window, the jq
+    filter drops it by id. `deep=True` simulates a >50-comment thread:
+    the finding is outside the replies window entirely.
+    """
+    first = comment(f"{tid}-c0", first_author, first_body, base=base)
+    reply_nodes = [
+        comment(f"{tid}-c{n + 1}", author, body, assoc)
+        for n, (author, assoc, body) in enumerate(replies)
+    ]
+    window = reply_nodes if deep else [first] + reply_nodes
     return {
         "id": tid,
         "isResolved": resolved,
         "isOutdated": outdated,
         "resolvedBy": {"login": resolved_by} if resolved_by else None,
-        "comments": {"nodes": nodes},
+        "comments": {"nodes": [first]},
+        "replies": {"nodes": window},
     }
 
 
@@ -207,6 +220,14 @@ class GateFallback(unittest.TestCase):
             "status.json": status_fixture(status),
         }
 
+    def ok_compares(self, sha=FIX_SHA, head_status="ahead"):
+        """Both ancestry legs for a clean fallback: sha inside the head
+        AND sha strictly after the finding's commit."""
+        return {
+            f"{sha}...{HEAD_SHA}": {"status": head_status},
+            f"{FBASE_SHA}...{sha}": {"status": "ahead"},
+        }
+
     # --- the four spec fixtures ---------------------------------------
 
     def test_a_reply_with_verified_commit_clears_via_fallback(self):
@@ -214,8 +235,7 @@ class GateFallback(unittest.TestCase):
             (PR_AUTHOR, "NONE", f"Fixed in {FIX_SHA} — shim probes now"),
             (PR_AUTHOR, "NONE", "all green locally"),
         ])]
-        fx = self.base_fixtures(
-            threads, compares={f"{FIX_SHA}...{HEAD_SHA}": {"status": "ahead"}})
+        fx = self.base_fixtures(threads, compares=self.ok_compares())
         proc, out, log = self.run_block(self.findings, fx)
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertEqual(out["blocking"], "0")
@@ -230,9 +250,36 @@ class GateFallback(unittest.TestCase):
         threads = [thread("T2", replies=[
             ("teammate", "COLLABORATOR", f"fixed by {FIX_SHA}"),
         ])]
+        fx = self.base_fixtures(threads, compares=self.ok_compares())
+        proc, out, _ = self.run_block(self.findings, fx)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(out["blocking"], "0")
+        self.assertEqual(json.loads(out["fallback_resolutions"]), {"5": 1})
+
+    def test_a3_fix_commit_is_the_head_itself(self):
+        # `identical` to head still clears — the push after the finding
+        # IS the fix (postdate check passes on head...fix ancestry).
+        threads = [thread("T2", replies=[
+            (PR_AUTHOR, "OWNER", f"last commit is the fix: {HEAD_SHA}"),
+        ])]
         fx = self.base_fixtures(
             threads,
-            compares={f"{FIX_SHA}...{HEAD_SHA}": {"status": "identical"}})
+            commits=[HEAD_SHA],
+            compares={
+                f"{HEAD_SHA}...{HEAD_SHA}": {"status": "identical"},
+                f"{FBASE_SHA}...{HEAD_SHA}": {"status": "ahead"},
+            })
+        proc, out, _ = self.run_block(self.findings, fx)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(out["blocking"], "0")
+
+    def test_a4_deep_thread_reply_past_first_page(self):
+        # >50 comments on the thread: the finding left the last-50
+        # replies window, the fix reply stayed inside it.
+        threads = [thread("T2", deep=True, replies=[
+            (PR_AUTHOR, "NONE", f"Fixed in {FIX_SHA}"),
+        ])]
+        fx = self.base_fixtures(threads, compares=self.ok_compares())
         proc, out, _ = self.run_block(self.findings, fx)
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertEqual(out["blocking"], "0")
@@ -264,6 +311,36 @@ class GateFallback(unittest.TestCase):
                 self.assertEqual(out["blocking"], "1")
                 self.assertNotIn("fallback-resolved", proc.stdout)
 
+    def test_c2_sha_not_after_finding_still_blocking(self):
+        # citing the flagged commit itself (identical) or an older one
+        # (behind) proves no fix — even with head ancestry + clean status
+        for status in ("identical", "behind"):
+            with self.subTest(finding_cmp=status):
+                threads = [thread("T1", replies=[
+                    (PR_AUTHOR, "OWNER", f"Fixed in {FIX_SHA}"),
+                ])]
+                fx = self.base_fixtures(threads, compares={
+                    f"{FIX_SHA}...{HEAD_SHA}": {"status": "ahead"},
+                    f"{FBASE_SHA}...{FIX_SHA}": {"status": status},
+                })
+                proc, out, _ = self.run_block(self.findings, fx)
+                self.assertEqual(proc.returncode, 0, proc.stderr)
+                self.assertEqual(out["blocking"], "1")
+
+    def test_c3_citing_head_without_push_still_blocking(self):
+        # the review-flagged exploit: finding ON the head, reply cites
+        # head — identical in both compares, nothing was ever pushed
+        threads = [thread("T1", base=HEAD_SHA, replies=[
+            (PR_AUTHOR, "OWNER", f"Fixed in {HEAD_SHA}"),
+        ])]
+        fx = self.base_fixtures(
+            threads,
+            commits=[HEAD_SHA],
+            compares={f"{HEAD_SHA}...{HEAD_SHA}": {"status": "identical"}})
+        proc, out, _ = self.run_block(self.findings, fx)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(out["blocking"], "1")
+
     def test_d_bot_resolved_stays_primary_nonblocking(self):
         threads = [thread("T1", resolved=True,
                           resolved_by="devin-ai-integration[bot]",
@@ -291,8 +368,7 @@ class GateFallback(unittest.TestCase):
             ("mallory", "NONE", f"Fixed in {FIX_SHA} trust me"),
             ("driveby", "CONTRIBUTOR", f"yes {FIX_SHA} is the fix"),
         ])]
-        fx = self.base_fixtures(
-            threads, compares={f"{FIX_SHA}...{HEAD_SHA}": {"status": "ahead"}})
+        fx = self.base_fixtures(threads, compares=self.ok_compares())
         proc, out, log = self.run_block(self.findings, fx)
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertEqual(out["blocking"], "1")
@@ -314,9 +390,7 @@ class GateFallback(unittest.TestCase):
         for state in ("pending", "failure"):
             with self.subTest(devin_state=state):
                 fx = self.base_fixtures(
-                    threads,
-                    compares={f"{FIX_SHA}...{HEAD_SHA}": {"status": "ahead"}},
-                    status=state)
+                    threads, compares=self.ok_compares(), status=state)
                 proc, out, _ = self.run_block(self.findings, fx)
                 self.assertEqual(proc.returncode, 0, proc.stderr)
                 self.assertEqual(out["blocking"], "1")
@@ -346,6 +420,7 @@ class GateFallback(unittest.TestCase):
             compares={
                 f"{FIX_SHA}...{HEAD_SHA}": {"status": "diverged"},
                 f"0badf00...{HEAD_SHA}": {"status": "ahead"},
+                f"{FBASE_SHA}...0badf00": {"status": "ahead"},
             })
         proc, out, _ = self.run_block(self.findings, fx)
         self.assertEqual(proc.returncode, 0, proc.stderr)

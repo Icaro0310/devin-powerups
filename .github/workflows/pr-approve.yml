@@ -19,6 +19,9 @@ name: pr-approve
 #   pull_request_review[submitted]   — a late Devin Review re-runs the gate;
 #     thread resolutions ride along: Devin resolves findings inside its
 #     re-review, which submits a review and fires this event
+#   pull_request_review_comment[created] — a reply on a finding thread
+#     re-runs the gate so a late "Fixed in <sha>" reply is re-evaluated
+#     by the fallback (v1.4: replies do not fire pull_request_review)
 #   status                           — a Devin Review status success on the
 #     head re-runs the gate even when no PR review is submitted (clean
 #     analyses post no review object); only statuses whose avatar is the
@@ -50,7 +53,9 @@ name: pr-approve
 #   - Gate fallback (v1.4): a blocking thread ALSO clears when a reply
 #     from the PR author or a repo collaborator cites a commit sha that
 #     is an ancestor of the head (compare status ahead/identical) AND
-#     the "Devin Review" commit status on the head is success — i.e. the
+#     postdates the commit the finding was left on (citing the flagged
+#     commit or an older one proves no fix) AND the "Devin Review"
+#     commit status on the head is success — i.e. the
 #     fix itself was re-reviewed clean but the bot never self-resolved
 #     (seen: devin-explore#104, devin-state#74 held forever after
 #     verified fixes, admin merges required). The thread stays
@@ -78,6 +83,8 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
   pull_request_review:
     types: [submitted]
+  pull_request_review_comment:
+    types: [created]
   status: {}
   workflow_call:
     inputs:
@@ -246,10 +253,11 @@ jobs:
           blocking=0
           devin_state=""
           for pr in $PR_NUMBERS; do
-            # Fetch the whole thread (first 50 comments — findings never
-            # grow past a handful of replies) so the fallback can read
-            # reply authors + bodies in one pass. pullRequest.author is
-            # the reply-author check's PR-author leg.
+            # Fetch the finding (first comment — always the Devin note)
+            # and the LAST 50 comments separately: fix replies are the
+            # newest, so a deep thread still yields them (first:50 alone
+            # would silently drop a reply past the 50th). pullRequest
+            # .author is the reply-author check's PR-author leg.
             threads=$(gh api graphql --paginate \
               -f owner="${REPO%%/*}" -f name="${REPO##*/}" -F pr="$pr" -f query='
                 query($owner: String!, $name: String!, $pr: Int!, $endCursor: String) {
@@ -263,8 +271,18 @@ jobs:
                           isResolved
                           isOutdated
                           resolvedBy { login }
-                          comments(first: 50) {
+                          comments(first: 1) {
                             nodes {
+                              id
+                              author { login }
+                              authorAssociation
+                              originalCommit { oid }
+                              body
+                            }
+                          }
+                          replies: comments(last: 50) {
+                            nodes {
+                              id
                               author { login }
                               authorAssociation
                               originalCommit { oid }
@@ -288,17 +306,23 @@ jobs:
                   | select(.isOutdated == false)
                   | select(.isResolved == false
                       or ([(.resolvedBy.login // "")] | inside(["devin-ai-integration", "devin-ai-integration[bot]"]) | not))
-                  | .comments.nodes as $cs
-                  | select(([($cs[0].author.login // "")] | inside(["devin-ai-integration", "devin-ai-integration[bot]"]))
-                      and ($cs[0].body | test("\"kind\": \"(bug|security)\"")))
+                  | .comments.nodes[0] as $f
+                  | select(([($f.author.login // "")] | inside(["devin-ai-integration", "devin-ai-integration[bot]"]))
+                      and ($f.body | test("\"kind\": \"(bug|security)\"")))
                   # Fallback material: hex 7-40 tokens from qualified
                   # replies (any comment after the first by the PR
                   # author or a repo-collaborator account — OWNER,
                   # MEMBER, COLLABORATOR associations). Replies by
                   # anyone else never feed the sha list, so a random
-                  # commenter cannot quote a commit into the gate.
+                  # commenter cannot quote a commit into the gate. The
+                  # finding itself is excluded by id (it rides inside
+                  # replies(last:50) when the thread is short). `base`
+                  # pins the commit the finding was left on, for the
+                  # postdate check in the loop.
                   | { id: .id,
-                      shas: ([ $cs[1:][]
+                      base: ($f.originalCommit.oid // ""),
+                      shas: ([ .replies.nodes[]
+                               | select(.id != $f.id)
                                | select(([.authorAssociation // ""] | inside(["OWNER", "MEMBER", "COLLABORATOR"]))
                                    or ((.author.login // "") == $pra))
                                | .body | scan("\\b[0-9a-fA-F]{7,40}\\b") | ascii_downcase ]
@@ -307,7 +331,7 @@ jobs:
             count=0
             fb_count=0
             fb_pairs=()
-            while IFS=$'\t' read -r tid sha_list; do
+            while IFS=$'\t' read -r tid sha_list fbase; do
               resolved=""
               # A thread with no qualified replies yields an empty sha
               # list and stays blocking — zero-reply safety rail.
@@ -319,6 +343,13 @@ jobs:
                 gh api "repos/$REPO/commits/$sha" >/dev/null 2>&1 || continue
                 cmp_status=$(gh api "repos/$REPO/compare/${sha}...${HEAD_SHA}" --jq .status 2>/dev/null || true)
                 [ "$cmp_status" = "ahead" ] || [ "$cmp_status" = "identical" ] || continue
+                # And it must POSTDATE the commit the finding was left
+                # on — citing the flagged commit itself, an older one,
+                # or the head without any later push (head == finding
+                # commit -> identical) proves no fix.
+                [ -n "$fbase" ] || continue
+                post_status=$(gh api "repos/$REPO/compare/${fbase}...${sha}" --jq .status 2>/dev/null || true)
+                [ "$post_status" = "ahead" ] || continue
                 # Clean re-verification on the head: the "Devin Review"
                 # status must be success — the fix commit was itself
                 # re-reviewed clean (the "2 re-review passes" proxy).
@@ -341,7 +372,7 @@ jobs:
               else
                 count=$((count + 1))
               fi
-            done < <(echo "$candidates" | jq -r '.[] | .id + "\t" + (.shas | join(","))')
+            done < <(echo "$candidates" | jq -r '.[] | .id + "\t" + (.shas | join(",")) + "\t" + .base')
             echo "unresolved blocking findings on $HEAD_SHA for PR #$pr: $count${fb_count:+ ($fb_count cleared by fallback)}"
             blocking_map=$(echo "$blocking_map" | jq -c --arg p "$pr" --argjson c "$count" '. + {($p): $c}')
             fallback_map=$(echo "$fallback_map" | jq -c --arg p "$pr" --argjson c "$fb_count" '. + {($p): $c}')

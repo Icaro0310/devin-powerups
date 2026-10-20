@@ -15,13 +15,17 @@ Result. Records are not eternal — revisit when new evidence arrives.
   PR author or a repo-collaborator account (`OWNER`/`MEMBER`/
   `COLLABORATOR` association, or the PR author's own login) cites a hex
   7-40 commit token that exists in the repo AND is an ancestor of the
-  reviewed head (`compare {sha}...{head}` status `ahead`/`identical`);
-  (3) the head carries a `Devin Review` commit status `success` — the
-  fix commit was itself re-reviewed clean (the "2 re-review passes"
-  proxy). Cleared threads stay UNRESOLVED — only the veto lifts; the
-  run logs `fallback-resolved:` lines, emits `fallback_resolutions`
-  (pr→count) + `fallback_threads` outputs, and the approval posts a
-  public `gate-resolved-via: fallback` PR comment naming thread+sha.
+  reviewed head (`compare {sha}...{head}` status `ahead`/`identical`)
+  AND strictly postdates the commit the finding was left on
+  (`compare {base}...{sha}` = `ahead` — citing the flagged commit, an
+  older one, or an unpushed-since head proves no fix; hardened in
+  review, see below); (3) the head carries a `Devin Review` commit
+  status `success` — the fix commit was itself re-reviewed clean (the
+  "2 re-review passes" proxy). Cleared threads stay UNRESOLVED — only
+  the veto lifts; the run logs `fallback-resolved:` lines, emits
+  `fallback_resolutions` (pr→count) + `fallback_threads` outputs, and
+  the approval posts a public `gate-resolved-via: fallback` PR comment
+  naming thread+sha.
 - **Why A over B:** the mechanism lives where the veto lives — no
   second workflow to drift out of sync with the blocking predicate, no
   label plumbing across ~26 caller repos, and the merge-time comment
@@ -42,12 +46,26 @@ Result. Records are not eternal — revisit when new evidence arrives.
   non-speculative by #74, and the safety rail that rejects #104's
   diverged sha is the same one that rejects unrelated-commit quotes.
 - **Safety rails:** never fires on reply-less threads, non-ancestor or
-  nonexistent shas, replies by non-collaborator accounts, or a
-  missing/non-success head status; strictly additive to the old
-  predicate (it can only remove threads from the blocking set).
+  nonexistent shas, shas not postdating the finding commit, replies by
+  non-collaborator accounts, or a missing/non-success head status;
+  strictly additive to the old predicate (it can only remove threads
+  from the blocking set).
+- **Hardened in Devin Review (PR #214):** (a) `comments(first:50)`
+  alone dropped fix replies past the 50th — now `comments(first:1)`
+  for the finding + `comments(last:50)` for replies (fix replies are
+  always the newest); (b) replies fired no re-run — added
+  `pull_request_review_comment[created]` so a late "Fixed in <sha>"
+  re-evaluates the gate (callers need the same trigger in their
+  `auto-approve.yml` at pin-bump time — the reusable's `on:` only
+  governs this repo); (c) the cite-`HEAD_SHA` exploit — a bare
+  `ahead|identical` check let an author quote the flagged commit or
+  the head itself with zero pushed work; the postdate compare closes
+  it (a head cite now requires at least one post-finding push, which
+  itself went through re-review).
 - **Tests:** `tools/test_pr_approve_gate_fallback.py` executes the
-  workflow's real `run:` blocks against a stubbed `gh` — 14 tests
-  covering the four spec fixtures plus the rails.
+  workflow's real `run:` blocks against a stubbed `gh` — 18 tests
+  covering the four spec fixtures plus the rails and the three
+  review-flagged edges.
 - **Expected outcome:** repeat failure class closed — verified-fix PRs
   no longer need admin merges when the bot leaves threads open; every
   fallback use is auditable in the run log and on the PR itself.
