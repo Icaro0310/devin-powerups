@@ -10,16 +10,25 @@ This sensor fails red the moment any copy diverges.
 
 The canonical file resolves in order:
 
-1. ``adapters/shared/safe-executable.cjs`` inside the scanned root —
-   this is devin-powerups itself (or a PR checkout of it), where the
-   canonical file lives and copies must match *this* version;
-2. ``.powerups-sensor/adapters/shared/safe-executable.cjs`` — the
+1. ``.powerups-sensor/adapters/shared/safe-executable.cjs`` — the
    sensor checkout the reusable workflow performs at the ``v1`` tag
-   when the calling repo does not ship the script (script and workflow
-   move together on retag, D-2026-10-13i).
+   when the calling repo does not ship the script or the canonical
+   file itself (script and workflow move together on retag,
+   D-2026-10-13i). Preferred because it is the published contract —
+   a caller retaining a stale local ``adapters/shared/`` copy must
+   not self-certify against it;
+2. ``adapters/shared/safe-executable.cjs`` inside the scanned root —
+   this is devin-powerups itself (or a PR checkout of it), where the
+   sensor checkout is never performed and the canonical file lives;
+   copies must match *this* version.
 
 Resolution failure is fail-closed: a caller that vendors copies but
 cannot present a canonical file errors out rather than passing.
+
+Copy discovery mirrors the hygiene scanner's explicit roots — only
+files under the shipped adapter/skill directories count as
+distributed copies (a fixture named ``safe-executable.cjs`` in
+``tests/`` or ``docs/`` is none of this check's business).
 
 Usage:
 
@@ -37,28 +46,30 @@ COPY_NAME = "safe-executable.cjs"
 CANONICAL_REL = Path("adapters/shared") / COPY_NAME
 SENSOR_CANONICAL_REL = Path(".powerups-sensor") / CANONICAL_REL
 
-# Directories that never count as distributed copies: VCS internals,
-# vendored trees, and the sensor checkout itself (it *contains* the
-# canonical file — counting it would pin the check to pass trivially).
-SKIP_DIRS = {".git", ".powerups-sensor", "node_modules", "dist", "out"}
+# Same explicit scan roots as scripts/check-adapters-hygiene.py — no
+# recursive root-wide search, so vendored checkouts, fixtures and
+# unrelated trees never count as distributed copies.
+SCAN_ROOT_GLOBS = ("adapters", "packages/*/adapters", ".devin/skills", "packages/*/.devin/skills")
 
 
 def find_copies(root: Path) -> list[Path]:
-    """All ``safe-executable.cjs`` files under ``root``, excluding the
-    canonical location and vendored/generated trees."""
+    """All ``safe-executable.cjs`` files under the shipped adapter/skill
+    roots, excluding the canonical location itself."""
     copies = []
     canonical = (root / CANONICAL_REL).resolve()
-    for path in sorted(root.rglob(COPY_NAME)):
-        if any(part in SKIP_DIRS for part in path.relative_to(root).parts):
-            continue
-        if path.resolve() == canonical:
-            continue
-        copies.append(path)
-    return copies
+    for glob in SCAN_ROOT_GLOBS:
+        for scan_root in root.glob(glob):
+            if not scan_root.is_dir():
+                continue
+            for path in sorted(scan_root.rglob(COPY_NAME)):
+                if path.resolve() == canonical:
+                    continue
+                copies.append(path)
+    return sorted(set(copies))
 
 
 def resolve_canonical(root: Path) -> Path | None:
-    for rel in (CANONICAL_REL, SENSOR_CANONICAL_REL):
+    for rel in (SENSOR_CANONICAL_REL, CANONICAL_REL):
         candidate = root / rel
         if candidate.is_file():
             return candidate
@@ -98,7 +109,9 @@ def check(root: Path) -> int:
 
 def selftest() -> int:
     """Fixture-driven check: matching copies pass, drifted or missing
-    canonical fail, and the canonical file itself is never counted."""
+    canonical fail, the canonical file itself is never counted, the
+    sensor canonical wins over a stale local one, and helper files
+    outside the adapter roots are ignored."""
     failures = []
 
     def expect(name: str, got: int, want: int) -> None:
@@ -115,25 +128,32 @@ def selftest() -> int:
         good = root / "packages/a/adapters/vscode" / COPY_NAME
         good.parent.mkdir(parents=True)
         good.write_bytes(blob)
-        # nested vendored tree must be ignored
-        vendored = root / "node_modules/x" / COPY_NAME
-        vendored.parent.mkdir(parents=True)
-        vendored.write_bytes(drifted_blob)
-        expect("clean", check(root), 0)
+        # same-named file outside the shipped roots is a fixture, not a copy
+        fixture = root / "tests/fixtures" / COPY_NAME
+        fixture.parent.mkdir(parents=True)
+        fixture.write_bytes(drifted_blob)
+        expect("clean; fixture ignored", check(root), 0)
 
-        bad = root / "packages/b/adapters/vscode" / COPY_NAME
+        bad = root / "adapters/vscode_ext" / COPY_NAME
         bad.parent.mkdir(parents=True)
         bad.write_bytes(drifted_blob)
         expect("drifted copy", check(root), 1)
 
-        (root / CANONICAL_REL).unlink()
+        # sensor checkout at v1 is the published contract — it wins
+        # over a stale local adapters/shared/ in a caller
         sensor = root / SENSOR_CANONICAL_REL
         sensor.parent.mkdir(parents=True)
         sensor.write_bytes(blob)
-        expect("sensor canonical fallback", check(root), 1)
+        bad.write_bytes(blob)
+        expect("sensor canonical preferred over local", check(root), 0)
 
-        bad.unlink()
-        good.unlink()
+        (root / CANONICAL_REL).unlink()
+        good.write_bytes(drifted_blob)
+        bad.write_bytes(drifted_blob)
+        expect("sensor canonical, copies drifted", check(root), 1)
+
+        good.write_bytes(blob)
+        bad.write_bytes(blob)
         expect("sensor canonical, copies match", check(root), 0)
 
         sensor.unlink()

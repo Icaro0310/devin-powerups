@@ -46,8 +46,8 @@ jobs:
           path: .powerups-sensor
           persist-credentials: false
 
-      - name: Fetch the sensor checkout when the lockstep script is missing
-        if: hashFiles('scripts/check-safe-executable-lockstep.py') == '' && hashFiles('.powerups-sensor/scripts/check-safe-executable-lockstep.py') == ''
+      - name: Fetch the sensor checkout when the lockstep script or canonical is missing
+        if: (hashFiles('scripts/check-safe-executable-lockstep.py') == '' || hashFiles('adapters/shared/safe-executable.cjs') == '') && hashFiles('.powerups-sensor/scripts/check-safe-executable-lockstep.py') == ''
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: Icaro0310/devin-powerups
