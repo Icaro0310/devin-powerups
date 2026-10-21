@@ -152,3 +152,19 @@ muitos ficheiros, superficies geradas, ou merges sob guardrails.
   instantes diferentes de um alvo em movimento. Regra: medir, executar
   rapido, re-medir antes de declarar — e reportar o timestamp da
   medicao junto do valor.
+- (2026-10-21) Contagem de N declara o filtro antes do numero — tres
+  instancias do mesmo ciclo: "devin-learning delivered" (repo nem
+  existe — eixo visibility), "3 tags missing" (tags existiam, eram os
+  releases — eixo tag vs release), "25 callers a repinar" (eram 11
+  activos + 12 archived — eixo mutable vs frozen). A correccao veio da
+  medicao fina, nao do plano. Regra: qualquer "N itens" num
+  report/plan carry o eixo explicito — "25 callers" vira "11 callers
+  writeable (12 archived, fora de escopo)" — porque o numero sem
+  filtro muda de significado consoante quem mede.
+- (2026-10-21) inventario por listagem pode esgotar silenciosamente:
+  `gh api users/<u>/repos` serviu ~23 repos mas a frota real de
+  callers era 14 activos — personal-agent-system, awesome-devin e
+  devin-dashboard ficaram fora da pagina. Quando o inventario alimenta
+  um sweep, cruzar com uma segunda fonte (o report da sessao paralela,
+  search API, ou lista manual conhecida) antes de declarar o universo
+  completo.
