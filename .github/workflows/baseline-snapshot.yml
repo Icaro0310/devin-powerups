@@ -43,11 +43,22 @@ jobs:
           # previous_snapshot() diffs against the newest dated JSON in
           # snapshots/, which lives on the data branch — main only keeps
           # the day-1 files. Materialize the series first so the recorded
-          # structural diff is week-over-week, not day-1-over-week.
-          if git fetch -q origin "+refs/heads/snapshots:refs/remotes/origin/snapshots" 2>/dev/null; then
+          # structural diff is week-over-week, not day-1-over-week. A
+          # confirmed-absent branch means first run; an unreachable origin
+          # must stop the run or a stale day-1 diff gets published.
+          if git ls-remote --exit-code --heads origin snapshots >/dev/null 2>&1; then
+            git fetch -q origin "+refs/heads/snapshots:refs/remotes/origin/snapshots"
             for f in $(git ls-tree --name-only origin/snapshots snapshots/); do
               git show "origin/snapshots:$f" > "$f"
             done
+          else
+            rc=$?
+            if [ "$rc" -eq 2 ]; then
+              echo "no snapshots branch yet — first run: day-1 is the only baseline"
+            else
+              echo "cannot reach origin for the snapshots branch (rc=$rc) — failing so a stale day-1 diff is not published"
+              exit 1
+            fi
           fi
 
       - name: Collect baseline + fork visibility
@@ -68,15 +79,16 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           # Snapshots commit to the append-only `snapshots` data branch —
-          # main is protected (PR-only) so a direct push fails GH006.
-          # checkout's shallow fetch only tracks the main ref, so the data
-          # branch is fetched with an explicit refspec. Fresh JSONs are
-          # parked in tmp so -fB may safely clobber untracked collisions —
-          # on a same-day rerun today's collection wins over the earlier
+          # main is protected (PR-only) so a direct push fails GH006. The
+          # restore step already fetched the branch ref (a transient extra
+          # fetch just leaves the ref as-is); fresh JSONs are parked in
+          # tmp so -fB may safely clobber untracked collisions — on a
+          # same-day rerun today's collection wins over the earlier
           # commit instead of being silently discarded.
           tmpdir="$(mktemp -d)"
           cp "snapshots/$(date +%F).json" "snapshots/forks-$(date +%F).json" "$tmpdir/"
-          if git fetch origin "+refs/heads/snapshots:refs/remotes/origin/snapshots" 2>/dev/null; then
+          git fetch -q origin "+refs/heads/snapshots:refs/remotes/origin/snapshots" 2>/dev/null || true
+          if git rev-parse --verify --quiet origin/snapshots >/dev/null; then
             git checkout -fB snapshots origin/snapshots
           else
             git checkout -b snapshots
