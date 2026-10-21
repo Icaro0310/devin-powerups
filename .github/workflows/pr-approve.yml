@@ -129,9 +129,26 @@ on:
         default: 12
 
 concurrency:
+  # Only events that can actually launch the approval job share the
+  # serialization key. PR events key by number, a QUALIFYING status
+  # (Devin Review success posted by the devin app) keys by head sha,
+  # and every other trigger falls through to a unique run_id group so
+  # it can never cancel a gate run mid-approval — a random CI
+  # `build: pending` status on the same sha would otherwise kill the
+  # waiting Devin-status run while its own job skips on `if:` (PR #217
+  # review finding). Cross-key overlap (a PR-numbered run vs a
+  # sha-keyed status run on the same logical PR) stays a documented,
+  # cosmetic-only residual: the dedupe check still prevents sequential
+  # duplicates.
   group: >-
-    pr-approve-${{ github.repository }}-
-    ${{ github.event.pull_request.number || github.event.sha || github.run_id }}
+    pr-approve-${{ github.repository }}-${{
+      github.event.pull_request.number
+      || (github.event_name == 'status'
+          && github.event.context == 'Devin Review'
+          && github.event.state == 'success'
+          && contains(github.event.avatar_url || '', '/in/811515')
+          && github.event.sha)
+      || github.run_id }}
   cancel-in-progress: true
 
 permissions:
