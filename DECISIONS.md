@@ -17,38 +17,51 @@ Result. Records are not eternal — revisit when new evidence arrives.
   `github.com/owner/repo/pull/<n>` — strictly org-scoped (the anchor's
   owner must equal the PR repo's owner; anything else is rejected
   before any API call). Verification is LANDEDNESS, not ancestry:
-  commit anchors require `repos/{o}/{r}/commits/{sha}` to resolve (the
-  fix exists upstream); pull anchors require `pulls/{n}` `merged_at`
-  non-null (an open PR is not a landed fix). The `originalCommit`
-  postdate rule is unchanged for same-repo shas and skipped for
-  cross-repo anchors (no shared ancestry). Two rails stay strict when
-  the anchor names the PR's OWN repo: a commit anchor takes the full
-  same-repo ancestor+postdate path (existence alone would reopen the
-  cite-head exploit closed in D-2026-10-20), and a pull anchor
-  additionally requires its `merge_commit_sha` to be an ancestor of the
-  head (a merge to main that never entered the PR leaves the flagged
-  code untouched). Reply author must still be PR author/collaborator,
-  the `Devin Review` status on head must still be `success`, threads
-  stay unresolved.
+  commit anchors require the sha to be an ancestor of the upstream
+  repo's default branch (`compare {sha}...{default_branch}`
+  ahead/identical — a commit that merely exists on an unmerged branch
+  or fork never landed, hardened per PR #217 review); pull anchors
+  require `pulls/{n}` `merged_at` non-null (an open PR is not a landed
+  fix). The `originalCommit` postdate rule is unchanged for same-repo
+  shas and skipped for cross-repo anchors (no shared ancestry). Two
+  rails stay strict when the anchor names the PR's OWN repo: a commit
+  anchor takes the full same-repo ancestor+postdate path (existence
+  alone would reopen the cite-head exploit closed in D-2026-10-20), and
+  a pull anchor requires its `merge_commit_sha` to be an ancestor of
+  the head AND to postdate the finding (a merge to main that never
+  entered the PR — or that landed before the finding existed — leaves
+  the flagged code untouched; hardened per PR #217 review). Reply
+  author must still be PR author/collaborator, the `Devin Review`
+  status on head must still be `success`, threads stay unresolved.
 - **Audit-comment dedup (canary finding 1, deferred from assure#89):**
   every approval pass with a nonzero fallback count used to post
   `gate-resolved-via: fallback`, so repeated triggers stacked
   duplicates. The comment now records its resolved thread|anchor set on
   a `gate-fallback-pairs:` line; before posting, the step lists the
-  PR's issue comments and skips when an existing bot comment carries
-  the identical sorted set. A different set (a NEW thread
-  fallback-resolved) posts fresh with the full current set. Only
-  `[bot]`-authored comments dedupe — a human pasting the marker cannot
-  silence the audit trail.
+  PR's issue comments and skips when an existing `github-actions[bot]`
+  comment carries the identical sorted set — humans and other bots
+  cannot forge the marker to silence the audit trail (hardened per
+  PR #217 review). A different set posts fresh with the full current
+  set; the head sha is part of the recorded set, so the same threads
+  resolving on a NEW head is fresh evidence and re-posts (a suppressed
+  re-post would leave the audit naming a stale head — PR #217 analysis
+  finding). A `concurrency` group (`pr-approve-<repo>-<pr#|head-sha>`,
+  cancel-in-progress) serializes same-key triggers, closing most of
+  the concurrent GET->POST duplicate window (PR #217 bug finding); a
+  cross-event overlap (status run keyed by sha vs PR run keyed by
+  number) remains a known residual — cosmetic only, worst case one
+  duplicated audit comment.
 - **Wire format:** anchors flow through the pipeline as typed tokens
   (`sha:HEX`, `commit:O/R@HEX`, `pull:O/R#N`, all lowercased by the jq
   extractor); `fallback_threads` pairs are `tid|kind:anchor` (was
   `tid@sha` — `@` collides with the `repo@sha` shape).
-- **Tests:** `tools/test_pr_approve_gate_fallback.py` grows to 31 —
-  cross-repo `repo@sha`/commit-URL/merged-pull resolution, unmerged
-  pull and foreign-owner and nonexistent anchors staying blocking, the
-  own-repo rails, and the dedupe (identical set skips, extended set
-  posts, human-authored marker ignored).
+- **Tests:** `tools/test_pr_approve_gate_fallback.py` grows to 34 —
+  cross-repo `repo@sha`/commit-URL/merged-pull resolution, landedness
+  (sha on an unmerged upstream branch stays blocking), unmerged pull,
+  foreign-owner and nonexistent anchors staying blocking, own-repo
+  alias rails incl. merges predating the finding, and the dedupe
+  (identical set + same head skips, extended set or new head posts,
+  human/foreign-bot marker ignored).
 - **Expected outcome:** the gate now clears caller-side findings fixed
   upstream without admin merges, and repeated triggers no longer stack
   audit comments. The owner cuts the `v1.5` tag on the merge commit.

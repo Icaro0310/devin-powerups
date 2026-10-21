@@ -75,21 +75,25 @@ name: pr-approve
 #     `github.com/owner/repo/commit/<sha>` URL or a
 #     `github.com/owner/repo/pull/<n>` URL where `owner` is the PR
 #     repo's own owner (org-scoped — any other owner is rejected).
-#     Commit anchors verify the commit EXISTS upstream
-#     (`repos/{o}/{r}/commits/{sha}` 200); pull anchors verify the PR
-#     MERGED (`merged_at` non-null — an open PR is not a landed fix).
-#     Cross-repo anchors share no ancestry with the head, so the
+#     Commit anchors verify the fix LANDED upstream: the sha must be
+#     an ancestor of the upstream repo's default branch
+#     (`compare {sha}...{default_branch}` ahead/identical — a commit on
+#     an unmerged branch exists but never landed); pull anchors verify
+#     the PR MERGED (`merged_at` non-null — an open PR is not a landed
+#     fix). Cross-repo anchors share no ancestry with the head, so the
 #     ancestor+postdate rule does not apply — landedness replaces it.
 #     Anchors naming the PR's own repo (`o/r` == `REPO`) still take the
 #     same-repo ancestor+postdate path; existence alone would reopen
 #     the cite-head exploit. A same-repo pull anchor additionally
-#     requires its merge commit to be an ancestor of the head — a fix
-#     that merged to main but is not in this head is not a fix here.
-#     The audit comment is idempotent (v1.5 — repeated triggers used to
-#     stack duplicates): the posted body records its resolved
-#     thread|anchor set on a `gate-fallback-pairs:` line, and a prior
-#     bot comment carrying the same set suppresses a duplicate; a
-#     different set (a NEW thread got fallback-resolved) posts fresh.
+#     requires its merge commit to be an ancestor of the head AND to
+#     postdate the finding — a fix that merged to main but is not in
+#     this head, or landed before the finding existed, is not a fix
+#     here. The audit comment is idempotent (v1.5 — repeated triggers
+#     used to stack duplicates): the posted body records its resolved
+#     set (thread|anchor pairs + `head:<sha>`) on a
+#     `gate-fallback-pairs:` line; a prior github-actions[bot] comment
+#     carrying the same set suppresses a duplicate, while a different
+#     set — a NEW thread resolved or a NEW head — posts fresh.
 #
 # Trusted authors are the owner's own PRs, dependabot, and workflows
 # (open-pr-bot opens PRs as github-actions[bot]; dispatch needs write
@@ -101,6 +105,13 @@ name: pr-approve
 # disabled or slow), the run ends without approval instead of approving
 # unreviewed code — merge then needs a manual review.
 
+# Concurrency (v1.5, review-hardened): a status event, a review
+# submission and a reply on the same PR/head can launch overlapping
+# runs — two runs racing the audit-comment dedupe GET->POST would both
+# post the same comment. Same-key triggers cancel mid-flight losers;
+# a status run (keyed by head sha) still can't see a PR-numbered run,
+# so the residual race is a narrow cross-event overlap on the same
+# change — the dedupe check still dedupes sequential reruns.
 on:
   pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review]
@@ -116,6 +127,12 @@ on:
         required: false
         type: number
         default: 12
+
+concurrency:
+  group: >-
+    pr-approve-${{ github.repository }}-
+    ${{ github.event.pull_request.number || github.event.sha || github.run_id }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -297,6 +314,9 @@ jobs:
           # lowercased by the extractor; lowercase REPO once to match.
           repo_lc="${REPO,,}"
           owner_lc="${repo_lc%%/*}"
+          # default-branch lookup cache for cross-repo anchors — one
+          # repos/{o}/{r} call per cited repo, not per anchor.
+          declare -A def_branch=()
           for pr in $PR_NUMBERS; do
             # Fetch the finding (first comment — always the Devin note)
             # and the LAST 50 comments separately: fix replies are the
@@ -415,10 +435,22 @@ jobs:
                         && verified="commit:$anchor"
                     else
                       # Cross-repo fix (canary assure#89): no shared
-                      # ancestry with the head — verify landedness
-                      # instead: the commit EXISTS upstream.
-                      gh api "repos/$cref/commits/$csha" >/dev/null 2>&1 \
-                        && verified="commit:$anchor"
+                      # ancestry with the head — verify LANDEDNESS
+                      # instead: the commit must sit on the upstream
+                      # repo's default branch (compare ahead/identical
+                      # vs that branch). A sha that merely EXISTS on an
+                      # unmerged branch or fork never landed and does
+                      # not fix callers (review SEC finding).
+                      dbr="${def_branch[$cref]:-}"
+                      if [ -z "$dbr" ]; then
+                        dbr=$(gh api "repos/$cref" --jq '.default_branch // empty' 2>/dev/null || true)
+                        def_branch[$cref]="$dbr"
+                      fi
+                      [ -n "$dbr" ] || continue
+                      st=$(gh api "repos/$cref/compare/${csha}...${dbr}" --jq .status 2>/dev/null || true)
+                      [ "$st" = "ahead" ] || [ "$st" = "identical" ] \
+                        || continue
+                      verified="commit:$anchor"
                     fi ;;
                   pull)
                     pref="${anchor%#*}"
@@ -432,12 +464,18 @@ jobs:
                     if [ "$pref" = "$repo_lc" ]; then
                       # Same repo: the merged fix must also be IN this
                       # head — a merge to main that never entered the PR
-                      # leaves the flagged code untouched.
+                      # leaves the flagged code untouched — AND it must
+                      # POSTDATE the finding: an old merge already in
+                      # the head predates the finding and cannot be its
+                      # fix (review SEC finding).
                       mcs=$(echo "$prj" | jq -r '.merge_commit_sha // empty')
                       [ -n "$mcs" ] || continue
                       st=$(gh api "repos/$REPO/compare/${mcs}...${HEAD_SHA}" --jq .status 2>/dev/null || true)
                       [ "$st" = "ahead" ] || [ "$st" = "identical" ] \
                         || continue
+                      [ -n "$fbase" ] || continue
+                      st=$(gh api "repos/$REPO/compare/${fbase}...${mcs}" --jq .status 2>/dev/null || true)
+                      [ "$st" = "ahead" ] || continue
                     fi
                     verified="pull:$anchor" ;;
                 esac
@@ -531,17 +569,23 @@ jobs:
                       list="$list"$'\n'"- thread ${pair%%|*} via ${via/:/ }"
                       pairs+=("$pair")
                     done
+                    # The head is part of the dedupe key: the same
+                    # threads resolving on a NEW head is fresh evidence
+                    # (clean re-review of a different sha) and must
+                    # post, otherwise the stale comment still names the
+                    # old head.
+                    pairs+=("head:$HEAD_SHA")
                     pairline=$(printf '%s\n' "${pairs[@]:-}" | sed '/^$/d' \
-                      | sort -u | tr '\n' ' ' | sed 's/ *$//')
+                      | LC_ALL=C sort -u | tr '\n' ' ' | sed 's/ *$//')
                     prior=$(gh api "repos/$REPO/issues/$pr/comments" --paginate 2>/dev/null \
                       | jq -sr 'add // [] | .[]
-                          | select((.user.login // "") | endswith("[bot]"))
+                          | select((.user.login // "") == "github-actions[bot]")
                           | (.body // "")
                           | (try (capture("gate-fallback-pairs: (?<p>[^\\n]*)") | .p) // empty)' || true)
                     dup=0
                     while IFS= read -r prev; do
                       prev_n=$(echo "$prev" | tr ' ' '\n' | sed '/^$/d' \
-                        | sort -u | tr '\n' ' ' | sed 's/ *$//')
+                        | LC_ALL=C sort -u | tr '\n' ' ' | sed 's/ *$//')
                       if [ "$prev_n" = "$pairline" ]; then dup=1; break; fi
                     done <<< "$prior"
                     if [ "$dup" = "1" ]; then

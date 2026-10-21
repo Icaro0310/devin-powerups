@@ -108,6 +108,16 @@ case "$endpoint" in
     else
       echo "gh: Not Found (HTTP 404)" >&2; exit 1
     fi ;;
+  repos/*)
+    # bare repo lookup — default_branch for cross-repo landedness.
+    # LAST: `repos/*` also globs the deeper paths above, so it must be
+    # tried only after every specific pattern failed.
+    key="${endpoint#repos/}"
+    if jq -e --arg k "$key" 'has($k)' "$GH_FIXTURE_DIR/repos.json" >/dev/null 2>&1; then
+      out=$(jq -c --arg k "$key" '.[$k]' "$GH_FIXTURE_DIR/repos.json")
+    else
+      echo "gh: Not Found (HTTP 404)" >&2; exit 1
+    fi ;;
   *) echo "unstubbed api endpoint: $endpoint" >&2; exit 1 ;;
 esac
 if [ -n "$jqexpr" ]; then echo "$out" | jq -r "$jqexpr"; else echo "$out"; fi
@@ -459,13 +469,25 @@ class GateFallback(unittest.TestCase):
 
     # --- v1.5: cross-repo fix anchors (canary assure#89) ----------------
 
+    def xrepo_fx(self, threads, branch_status="ahead", **kw):
+        """Cross-repo landedness fixtures: the upstream repo's default
+        branch is `main`; the cited sha is an ancestor of it (or not,
+        when branch_status is diverged/behind)."""
+        fx = self.base_fixtures(threads, **kw)
+        fx["repos.json"] = {XREPO: {"default_branch": "main"}}
+        if branch_status is not None:
+            fx["compares.json"] = {
+                f"{XSHA}...main": {"status": branch_status}}
+        return fx
+
     def test_xrepo_at_anchor_resolves(self):
-        # `owner/repo@sha` — the fix lives upstream, existence verifies.
+        # `owner/repo@sha` — the fix lives upstream, landedness on the
+        # default branch verifies (existence alone is not enough).
         threads = [thread("T1", replies=[
             (PR_AUTHOR, "OWNER",
              f"fixed upstream in Icaro0310/devin-powerups@{XSHA}"),
         ])]
-        fx = self.base_fixtures(threads, commits=[XSHA])
+        fx = self.xrepo_fx(threads, commits=[])
         proc, out, log = self.run_block(self.findings, fx)
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertEqual(out["blocking"], "0")
@@ -473,7 +495,7 @@ class GateFallback(unittest.TestCase):
         self.assertEqual(json.loads(out["fallback_threads"]),
                          {"5": [f"T1|commit:{XREPO}@{XSHA}"]})
         self.assertIn(f"via commit {XREPO}@{XSHA}", proc.stdout)
-        self.assertIn(f"repos/{XREPO}/commits/{XSHA}", log)
+        self.assertIn(f"repos/{XREPO}/compare/{XSHA}...main", log)
         self.assertIn(f"commits/{HEAD_SHA}/status", log)
 
     def test_xrepo_commit_url_resolves(self):
@@ -482,12 +504,27 @@ class GateFallback(unittest.TestCase):
              "landed: https://github.com/Icaro0310/devin-powerups"
              f"/commit/{XSHA}"),
         ])]
-        fx = self.base_fixtures(threads, commits=[XSHA])
+        fx = self.xrepo_fx(threads, commits=[])
         proc, out, _ = self.run_block(self.findings, fx)
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertEqual(out["blocking"], "0")
         self.assertEqual(json.loads(out["fallback_threads"]),
                          {"5": [f"T1|commit:{XREPO}@{XSHA}"]})
+
+    def test_xrepo_commit_not_on_default_branch_still_blocking(self):
+        # the sha EXISTS upstream but sits on an unmerged branch —
+        # existence is not landedness (review SEC finding).
+        for status in ("diverged", "behind"):
+            with self.subTest(branch_status=status):
+                threads = [thread("T1", replies=[
+                    (PR_AUTHOR, "OWNER",
+                     f"fixed upstream in Icaro0310/devin-powerups@{XSHA}"),
+                ])]
+                fx = self.xrepo_fx(threads, branch_status=status,
+                                   commits=[XSHA])
+                proc, out, _ = self.run_block(self.findings, fx)
+                self.assertEqual(proc.returncode, 0, proc.stderr)
+                self.assertEqual(out["blocking"], "1")
 
     def test_xrepo_pull_merged_resolves(self):
         threads = [thread("T1", replies=[
@@ -534,16 +571,17 @@ class GateFallback(unittest.TestCase):
         self.assertNotIn("repos/other-org", log)
 
     def test_xrepo_missing_commit_still_blocking(self):
-        # anchor resolves syntactically but the commit does not exist
-        # upstream — existence check ran and failed.
+        # anchor parses but the commit never landed upstream — the
+        # default-branch compare 404s.
         threads = [thread("T1", replies=[
             (PR_AUTHOR, "OWNER", f"Icaro0310/devin-powerups@{XSHA}"),
         ])]
-        fx = self.base_fixtures(threads, commits=[])
+        fx = self.xrepo_fx(threads, branch_status=None, commits=[])
+        fx["compares.json"] = {}
         proc, out, log = self.run_block(self.findings, fx)
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertEqual(out["blocking"], "1")
-        self.assertIn(f"repos/{XREPO}/commits/{XSHA}", log)
+        self.assertIn(f"repos/{XREPO}/compare/{XSHA}...main", log)
 
     def test_own_repo_at_anchor_resolves_like_bare_sha(self):
         # `owner/<own-repo>@sha` is the same-repo alias — full
@@ -595,7 +633,8 @@ class GateFallback(unittest.TestCase):
         ])]
         fx = self.base_fixtures(
             threads, commits=[],
-            compares={f"{MERGE_SHA}...{HEAD_SHA}": {"status": "ahead"}})
+            compares={f"{MERGE_SHA}...{HEAD_SHA}": {"status": "ahead"},
+                      f"{FBASE_SHA}...{MERGE_SHA}": {"status": "ahead"}})
         fx["pulls.json"] = {"icaro0310/devin-test#9": {
             "merged_at": "2026-10-21T00:00:00Z",
             "merge_commit_sha": MERGE_SHA}}
@@ -604,6 +643,29 @@ class GateFallback(unittest.TestCase):
         self.assertEqual(out["blocking"], "0")
         self.assertEqual(json.loads(out["fallback_threads"]),
                          {"5": ["T1|pull:icaro0310/devin-test#9"]})
+
+    def test_own_repo_pull_predating_finding_still_blocking(self):
+        # the merge IS in the head but PREDATES the finding — it cannot
+        # be the fix for a finding filed later (review SEC finding).
+        for status in ("identical", "behind"):
+            with self.subTest(finding_cmp=status):
+                threads = [thread("T1", replies=[
+                    (PR_AUTHOR, "OWNER",
+                     "fixed by https://github.com/Icaro0310/"
+                     "devin-test/pull/9"),
+                ])]
+                fx = self.base_fixtures(
+                    threads, commits=[],
+                    compares={
+                        f"{MERGE_SHA}...{HEAD_SHA}": {"status": "ahead"},
+                        f"{FBASE_SHA}...{MERGE_SHA}": {"status": status},
+                    })
+                fx["pulls.json"] = {"icaro0310/devin-test#9": {
+                    "merged_at": "2026-10-21T00:00:00Z",
+                    "merge_commit_sha": MERGE_SHA}}
+                proc, out, _ = self.run_block(self.findings, fx)
+                self.assertEqual(proc.returncode, 0, proc.stderr)
+                self.assertEqual(out["blocking"], "1")
 
     # --- approve step: the public fallback comment ---------------------
 
@@ -631,7 +693,9 @@ class GateFallback(unittest.TestCase):
         # posted via issues/comments POST carrying the dedupe key
         self.assertIn("-X POST", log)
         self.assertIn("issues/5/comments", log)
-        self.assertIn(f"gate-fallback-pairs: T1|commit:{FIX_SHA}", log)
+        self.assertIn(
+            f"gate-fallback-pairs: T1|commit:{FIX_SHA} head:{HEAD_SHA}",
+            log)
 
     def test_approve_without_fallback_posts_no_comment(self):
         fx = {"compares.json": {}, "commits.json": [],
@@ -666,12 +730,19 @@ class GateFallback(unittest.TestCase):
                      f"gate-fallback-pairs: {pairs}"),
         }
 
+    def prior_pairs(self, extra=()):
+        """Canonical dedupe key for the current head: sorted resolved
+        pairs + the `head:<sha>` token the step now records."""
+        return " ".join(sorted({"T1|commit:" + FIX_SHA,
+                                f"head:{HEAD_SHA}", *extra}))
+
     def test_approve_skips_duplicate_fallback_comment(self):
-        # second run resolves the identical set: one GET listing, no POST
+        # second run resolves the identical set on the same head: one
+        # GET listing, no POST
         fx = {"compares.json": {}, "commits.json": [],
               "status.json": status_fixture(),
               "issue_comments_pr5.json": [
-                  self.prior_pairs_comment(f"T1|commit:{FIX_SHA}")]}
+                  self.prior_pairs_comment(self.prior_pairs())]}
         proc, _, log = self.run_block(
             self.approve, fx, extra_env=self.approve_env())
         self.assertEqual(proc.returncode, 0, proc.stderr)
@@ -685,7 +756,7 @@ class GateFallback(unittest.TestCase):
         fx = {"compares.json": {}, "commits.json": [],
               "status.json": status_fixture(),
               "issue_comments_pr5.json": [
-                  self.prior_pairs_comment(f"T1|commit:{FIX_SHA}")]}
+                  self.prior_pairs_comment(self.prior_pairs())]}
         env = self.approve_env(
             FALLBACK_MAP='{"5": 2}',
             FALLBACK_THREADS=(
@@ -695,23 +766,40 @@ class GateFallback(unittest.TestCase):
         self.assertIn("-X POST", log)
         self.assertEqual(log.count("issues/5/comments"), 2)
         self.assertIn("T2|commit:0badf00", log)
-        # the fresh comment records the full current set
+        # the fresh comment records the full current set + head
         self.assertIn(
-            f"gate-fallback-pairs: T1|commit:{FIX_SHA} T2|commit:0badf00",
+            f"gate-fallback-pairs: {self.prior_pairs(('T2|commit:0badf00',))}",
             log)
 
-    def test_approve_pairs_line_by_human_does_not_suppress(self):
-        # only bot comments dedupe — a human pasting the marker can't
-        # silence the audit trail
+    def test_approve_posts_fresh_comment_on_new_head(self):
+        # identical resolved set but a different head — the head is part
+        # of the dedupe key, so a new head is fresh evidence and posts
         fx = {"compares.json": {}, "commits.json": [],
               "status.json": status_fixture(),
               "issue_comments_pr5.json": [
-                  self.prior_pairs_comment(f"T1|commit:{FIX_SHA}",
-                                           author="Icaro0310")]}
-        proc, _, log = self.run_block(
-            self.approve, fx, extra_env=self.approve_env())
+                  self.prior_pairs_comment(self.prior_pairs())]}
+        env = self.approve_env()
+        env["HEAD_SHA"] = "9" * 40
+        proc, _, log = self.run_block(self.approve, fx, extra_env=env)
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn("-X POST", log)
+        self.assertIn(f"head:{'9' * 40}", log)
+
+    def test_approve_pairs_line_by_others_does_not_suppress(self):
+        # only github-actions[bot] comments dedupe — a human pasting the
+        # marker, or an unrelated bot forging it, cannot silence the
+        # audit trail (review SEC finding)
+        for author in ("Icaro0310", "dependabot[bot]"):
+            with self.subTest(author=author):
+                fx = {"compares.json": {}, "commits.json": [],
+                      "status.json": status_fixture(),
+                      "issue_comments_pr5.json": [
+                          self.prior_pairs_comment(
+                              self.prior_pairs(), author=author)]}
+                proc, _, log = self.run_block(
+                    self.approve, fx, extra_env=self.approve_env())
+                self.assertEqual(proc.returncode, 0, proc.stderr)
+                self.assertIn("-X POST", log)
 
 
 if __name__ == "__main__":
