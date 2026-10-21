@@ -1,0 +1,34 @@
+{
+  "date": "2026-10-21",
+  "upstream_prs": {
+    "EclipseFdn/open-vsx.org": {
+      "open": 0,
+      "merged": 0,
+      "closed_unmerged": 0,
+      "other": 1
+    }
+  },
+  "details": {
+    "EclipseFdn/open-vsx.org": {
+      "open": 0,
+      "merged": 0,
+      "closed_unmerged": 0,
+      "prs": [],
+      "other": [
+        {
+          "title": "Claiming namespace `icaro0310`",
+          "url": "https://github.com/EclipseFdn/open-vsx.org/issues/14088",
+          "state": "closed_unmerged",
+          "merged_at": null
+        }
+      ]
+    }
+  },
+  "totals": {
+    "open": 0,
+    "merged": 0,
+    "closed_unmerged": 0,
+    "other": 1
+  },
+  "errors": []
+}

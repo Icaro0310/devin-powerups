@@ -1,0 +1,1092 @@
+{
+  "date": "2026-10-21",
+  "registry_version": 32,
+  "structure": {
+    "registry_commit": "83f25cc75392aea91c16c83aff01525066465582",
+    "first_party_tools": 19,
+    "public_repos": 23,
+    "private_repos": 3,
+    "journeys": {
+      "ai-engineers": [
+        "devin-control",
+        "devin-orchestrator",
+        "devin-brain"
+      ],
+      "data-scientists": [
+        "devin-graph",
+        "devin-search",
+        "devin-history",
+        "devin-metrics"
+      ],
+      "developers": [
+        "devin-devkit",
+        "devin-skill-catalog",
+        "devin-internals-spec",
+        "devin-powerups"
+      ],
+      "devops": [
+        "devin-state",
+        "devin-control",
+        "devin-switch"
+      ],
+      "operations": [
+        "devin-explore",
+        "devin-pm",
+        "devin-office",
+        "devin-backup",
+        "devin-janitor"
+      ],
+      "qa": [
+        "devin-assure",
+        "devin-evals",
+        "devin-judge"
+      ]
+    },
+    "entries": {
+      "devin-powerups": {
+        "track": "platform",
+        "visibility": "public",
+        "artifact": "infrastructure",
+        "nature": "infrastructure",
+        "role": "foundation",
+        "mode": "mixed",
+        "audiences": [
+          "maintainers",
+          "developers"
+        ],
+        "interfaces": [
+          "cli",
+          "registry",
+          "docs"
+        ]
+      },
+      "devin-devkit": {
+        "track": "platform",
+        "visibility": "public",
+        "artifact": "distribution",
+        "nature": "distribution",
+        "role": "installer",
+        "mode": "mixed",
+        "audiences": [
+          "developers",
+          "end-users",
+          "devops"
+        ],
+        "interfaces": [
+          "cli",
+          "installer"
+        ]
+      },
+      "devin-internals-spec": {
+        "track": "observe",
+        "visibility": "public",
+        "artifact": "tool",
+        "nature": "infrastructure",
+        "role": "foundation",
+        "mode": "read",
+        "audiences": [
+          "developers",
+          "maintainers"
+        ],
+        "interfaces": [
+          "cli",
+          "library"
+        ]
+      },
+      "devin-state": {
+        "track": "guard",
+        "visibility": "public",
+        "artifact": "tool",
+        "nature": "product",
+        "role": "module",
+        "mode": "mixed",
+        "audiences": [
+          "security",
+          "developers",
+          "devops"
+        ],
+        "interfaces": [
+          "cli",
+          "library"
+        ]
+      },
+      "devin-history": {
+        "track": "observe",
+        "visibility": "public",
+        "artifact": "tool",
+        "nature": "product",
+        "role": "module",
+        "mode": "read",
+        "audiences": [
+          "operations",
+          "end-users",
+          "data-scientists"
+        ],
+        "interfaces": [
+          "cli"
+        ]
+      },
+      "devin-explore": {
+        "track": "observe",
+        "visibility": "public",
+        "artifact": "tool",
+        "nature": "product",
+        "role": "module",
+        "mode": "read",
+        "audiences": [
+          "operations",
+          "end-users",
+          "data-scientists"
+        ],
+        "interfaces": [
+          "cli"
+        ]
+      },
+      "devin-pm": {
+        "track": "observe",
+        "visibility": "public",
+        "artifact": "tool",
+        "nature": "product",
+        "role": "module",
+        "mode": "read",
+        "audiences": [
+          "operations",
+          "maintainers"
+        ],
+        "interfaces": [
+          "cli",
+          "registry"
+        ]
+      },
+      "devin-assure": {
+        "track": "assure",
+        "visibility": "public",
+        "artifact": "tool",
+        "nature": "product",
+        "role": "flagship",
+        "mode": "read",
+        "audiences": [
+          "qa",
+          "developers"
+        ],
+        "interfaces": [
+          "cli"
+        ]
+      },
+      "devin-metrics": {
+        "track": "assure",
+        "visibility": "public",
+        "artifact": "tool",
+        "nature": "product",
+        "role": "module",
+        "mode": "read",
+        "audiences": [
+          "qa",
+          "operations",
+          "data-scientists"
+        ],
+        "interfaces": [
+          "cli",
+          "dashboard"
+        ]
+      },
+      "devin-backup": {
+        "track": "guard",
+        "visibility": "public",
+        "artifact": "tool",
+        "nature": "product",
+        "role": "module",
+        "mode": "mixed",
+        "audiences": [
+          "operations",
+          "security"
+        ],
+        "interfaces": [
+          "cli"
+        ]
+      },
+      "devin-search": {
+        "track": "observe",
+        "visibility": "public",
+        "artifact": "tool",
+        "nature": "product",
+        "role": "module",
+        "mode": "read",
+        "audiences": [
+          "developers",
+          "ai-engineers",
+          "data-scientists"
+        ],
+        "interfaces": [
+          "cli"
+        ]
+      },
+      "devin-graph": {
+        "track": "observe",
+        "visibility": "public",
+        "artifact": "tool",
+        "nature": "product",
+        "role": "module",
+        "mode": "read",
+        "audiences": [
+          "developers",
+          "ai-engineers",
+          "data-scientists"
+        ],
+        "interfaces": [
+          "cli",
+          "library"
+        ]
+      },
+      "devin-evals": {
+        "track": "assure",
+        "visibility": "public",
+        "artifact": "tool",
+        "nature": "product",
+        "role": "module",
+        "mode": "read",
+        "audiences": [
+          "qa",
+          "ai-engineers"
+        ],
+        "interfaces": [
+          "cli",
+          "library"
+        ]
+      },
+      "devin-brain": {
+        "track": "platform",
+        "visibility": "public",
+        "artifact": "tool",
+        "nature": "product",
+        "role": "module",
+        "mode": "mixed",
+        "audiences": [
+          "ai-engineers",
+          "developers",
+          "data-scientists"
+        ],
+        "interfaces": [
+          "cli",
+          "library",
+          "mcp",
+          "service"
+        ]
+      },
+      "devin-janitor": {
+        "track": "guard",
+        "visibility": "public",
+        "artifact": "tool",
+        "nature": "product",
+        "role": "module",
+        "mode": "mixed",
+        "audiences": [
+          "operations",
+          "security"
+        ],
+        "interfaces": [
+          "cli",
+          "automation"
+        ]
+      },
+      "devin-control": {
+        "track": "guard",
+        "visibility": "public",
+        "artifact": "tool",
+        "nature": "product",
+        "role": "module",
+        "mode": "mixed",
+        "audiences": [
+          "security",
+          "ai-engineers",
+          "devops"
+        ],
+        "interfaces": [
+          "cli",
+          "bridge"
+        ]
+      },
+      "devin-orchestrator": {
+        "track": "guard",
+        "visibility": "public",
+        "artifact": "tool",
+        "nature": "product",
+        "role": "module",
+        "mode": "read",
+        "audiences": [
+          "operations",
+          "ai-engineers"
+        ],
+        "interfaces": [
+          "cli",
+          "automation"
+        ]
+      },
+      "personal-agent-system": {
+        "track": null,
+        "visibility": "private",
+        "artifact": "system",
+        "nature": null,
+        "role": null,
+        "mode": null,
+        "audiences": [
+          "maintainers"
+        ],
+        "interfaces": [
+          "service",
+          "automation"
+        ]
+      },
+      "devin-dashboard": {
+        "track": null,
+        "visibility": "private",
+        "artifact": "service",
+        "nature": null,
+        "role": null,
+        "mode": null,
+        "audiences": [
+          "maintainers"
+        ],
+        "interfaces": [
+          "service",
+          "dashboard"
+        ]
+      },
+      "devin-office": {
+        "track": "guard",
+        "visibility": "public",
+        "artifact": "tool",
+        "nature": "product",
+        "role": "module",
+        "mode": "mixed",
+        "audiences": [
+          "operations",
+          "end-users"
+        ],
+        "interfaces": [
+          "service",
+          "dashboard",
+          "cli"
+        ]
+      },
+      "qwenpaw-suite": {
+        "track": "related",
+        "visibility": "public",
+        "artifact": "suite",
+        "nature": "product",
+        "role": "module",
+        "mode": "mixed",
+        "audiences": [
+          "ai-engineers",
+          "operations"
+        ],
+        "interfaces": [
+          "service",
+          "bridge",
+          "docs"
+        ]
+      },
+      "devin-judge": {
+        "track": "guard",
+        "visibility": "public",
+        "artifact": "tool",
+        "nature": "product",
+        "role": "module",
+        "mode": "read",
+        "audiences": [
+          "ai-engineers",
+          "qa"
+        ],
+        "interfaces": [
+          "cli",
+          "library",
+          "mcp",
+          "bridge"
+        ]
+      },
+      "awesome-devin": {
+        "track": "navigation",
+        "visibility": "public",
+        "artifact": "resource",
+        "nature": "surface",
+        "role": "surface",
+        "mode": "read",
+        "audiences": [
+          "developers",
+          "end-users"
+        ],
+        "interfaces": [
+          "docs"
+        ]
+      },
+      "devin-switch": {
+        "track": "guard",
+        "visibility": "public",
+        "artifact": "tool",
+        "nature": "product",
+        "role": "module",
+        "mode": "mixed",
+        "audiences": [
+          "operations",
+          "maintainers",
+          "devops"
+        ],
+        "interfaces": [
+          "cli"
+        ]
+      },
+      "devin-skill-catalog": {
+        "track": "platform",
+        "visibility": "public",
+        "artifact": "tool",
+        "nature": "product",
+        "role": "catalog",
+        "mode": "mixed",
+        "audiences": [
+          "maintainers",
+          "ai-engineers",
+          "developers"
+        ],
+        "interfaces": [
+          "cli",
+          "registry"
+        ]
+      },
+      "devin-learning": {
+        "track": null,
+        "visibility": "private",
+        "artifact": "system",
+        "nature": null,
+        "role": null,
+        "mode": null,
+        "audiences": [
+          "maintainers"
+        ],
+        "interfaces": [
+          "automation"
+        ]
+      }
+    }
+  },
+  "structural_changes_since_previous": "fingerprint established (previous snapshot predates structure)",
+  "repos": {
+    "devin-powerups": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 0,
+      "open_prs": 3,
+      "views_14d": null,
+      "unique_visitors_14d": null,
+      "clones_14d": null,
+      "unique_cloners_14d": null,
+      "ci": {
+        "runs_14d": 297,
+        "pass_rate_14d": 0.677,
+        "failures_14d": 18
+      },
+      "errors": [
+        "gh api repos/Icaro0310/devin-powerups/traffic/views: gh: Resource not accessible by integration (HTTP 403)",
+        "gh api repos/Icaro0310/devin-powerups/traffic/clones: gh: Resource not accessible by integration (HTTP 403)"
+      ]
+    },
+    "devin-devkit": {
+      "stars": 2,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 0,
+      "open_prs": 0,
+      "views_14d": null,
+      "unique_visitors_14d": null,
+      "clones_14d": null,
+      "unique_cloners_14d": null,
+      "ci": {
+        "runs_14d": 300,
+        "pass_rate_14d": 0.683,
+        "failures_14d": 5
+      },
+      "errors": [
+        "gh api repos/Icaro0310/devin-devkit/traffic/views: gh: Resource not accessible by integration (HTTP 403)",
+        "gh api repos/Icaro0310/devin-devkit/traffic/clones: gh: Resource not accessible by integration (HTTP 403)"
+      ]
+    },
+    "devin-internals-spec": {
+      "stars": 1,
+      "forks": 1,
+      "watchers": 0,
+      "open_issues": 0,
+      "open_prs": 1,
+      "views_14d": null,
+      "unique_visitors_14d": null,
+      "clones_14d": null,
+      "unique_cloners_14d": null,
+      "ci": {
+        "runs_14d": 300,
+        "pass_rate_14d": 0.82,
+        "failures_14d": 0
+      },
+      "errors": [
+        "gh api repos/Icaro0310/devin-internals-spec/traffic/views: gh: Resource not accessible by integration (HTTP 403)",
+        "gh api repos/Icaro0310/devin-internals-spec/traffic/clones: gh: Resource not accessible by integration (HTTP 403)"
+      ]
+    },
+    "devin-state": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 1,
+      "open_prs": 1,
+      "views_14d": null,
+      "unique_visitors_14d": null,
+      "clones_14d": null,
+      "unique_cloners_14d": null,
+      "ci": {
+        "runs_14d": 300,
+        "pass_rate_14d": 0.79,
+        "failures_14d": 3
+      },
+      "errors": [
+        "gh api repos/Icaro0310/devin-state/traffic/views: gh: Resource not accessible by integration (HTTP 403)",
+        "gh api repos/Icaro0310/devin-state/traffic/clones: gh: Resource not accessible by integration (HTTP 403)"
+      ]
+    },
+    "devin-history": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 0,
+      "open_prs": 1,
+      "views_14d": null,
+      "unique_visitors_14d": null,
+      "clones_14d": null,
+      "unique_cloners_14d": null,
+      "ci": {
+        "runs_14d": 86,
+        "pass_rate_14d": 0.953,
+        "failures_14d": 1
+      },
+      "errors": [
+        "gh api repos/Icaro0310/devin-history/traffic/views: gh: Resource not accessible by integration (HTTP 403)",
+        "gh api repos/Icaro0310/devin-history/traffic/clones: gh: Resource not accessible by integration (HTTP 403)"
+      ]
+    },
+    "devin-explore": {
+      "stars": 4,
+      "forks": 0,
+      "watchers": 1,
+      "open_issues": 1,
+      "open_prs": 1,
+      "views_14d": null,
+      "unique_visitors_14d": null,
+      "clones_14d": null,
+      "unique_cloners_14d": null,
+      "ci": {
+        "runs_14d": 300,
+        "pass_rate_14d": 0.7,
+        "failures_14d": 1
+      },
+      "errors": [
+        "gh api repos/Icaro0310/devin-explore/traffic/views: gh: Resource not accessible by integration (HTTP 403)",
+        "gh api repos/Icaro0310/devin-explore/traffic/clones: gh: Resource not accessible by integration (HTTP 403)"
+      ]
+    },
+    "devin-pm": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 0,
+      "open_prs": 0,
+      "views_14d": null,
+      "unique_visitors_14d": null,
+      "clones_14d": null,
+      "unique_cloners_14d": null,
+      "ci": {
+        "runs_14d": 59,
+        "pass_rate_14d": 0.915,
+        "failures_14d": 2
+      },
+      "errors": [
+        "gh api repos/Icaro0310/devin-pm/traffic/views: gh: Resource not accessible by integration (HTTP 403)",
+        "gh api repos/Icaro0310/devin-pm/traffic/clones: gh: Resource not accessible by integration (HTTP 403)"
+      ]
+    },
+    "devin-assure": {
+      "stars": 3,
+      "forks": 1,
+      "watchers": 1,
+      "open_issues": 1,
+      "open_prs": 5,
+      "views_14d": null,
+      "unique_visitors_14d": null,
+      "clones_14d": null,
+      "unique_cloners_14d": null,
+      "ci": {
+        "runs_14d": 300,
+        "pass_rate_14d": 0.757,
+        "failures_14d": 4
+      },
+      "errors": [
+        "gh api repos/Icaro0310/devin-assure/traffic/views: gh: Resource not accessible by integration (HTTP 403)",
+        "gh api repos/Icaro0310/devin-assure/traffic/clones: gh: Resource not accessible by integration (HTTP 403)"
+      ]
+    },
+    "devin-metrics": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 0,
+      "open_prs": 0,
+      "views_14d": null,
+      "unique_visitors_14d": null,
+      "clones_14d": null,
+      "unique_cloners_14d": null,
+      "ci": {
+        "runs_14d": 65,
+        "pass_rate_14d": 0.908,
+        "failures_14d": 3
+      },
+      "errors": [
+        "gh api repos/Icaro0310/devin-metrics/traffic/views: gh: Resource not accessible by integration (HTTP 403)",
+        "gh api repos/Icaro0310/devin-metrics/traffic/clones: gh: Resource not accessible by integration (HTTP 403)"
+      ]
+    },
+    "devin-backup": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 0,
+      "open_prs": 0,
+      "views_14d": null,
+      "unique_visitors_14d": null,
+      "clones_14d": null,
+      "unique_cloners_14d": null,
+      "ci": {
+        "runs_14d": 68,
+        "pass_rate_14d": 0.941,
+        "failures_14d": 1
+      },
+      "errors": [
+        "gh api repos/Icaro0310/devin-backup/traffic/views: gh: Resource not accessible by integration (HTTP 403)",
+        "gh api repos/Icaro0310/devin-backup/traffic/clones: gh: Resource not accessible by integration (HTTP 403)"
+      ]
+    },
+    "devin-search": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 0,
+      "open_prs": 0,
+      "views_14d": null,
+      "unique_visitors_14d": null,
+      "clones_14d": null,
+      "unique_cloners_14d": null,
+      "ci": {
+        "runs_14d": 62,
+        "pass_rate_14d": 0.919,
+        "failures_14d": 3
+      },
+      "errors": [
+        "gh api repos/Icaro0310/devin-search/traffic/views: gh: Resource not accessible by integration (HTTP 403)",
+        "gh api repos/Icaro0310/devin-search/traffic/clones: gh: Resource not accessible by integration (HTTP 403)"
+      ]
+    },
+    "devin-graph": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 0,
+      "open_prs": 0,
+      "views_14d": null,
+      "unique_visitors_14d": null,
+      "clones_14d": null,
+      "unique_cloners_14d": null,
+      "ci": {
+        "runs_14d": 62,
+        "pass_rate_14d": 0.935,
+        "failures_14d": 1
+      },
+      "errors": [
+        "gh api repos/Icaro0310/devin-graph/traffic/views: gh: Resource not accessible by integration (HTTP 403)",
+        "gh api repos/Icaro0310/devin-graph/traffic/clones: gh: Resource not accessible by integration (HTTP 403)"
+      ]
+    },
+    "devin-evals": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 0,
+      "open_prs": 0,
+      "views_14d": null,
+      "unique_visitors_14d": null,
+      "clones_14d": null,
+      "unique_cloners_14d": null,
+      "ci": {
+        "runs_14d": 114,
+        "pass_rate_14d": 0.965,
+        "failures_14d": 1
+      },
+      "errors": [
+        "gh api repos/Icaro0310/devin-evals/traffic/views: gh: Resource not accessible by integration (HTTP 403)",
+        "gh api repos/Icaro0310/devin-evals/traffic/clones: gh: Resource not accessible by integration (HTTP 403)"
+      ]
+    },
+    "devin-brain": {
+      "stars": 1,
+      "forks": 1,
+      "watchers": 0,
+      "open_issues": 0,
+      "open_prs": 1,
+      "views_14d": null,
+      "unique_visitors_14d": null,
+      "clones_14d": null,
+      "unique_cloners_14d": null,
+      "ci": {
+        "runs_14d": 300,
+        "pass_rate_14d": 0.71,
+        "failures_14d": 3
+      },
+      "errors": [
+        "gh api repos/Icaro0310/devin-brain/traffic/views: gh: Resource not accessible by integration (HTTP 403)",
+        "gh api repos/Icaro0310/devin-brain/traffic/clones: gh: Resource not accessible by integration (HTTP 403)"
+      ]
+    },
+    "devin-janitor": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 0,
+      "open_prs": 0,
+      "views_14d": null,
+      "unique_visitors_14d": null,
+      "clones_14d": null,
+      "unique_cloners_14d": null,
+      "ci": {
+        "runs_14d": 69,
+        "pass_rate_14d": 0.928,
+        "failures_14d": 2
+      },
+      "errors": [
+        "gh api repos/Icaro0310/devin-janitor/traffic/views: gh: Resource not accessible by integration (HTTP 403)",
+        "gh api repos/Icaro0310/devin-janitor/traffic/clones: gh: Resource not accessible by integration (HTTP 403)"
+      ]
+    },
+    "devin-control": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 0,
+      "open_prs": 0,
+      "views_14d": null,
+      "unique_visitors_14d": null,
+      "clones_14d": null,
+      "unique_cloners_14d": null,
+      "ci": {
+        "runs_14d": 300,
+        "pass_rate_14d": 0.743,
+        "failures_14d": 2
+      },
+      "errors": [
+        "gh api repos/Icaro0310/devin-control/traffic/views: gh: Resource not accessible by integration (HTTP 403)",
+        "gh api repos/Icaro0310/devin-control/traffic/clones: gh: Resource not accessible by integration (HTTP 403)"
+      ]
+    },
+    "devin-orchestrator": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 0,
+      "open_prs": 0,
+      "views_14d": null,
+      "unique_visitors_14d": null,
+      "clones_14d": null,
+      "unique_cloners_14d": null,
+      "ci": {
+        "runs_14d": 62,
+        "pass_rate_14d": 0.919,
+        "failures_14d": 3
+      },
+      "errors": [
+        "gh api repos/Icaro0310/devin-orchestrator/traffic/views: gh: Resource not accessible by integration (HTTP 403)",
+        "gh api repos/Icaro0310/devin-orchestrator/traffic/clones: gh: Resource not accessible by integration (HTTP 403)"
+      ]
+    },
+    "devin-office": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 0,
+      "open_prs": 1,
+      "views_14d": null,
+      "unique_visitors_14d": null,
+      "clones_14d": null,
+      "unique_cloners_14d": null,
+      "ci": {
+        "runs_14d": 28,
+        "pass_rate_14d": 0.929,
+        "failures_14d": 1
+      },
+      "errors": [
+        "gh api repos/Icaro0310/devin-office/traffic/views: gh: Resource not accessible by integration (HTTP 403)",
+        "gh api repos/Icaro0310/devin-office/traffic/clones: gh: Resource not accessible by integration (HTTP 403)"
+      ]
+    },
+    "qwenpaw-suite": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 0,
+      "open_prs": 0,
+      "views_14d": null,
+      "unique_visitors_14d": null,
+      "clones_14d": null,
+      "unique_cloners_14d": null,
+      "ci": {
+        "runs_14d": 22,
+        "pass_rate_14d": 0.864,
+        "failures_14d": 0
+      },
+      "errors": [
+        "gh api repos/Icaro0310/qwenpaw-suite/traffic/views: gh: Resource not accessible by integration (HTTP 403)",
+        "gh api repos/Icaro0310/qwenpaw-suite/traffic/clones: gh: Resource not accessible by integration (HTTP 403)"
+      ]
+    },
+    "devin-judge": {
+      "stars": 6,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 0,
+      "open_prs": 1,
+      "views_14d": null,
+      "unique_visitors_14d": null,
+      "clones_14d": null,
+      "unique_cloners_14d": null,
+      "ci": {
+        "runs_14d": 289,
+        "pass_rate_14d": 0.813,
+        "failures_14d": 0
+      },
+      "errors": [
+        "gh api repos/Icaro0310/devin-judge/traffic/views: gh: Resource not accessible by integration (HTTP 403)",
+        "gh api repos/Icaro0310/devin-judge/traffic/clones: gh: Resource not accessible by integration (HTTP 403)"
+      ]
+    },
+    "awesome-devin": {
+      "stars": 2,
+      "forks": 1,
+      "watchers": 0,
+      "open_issues": 0,
+      "open_prs": 1,
+      "views_14d": null,
+      "unique_visitors_14d": null,
+      "clones_14d": null,
+      "unique_cloners_14d": null,
+      "ci": {
+        "runs_14d": 80,
+        "pass_rate_14d": 0.912,
+        "failures_14d": 3
+      },
+      "errors": [
+        "gh api repos/Icaro0310/awesome-devin/traffic/views: gh: Resource not accessible by integration (HTTP 403)",
+        "gh api repos/Icaro0310/awesome-devin/traffic/clones: gh: Resource not accessible by integration (HTTP 403)"
+      ]
+    },
+    "devin-switch": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 0,
+      "open_prs": 0,
+      "views_14d": null,
+      "unique_visitors_14d": null,
+      "clones_14d": null,
+      "unique_cloners_14d": null,
+      "ci": {
+        "runs_14d": 30,
+        "pass_rate_14d": 0.933,
+        "failures_14d": 1
+      },
+      "errors": [
+        "gh api repos/Icaro0310/devin-switch/traffic/views: gh: Resource not accessible by integration (HTTP 403)",
+        "gh api repos/Icaro0310/devin-switch/traffic/clones: gh: Resource not accessible by integration (HTTP 403)"
+      ]
+    },
+    "devin-skill-catalog": {
+      "stars": 1,
+      "forks": 0,
+      "watchers": 0,
+      "open_issues": 0,
+      "open_prs": 0,
+      "views_14d": null,
+      "unique_visitors_14d": null,
+      "clones_14d": null,
+      "unique_cloners_14d": null,
+      "ci": {
+        "runs_14d": 34,
+        "pass_rate_14d": 0.882,
+        "failures_14d": 3
+      },
+      "errors": [
+        "gh api repos/Icaro0310/devin-skill-catalog/traffic/views: gh: Resource not accessible by integration (HTTP 403)",
+        "gh api repos/Icaro0310/devin-skill-catalog/traffic/clones: gh: Resource not accessible by integration (HTTP 403)"
+      ]
+    }
+  },
+  "downloads": {
+    "devin-internals-spec": {
+      "pypi_last_day": 351,
+      "pypi_last_week": 1404,
+      "pypi_last_month": 378
+    },
+    "devin-history": {
+      "pypi_last_day": 72,
+      "pypi_last_week": 12,
+      "pypi_last_month": 0
+    },
+    "devin-pm": {
+      "pypi_last_day": 72,
+      "pypi_last_week": 6,
+      "pypi_last_month": 0
+    },
+    "devin-metrics": {
+      "pypi_last_day": 2,
+      "pypi_last_week": 26,
+      "pypi_last_month": 0
+    },
+    "devin-backup": {
+      "pypi_last_day": 82,
+      "pypi_last_week": 11,
+      "pypi_last_month": 0
+    },
+    "devin-search": {
+      "pypi_last_day": 14,
+      "pypi_last_week": 315,
+      "pypi_last_month": 0
+    },
+    "devin-graph": {
+      "pypi_last_day": 73,
+      "pypi_last_week": 12,
+      "pypi_last_month": 0
+    },
+    "devin-evals": {
+      "pypi_last_day": 13,
+      "pypi_last_week": 80,
+      "pypi_last_month": 0
+    },
+    "devin-janitor": {
+      "pypi_last_day": 85,
+      "pypi_last_week": 12,
+      "pypi_last_month": 0
+    },
+    "@icaro0310/devin-bridge": {
+      "npm_last_month": 290
+    },
+    "devin-fanout": {
+      "pypi_last_day": 3,
+      "pypi_last_week": 10,
+      "pypi_last_month": 0
+    },
+    "devin-office": {
+      "pypi_last_day": 87,
+      "pypi_last_week": 0,
+      "pypi_last_month": 0
+    },
+    "devin-switch": {
+      "pypi_last_day": 87,
+      "pypi_last_week": 14,
+      "pypi_last_month": 0
+    },
+    "devin-skill-catalog": {
+      "pypi_last_day": 80,
+      "pypi_last_week": 15,
+      "pypi_last_month": 0
+    },
+    "devin-memory": {
+      "pypi_last_day": 3,
+      "pypi_last_week": 45,
+      "pypi_last_month": 139
+    },
+    "poordjaevin": {
+      "pypi_last_day": 10,
+      "pypi_last_week": 139,
+      "pypi_last_month": 0
+    },
+    "devin-redact": {
+      "pypi_last_day": 133,
+      "pypi_last_week": 189,
+      "pypi_last_month": 146
+    },
+    "devin-qa-pack": {
+      "pypi_last_day": 14,
+      "pypi_last_week": 309,
+      "pypi_last_month": 109
+    },
+    "devin-doctor": {
+      "pypi_last_day": 63,
+      "pypi_last_week": 427,
+      "pypi_last_month": 100
+    }
+  },
+  "boundary_signals": {
+    "f1-explore": {
+      "members": [
+        "devin-history",
+        "devin-search",
+        "devin-graph"
+      ],
+      "issue_cross_refs": {
+        "devin-history->devin-search": 0,
+        "devin-history->devin-graph": 0,
+        "devin-search->devin-history": 0,
+        "devin-search->devin-graph": 0,
+        "devin-graph->devin-history": 0,
+        "devin-graph->devin-search": 0
+      },
+      "sibling_referrers": {
+        "devin-history": [],
+        "devin-search": [],
+        "devin-graph": []
+      },
+      "errors": [
+        "gh api repos/Icaro0310/devin-history/traffic/popular/referrers: gh: Resource not accessible by integration (HTTP 403)",
+        "gh api repos/Icaro0310/devin-search/traffic/popular/referrers: gh: Resource not accessible by integration (HTTP 403)",
+        "gh api repos/Icaro0310/devin-graph/traffic/popular/referrers: gh: Resource not accessible by integration (HTTP 403)"
+      ]
+    },
+    "f2-assure": {
+      "members": [
+        "devin-assure",
+        "devin-evals"
+      ],
+      "issue_cross_refs": {
+        "devin-assure->devin-evals": 0,
+        "devin-evals->devin-assure": 0
+      },
+      "sibling_referrers": {
+        "devin-assure": [],
+        "devin-evals": []
+      },
+      "errors": [
+        "gh api repos/Icaro0310/devin-assure/traffic/popular/referrers: gh: Resource not accessible by integration (HTTP 403)",
+        "gh api repos/Icaro0310/devin-evals/traffic/popular/referrers: gh: Resource not accessible by integration (HTTP 403)"
+      ]
+    },
+    "f3-data": {
+      "members": [
+        "devin-backup",
+        "devin-janitor"
+      ],
+      "issue_cross_refs": {
+        "devin-backup->devin-janitor": 0,
+        "devin-janitor->devin-backup": 0
+      },
+      "sibling_referrers": {
+        "devin-backup": [],
+        "devin-janitor": []
+      },
+      "errors": [
+        "gh api repos/Icaro0310/devin-backup/traffic/popular/referrers: gh: Resource not accessible by integration (HTTP 403)",
+        "gh api repos/Icaro0310/devin-janitor/traffic/popular/referrers: gh: Resource not accessible by integration (HTTP 403)"
+      ]
+    }
+  }
+}
