@@ -138,9 +138,10 @@ evidence instead of guessing at intent.
 ## How changes happen
 
 Normal work: PR → CI green → Devin Review addressed → squash merge.
-Automation commits (`registry-refresh`, `baseline-snapshot`) push
-generated data directly to main by design; everything else goes through
-a PR.
+Automation commits were designed to push generated data to main
+(`registry-refresh`); `baseline-snapshot` appends dated JSONs to the
+unprotected `snapshots` data branch instead — main went PR-only, so a
+direct push fails GH006. Everything else goes through a PR.
 
 ## Product cap and composition (D-2026-10-09)
 
