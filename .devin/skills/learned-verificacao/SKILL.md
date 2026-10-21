@@ -142,3 +142,13 @@ muitos ficheiros, superficies geradas, ou merges sob guardrails.
   subprocess/E2E (server real sem extra -> exit 1 + `error:` no stderr)
   e o unico que apanha essa deriva. Os dois niveis ficam: unit para a
   branch, E2E para o contrato. Aplicado nos 5 PRs mcp-extra-guard.
+- (2026-10-20) Medicao de divergencia vale so no instante em que e
+  tirada — estado em movimento exige re-medicao no momento do desenho
+  E antes de executar. Caso: feat/scout-linux-tasks medida a "52 ahead
+  / 18 behind, 20 conflitos" no desenho; na execucao o delta real ja
+  era outro porque a linha viva continuou a produzir (4 merges — #35
+  sensor isolado, #36 union semantica, #37/#38 stragglers journal).
+  O report anterior parecia contradizer o novo, mas eram dois
+  instantes diferentes de um alvo em movimento. Regra: medir, executar
+  rapido, re-medir antes de declarar — e reportar o timestamp da
+  medicao junto do valor.

@@ -135,3 +135,14 @@ publishing, OIDC federation ou checks de versao.
   publish is the automatable equivalent and reaches the installed user,
   not just the search. Um flag silencioso so remove da busca; o tombstone
   entrega displayName+description no proximo update de quem instalou.
+- (2026-10-20) Backfill de tag so backfilla release se o build passa no
+  SHA original — se falha, a tag fica (regista o evento) mas SEM
+  release, porque nao ha artefacto verificavel. Medido: evals-v0.3.1 e
+  metrics-v0.2.1 taggeados nos SHAs produtores (6614f871, 4131d881 —
+  obtidos via build output dos runs dispatch, manifesto conferido no
+  SHA); publish foi skip-existing, mas o release mint falhou porque
+  `pytest packages/evals` falha em collection nesses commits
+  (conftest de task fixtures colide). Consumidores via GitHub Release
+  (air-gapped) ficam sem artefacto — PyPI directo e o unico caminho.
+  Regra: nunca retaggear para um SHA onde o build passa so para mintar
+  o release — isso falsifica a provenance; tag-only e o estado correto.
