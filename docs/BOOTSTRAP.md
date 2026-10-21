@@ -106,3 +106,40 @@ dry-run é a fonte para repetir.
   teste em `audits/2026-10-10/REPORT.md` §Zscaler na máquina real antes de declarar pronto.
 - macOS: planejado, não suportado.
 - `qwenpaw-suite` é source-only e não entra em perfis corporate.
+
+## Passo 8 — Gotchas operacionais para agentes (2026-10-21)
+
+Coisas que um agente novo vai bater no primeiro dia de trabalho real
+neste ecossistema. Estavam só em memória de sessão — aqui ficam por
+escrito.
+
+- **`gh` sem scope `workflow`** — o token OAuth (`gh auth status`)
+  escreve em tudo menos `.github/workflows/*`. REST `PUT /contents`
+  devolve **404** (indistinguível de "ficheiro inexistente", não de
+  permissão); `git push` HTTPS é recusado com mensagem explícita.
+  **Caminho: SSH.** Clone `git@github.com:Icaro0310/<repo>` e push
+  normal — a chave SSH autentica como o utilizador sem scopes OAuth.
+  Isto foi redescoberto 5× em 2 semanas antes de ser escrito aqui.
+- **Contagens carregam o filtro** — "N callers/repos/tags" sem eixo
+  mente: doze repos do ecossistema estão **archived** (read-only,
+  por design — evals, metrics, backup, graph, history, janitor,
+  office, orchestrator, pm, search, skill-catalog, switch). Qualquer
+  inventário que alimenta um sweep declara activo-vs-archived antes
+  do número, e enumeração por `users/<u>/repos` pode esgotar páginas
+  em silêncio — cruzar com segunda fonte.
+- **Versão de referência do gate**: `pr-approve.yml` reusable está em
+  **`@v1.6`** (v1.5 cross-repo fix anchors + v1.6 manual-blocking0).
+  Callers pinam `@v<minor>`; repins vão via PR (main tem
+  `required_approving_review_count: 1` + secrets-scan) e o próprio
+  gate auto-aprova PRs de trusted authors — findings rule-based em
+  repins pin-only (tests/changelog/upstream-verify) são dispositional
+  via reply citando o PR upstream merged (anchor `pull:` verificado
+  pelo fallback desde v1.5).
+- **`can_approve_pull_request_reviews`** — repos novos podem nascer
+  com `false` (PAS e devin-dashboard estavam, 2026-10-21): o gate
+  falha com "GitHub Actions is not permitted to approve pull
+  requests" — que é exactamente o caso que o manual-blocking0 da v1.6
+  cobre, mas o fix certo é
+  `PUT /repos/{r}/actions/permissions/workflow
+  can_approve_pull_request_reviews=true`, não deixar o fallback
+  carregar o repo para sempre.
