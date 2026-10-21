@@ -4,6 +4,68 @@ Structural decisions about the ecosystem, newest first. Format per
 `GOVERNANCE.md`: Decision / Date / Reason / Evidence / Expected outcome /
 Result. Records are not eternal — revisit when new evidence arrives.
 
+## D-2026-10-20b — Gate fallback v1.5: cross-repo fix anchors + idempotent audit comment
+
+- **Decision:** `pr-approve.yml` v1.5 extends the v1.4 fallback (D-2026-10-20)
+  with two canary-driven fixes, both discovered running callers on v1.4.
+- **Cross-repo anchors (canary assure#89):** the v1.4 model assumed the
+  fix commit lives in the PR's own repo — a finding on a caller's
+  `auto-approve.yml` (`uses: .../pr-approve.yml@v1.4`) can only be fixed
+  by a commit in devin-powerups, so no sha in the caller repo can ever
+  be an ancestor of its head. A qualified reply may now also cite:
+  `owner/repo@<sha>`, `github.com/owner/repo/commit/<sha>` or
+  `github.com/owner/repo/pull/<n>` — strictly org-scoped (the anchor's
+  owner must equal the PR repo's owner; anything else is rejected
+  before any API call). Verification is LANDEDNESS, not ancestry:
+  commit anchors require the sha to be an ancestor of the upstream
+  repo's default branch (`compare {sha}...{default_branch}`
+  ahead/identical — a commit that merely exists on an unmerged branch
+  or fork never landed, hardened per PR #217 review); pull anchors
+  require `pulls/{n}` `merged_at` non-null (an open PR is not a landed
+  fix). The `originalCommit` postdate rule is unchanged for same-repo
+  shas and skipped for cross-repo anchors (no shared ancestry). Two
+  rails stay strict when the anchor names the PR's OWN repo: a commit
+  anchor takes the full same-repo ancestor+postdate path (existence
+  alone would reopen the cite-head exploit closed in D-2026-10-20), and
+  a pull anchor requires its `merge_commit_sha` to be an ancestor of
+  the head AND to postdate the finding (a merge to main that never
+  entered the PR — or that landed before the finding existed — leaves
+  the flagged code untouched; hardened per PR #217 review). Reply
+  author must still be PR author/collaborator, the `Devin Review`
+  status on head must still be `success`, threads stay unresolved.
+- **Audit-comment dedup (canary finding 1, deferred from assure#89):**
+  every approval pass with a nonzero fallback count used to post
+  `gate-resolved-via: fallback`, so repeated triggers stacked
+  duplicates. The comment now records its resolved thread|anchor set on
+  a `gate-fallback-pairs:` line; before posting, the step lists the
+  PR's issue comments and skips when an existing `github-actions[bot]`
+  comment carries the identical sorted set — humans and other bots
+  cannot forge the marker to silence the audit trail (hardened per
+  PR #217 review). A different set posts fresh with the full current
+  set; the head sha is part of the recorded set, so the same threads
+  resolving on a NEW head is fresh evidence and re-posts (a suppressed
+  re-post would leave the audit naming a stale head — PR #217 analysis
+  finding). A `concurrency` group (`pr-approve-<repo>-<pr#|head-sha>`,
+  cancel-in-progress) serializes same-key triggers, closing most of
+  the concurrent GET->POST duplicate window (PR #217 bug finding); a
+  cross-event overlap (status run keyed by sha vs PR run keyed by
+  number) remains a known residual — cosmetic only, worst case one
+  duplicated audit comment.
+- **Wire format:** anchors flow through the pipeline as typed tokens
+  (`sha:HEX`, `commit:O/R@HEX`, `pull:O/R#N`, all lowercased by the jq
+  extractor); `fallback_threads` pairs are `tid|kind:anchor` (was
+  `tid@sha` — `@` collides with the `repo@sha` shape).
+- **Tests:** `tools/test_pr_approve_gate_fallback.py` grows to 34 —
+  cross-repo `repo@sha`/commit-URL/merged-pull resolution, landedness
+  (sha on an unmerged upstream branch stays blocking), unmerged pull,
+  foreign-owner and nonexistent anchors staying blocking, own-repo
+  alias rails incl. merges predating the finding, and the dedupe
+  (identical set + same head skips, extended set or new head posts,
+  human/foreign-bot marker ignored).
+- **Expected outcome:** the gate now clears caller-side findings fixed
+  upstream without admin merges, and repeated triggers no longer stack
+  audit comments. The owner cuts the `v1.5` tag on the merge commit.
+
 ## D-2026-10-20 — Gate fallback: verified fix-commit replies clear blocking threads (option A, in-workflow)
 
 - **Decision:** `pr-approve.yml` v1.4 gains a fallback inside the
