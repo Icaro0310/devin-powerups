@@ -75,6 +75,9 @@ function patternName(category: string, index: number): string {
 }
 
 const REDACTED_TAG = '<REDACTED:';
+// A closed <REDACTED:…> tag — prior redaction output. Only this span is
+// off-limits to re-processing; text around it is not.
+const TAG_RUN = /<REDACTED:[^>\n]*>/g;
 
 // --- _fingerprint -----------------------------------------------------------
 // sha256(value.encode('utf-8', 'surrogatepass'))[:16]. The manual encoder keeps
@@ -282,16 +285,133 @@ interface RawMatch {
   m: RegExpExecArray;
 }
 
+// _comment_start: index of the first `#` outside quotes — where comment text
+// begins — or s.length when there is none.
+function commentStart(s: string): number {
+  let single = false, double = false;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (single) { if (ch === '\\') i++; else if (ch === "'") single = false; }
+    else if (double) { if (ch === '\\') i++; else if (ch === '"') double = false; }
+    else if (ch === "'") single = true;
+    else if (ch === '"') double = true;
+    else if (ch === '#') return i;
+  }
+  return s.length;
+}
+
+// _enclosures_closed: true when s leaves no open enclosure — brackets
+// balanced, no dangling quote, no comment. Tells whether a fragment boundary
+// sits inside a literal/container/comment, where a redaction replacement
+// could eat delimiters and corrupt valid source. Tiny state machine, not a
+// parser; a `#` outside quotes drops the candidate (over-cautious keeps the
+// old skip, which is safe).
+function enclosuresClosed(s: string): boolean {
+  let depth = 0, single = false, double = false;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (single) { if (ch === '\\') i++; else if (ch === "'") single = false; }
+    else if (double) { if (ch === '\\') i++; else if (ch === '"') double = false; }
+    else if (ch === "'") single = true;
+    else if (ch === '"') double = true;
+    else if (ch === '#') return false;
+    else if (ch === '(' || ch === '[' || ch === '{') depth++;
+    else if (ch === ')' || ch === ']' || ch === '}') depth--;
+  }
+  return depth === 0 && !single && !double;
+}
+
+// _ShiftedMatch: a match found in a fragment slice, re-anchored to the
+// parent text's coordinates. Only the members the engine consumes are
+// re-pointed: [n] groups, index, indices (d flag).
+function shiftMatch(m: RegExpExecArray, delta: number, input: string): RegExpExecArray {
+  const copy = Array.from(m) as RegExpExecArray & { indices?: [number, number][] };
+  copy.index = m.index + delta;
+  copy.input = input;
+  if (m.indices) {
+    copy.indices = m.indices.map(p => [p[0] + delta, p[1] + delta] as [number, number]);
+  }
+  return copy;
+}
+
+// _iter_fragment_matches: yield re matches inside text[lo:hi] shifted by lo.
+// env candidates get the code-assignment guard plus the enclosure check: the
+// value text from valueStart must reach each side of the candidate with every
+// bracket closed and quote paired — a candidate inside '…', "…" or a
+// container is dropped rather than let its replacement eat delimiters.
+function* iterFragmentMatches(
+  re: RegExp, text: string, lo: number, hi: number, env: boolean, valueStart: number,
+): Generator<RegExpExecArray> {
+  if (env) {
+    // An unquoted `#` starts a comment: the tail is comment text, not rescan
+    // candidates — but the secret *before* it must still redact, so the
+    // fragment is trimmed there (plus the whitespace between value and
+    // marker, which belongs to the comment).
+    hi = lo + commentStart(text.slice(lo, hi));
+    while (hi > lo && (text[hi - 1] === ' ' || text[hi - 1] === '\t')) hi--;
+  }
+  if (lo >= hi) return;
+  for (const fm of text.slice(lo, hi).matchAll(re)) {
+    const whole = fm[0];
+    // A malformed (unclosed) tag inside the fragment — still never
+    // re-processed, same as the whole-match rule.
+    if (whole.includes(REDACTED_TAG)) continue;
+    if (env) {
+      if (looksLikeCodeAssignment(whole)) continue;
+      const start = lo + fm.index;
+      const end = start + whole.length;
+      if (!(
+        enclosuresClosed(text.slice(valueStart, start))
+        && enclosuresClosed(text.slice(valueStart, end))
+      )) continue;
+    }
+    yield shiftMatch(fm, lo, text);
+  }
+}
+
+// _iter_tag_gap: yield re matches inside the tag-free fragments of m.
+// A match containing <REDACTED:…> is prior redaction output — but only the
+// tag's own span is off-limits. Greedy patterns reach past the tag:
+// env_assignment swallows the rest of the line, so a second secret inside
+// the same match — the OTHER= in `KEY=<REDACTED:x> OTHER=raw` — would stay
+// raw if the whole match were dropped (devin-state#66). A `<REDACTED:`
+// prefix with no closing `>` is malformed, not a real tag — the old
+// whole-match skip still applies there.
+function* iterTagGap(
+  re: RegExp, text: string, m: RegExpExecArray, env: boolean,
+): Generator<RegExpExecArray> {
+  const mStart = m.index;
+  const mEnd = mStart + m[0].length;
+  const tags = [...text.slice(mStart, mEnd).matchAll(TAG_RUN)];
+  if (tags.length === 0) return;
+  // For env_assignment the enclosure state is measured from the value's
+  // first char — the position after `=`.
+  const valueStart = env ? mStart + m[0].indexOf('=') + 1 : mStart;
+  let pos = mStart;
+  for (const t of tags) {
+    yield* iterFragmentMatches(re, text, pos, mStart + t.index, env, valueStart);
+    pos = mStart + t.index + t[0].length;
+  }
+  yield* iterFragmentMatches(re, text, pos, mEnd, env, valueStart);
+}
+
 function* iterMatches(text: string): Generator<RawMatch> {
   for (const [category, regexes] of PATTERNS) {
+    const env = category === 'env_assignment';
     for (let i = 0; i < regexes.length; i++) {
       const re = regexes[i];
       if (re === undefined) continue;
       for (const m of text.matchAll(re)) {
-        // already redacted — upstream parity (engine.py: skip the WHOLE
-        // match; a second secret inside it stays raw — corpus env_tag_tail)
-        if (m[0].includes(REDACTED_TAG)) continue;
-        if (category === 'env_assignment' && looksLikeCodeAssignment(m[0])) continue;
+        if (m[0].includes(REDACTED_TAG)) {
+          // Prior redaction output — re-scan only the tag-free fragments;
+          // the env code guard and the enclosure check apply per fragment
+          // there.
+          for (const fm of iterTagGap(re, text, m, env)) {
+            yield { category, name: patternName(category, i), m: fm };
+          }
+          continue;
+        }
+        if (env && looksLikeCodeAssignment(m[0])) continue;
         yield { category, name: patternName(category, i), m };
       }
     }
