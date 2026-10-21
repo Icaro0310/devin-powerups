@@ -197,7 +197,7 @@ existe e onde vive. Horários em UTC.
 | `registry-refresh` | `33 7 * * 1` (seg) | `refresh_devkit_refs.py` avança pins do devkit; commita `registry.json` |
 | `registry-drift` | `41 5 * * 0` (dom) + push | valida registry + regenera superfícies (`--check`) incl. banners DIST-STATUS |
 | `contract-check` | `17 6 * * 1` (seg) | exercita `devin-inspect contract` em fixtures sintéticos |
-| `baseline-snapshot` | `15 8 * * 1` (seg) + `15 8 3 12 *` | P5: `snapshot_baseline.py` + `fork_visibility.py` → `snapshots/`; no-op após 2026-12-03 (window guard) |
+| `baseline-snapshot` | `15 8 * * 1` (seg) + `15 8 3 12 *` | P5: `snapshot_baseline.py` + `fork_visibility.py` → `snapshots/` na data branch `snapshots`; no-op após 2026-12-03 (window guard) |
 | `weekly-repo-report` | `0 7 * * 0` (dom) | relatório HTML; email MailerSend opcional via secrets |
 | `scorecard` / `codeql` | sáb / sex | OpenSSF Scorecard / CodeQL |
 

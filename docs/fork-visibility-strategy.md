@@ -1,7 +1,8 @@
 # Fork visibility strategy
 
 Upstream awesome-list submissions measured by `tools/fork_visibility.py`
-(weekly snapshot under `snapshots/forks-*.json`).
+(weekly snapshot under `snapshots/forks-*.json` on the `snapshots` data
+branch).
 
 ## Reading the funnel correctly
 

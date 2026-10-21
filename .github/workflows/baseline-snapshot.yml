@@ -1,8 +1,10 @@
 name: baseline-snapshot (weekly)
 
-# P5 baseline collection: commits a dated snapshot to snapshots/ every
-# Monday and opens an issue if collection fails — a missed snapshot cannot
-# be recovered retroactively. Window: 2026-10-08 → 2026-12-03.
+# P5 baseline collection: commits a dated snapshot to snapshots/ on the
+# append-only `snapshots` data branch every Monday (main is protected —
+# pushes must go through PRs) and opens an issue if collection fails —
+# a missed snapshot cannot be recovered retroactively.
+# Window: 2026-10-08 → 2026-12-03.
 
 on:
   schedule:
@@ -52,9 +54,23 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Snapshots commit to the append-only `snapshots` data branch —
+          # main is protected (PR-only) so a direct push fails GH006.
+          # checkout's shallow fetch only tracks the main ref, so the data
+          # branch is fetched with an explicit refspec; -fB covers a
+          # same-day rerun where it already tracks today's files.
+          if git fetch origin "+refs/heads/snapshots:refs/remotes/origin/snapshots" 2>/dev/null; then
+            git checkout -fB snapshots origin/snapshots
+          else
+            git checkout -b snapshots
+          fi
           git add "snapshots/$(date +%F).json" "snapshots/forks-$(date +%F).json"
+          if git diff --cached --quiet; then
+            echo "snapshots branch already has today's data"
+            exit 0
+          fi
           git commit -m "chore: weekly baseline snapshot $(date +%F)"
-          git push
+          git push -u origin snapshots
 
       - name: Fail if collectors recorded errors
         if: steps.window.outputs.active == 'true'
