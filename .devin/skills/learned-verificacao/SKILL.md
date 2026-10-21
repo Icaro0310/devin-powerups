@@ -163,7 +163,7 @@ muitos ficheiros, superficies geradas, ou merges sob guardrails.
   filtro muda de significado consoante quem mede.
 - (2026-10-21) inventario por listagem pode esgotar silenciosamente:
   `gh api users/<u>/repos` serviu ~23 repos mas a frota real de
-  callers era 14 activos — personal-agent-system, awesome-devin e
+  callers era 14 activos — o repo de coordenação, awesome-devin e
   devin-dashboard ficaram fora da pagina. Quando o inventario alimenta
   um sweep, cruzar com uma segunda fonte (o report da sessao paralela,
   search API, ou lista manual conhecida) antes de declarar o universo
