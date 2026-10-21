@@ -15,6 +15,11 @@ JSON. Covers the v1.4 fallback predicate (D-2026-10-20):
     path, no fallback traffic at all;
 plus the safety rails: zero replies, unprivileged reply authors,
 unknown commits, and a non-success head status all keep blocking.
+
+v1.5 additions: cross-repo `repo@sha` cites (only the gate's own repo,
+owner case-insensitive, committer-date postdate instead of ancestry)
+and the manual-blocking0 delivery path (clean evaluation + undeliverable
+APPROVE review -> green check with audit comment; other errors fail).
 """
 
 import json
@@ -38,7 +43,23 @@ GH_STUB = r"""#!/usr/bin/env bash
 # `gh` test stub: logs every call to GH_STUB_LOG, serves GH_FIXTURE_DIR.
 set -u
 echo "gh $*" >> "${GH_STUB_LOG:?missing GH_STUB_LOG}"
-[ "${1:-}" = "pr" ] && exit 0
+if [ "${1:-}" = "pr" ]; then
+  # Knobs for the manual-blocking0 path: deny the APPROVE review with the
+  # real GitHub message, a different error, or fail the audit comment.
+  if [ "${2:-}" = "review" ] && [ "${GH_STUB_PR_REVIEW_FAIL:-}" = "deny" ]; then
+    echo "gh: GraphQL: GitHub Actions is not permitted to approve pull requests. (addPullRequestReview)" >&2
+    exit 1
+  fi
+  if [ "${2:-}" = "review" ] && [ "${GH_STUB_PR_REVIEW_FAIL:-}" = "other" ]; then
+    echo "gh: upstream timed out (HTTP 502)" >&2
+    exit 1
+  fi
+  if [ "${2:-}" = "comment" ] && [ -n "${GH_STUB_PR_COMMENT_FAIL:-}" ]; then
+    echo "gh: Not Found (HTTP 404)" >&2
+    exit 1
+  fi
+  exit 0
+fi
 [ "${1:-}" = "api" ] || { echo "unstubbed: $*" >&2; exit 1; }
 shift
 endpoint="" ; jqexpr="" ; pr=""
@@ -72,12 +93,18 @@ case "$endpoint" in
     fi ;;
   repos/*/commits/*)
     sha="${endpoint##*/commits/}"
-    if jq -e --arg s "$sha" 'index($s)' "$GH_FIXTURE_DIR/compares.json" >/dev/null 2>&1 \
-       || jq -e --arg s "$sha" 'index($s)' "$GH_FIXTURE_DIR/commits.json" >/dev/null 2>&1; then
-      out="{\"sha\": \"$sha\"}"
-    else
-      echo "gh: Not Found (HTTP 404)" >&2; exit 1
-    fi ;;
+    # commits.json may be a list of existing shas (old date default) or
+    # an object mapping sha -> committer date (drives the cross-repo
+    # postdate check).
+    date=$(jq -r --arg s "$sha" \
+      'if type=="object" then .[$s] // empty
+       else (if index($s) then "2000-01-01T00:00:00Z" else empty end) end' \
+      "$GH_FIXTURE_DIR/commits.json" 2>/dev/null || true)
+    if [ -z "$date" ] && jq -e --arg s "$sha" 'index($s) != null' "$GH_FIXTURE_DIR/compares.json" >/dev/null 2>&1; then
+      date="2000-01-01T00:00:00Z"
+    fi
+    [ -n "$date" ] || { echo "gh: Not Found (HTTP 404)" >&2; exit 1; }
+    out="{\"sha\": \"$sha\", \"commit\": {\"committer\": {\"date\": \"$date\"}}}" ;;
   *) echo "unstubbed api endpoint: $endpoint" >&2; exit 1 ;;
 esac
 if [ -n "$jqexpr" ]; then echo "$out" | jq -r "$jqexpr"; else echo "$out"; fi
@@ -241,7 +268,7 @@ class GateFallback(unittest.TestCase):
         self.assertEqual(out["blocking"], "0")
         self.assertEqual(json.loads(out["fallback_resolutions"]), {"5": 1})
         self.assertEqual(json.loads(out["fallback_threads"]),
-                         {"5": [f"T1@{FIX_SHA}"]})
+                         {"5": [f"T1|{FIX_SHA}"]})
         self.assertIn(f"fallback-resolved: PR #5 thread T1 via commit {FIX_SHA}",
                       proc.stdout)
         self.assertIn(f"commits/{HEAD_SHA}/status", log)  # head status consulted
@@ -434,7 +461,7 @@ class GateFallback(unittest.TestCase):
             "VERDICT_MAP": '{"5": "STATUS_CLEAN"}',
             "BLOCKING_MAP": '{"5": 0}',
             "FALLBACK_MAP": '{"5": 1}',
-            "FALLBACK_THREADS": f'{{"5": ["T1@{FIX_SHA}"]}}',
+            "FALLBACK_THREADS": f'{{"5": ["T1|{FIX_SHA}"]}}',
         }
         env.update(over)
         return env
@@ -470,6 +497,120 @@ class GateFallback(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertNotIn("pr review --approve", log)
         self.assertNotIn("pr comment", log)
+
+    # --- v1.5: cross-repo cites ([owner/]repo@sha in the gate repo) ----
+
+    GATE_SHA = "eb02ca4"  # a commit living in the gate repo
+
+    def xrepo_fixtures(self, threads, cited_date="2026-10-21T00:00:00Z"):
+        # commits.json as dict: FBASE old, cited sha postdates it.
+        return self.base_fixtures(
+            threads,
+            commits={FBASE_SHA: "2026-10-19T00:00:00Z",
+                     self.GATE_SHA: cited_date})
+
+    def test_x_gate_repo_cite_clears(self):
+        # `devin-powerups@<sha>` (bare repo name, same-owner implied)
+        threads = [thread("T1", replies=[
+            (PR_AUTHOR, "OWNER",
+             f"Fix belongs in devin-powerups@{self.GATE_SHA} — gate-side"),
+        ])]
+        proc, out, log = self.run_block(
+            self.findings, self.xrepo_fixtures(threads))
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(out["blocking"], "0")
+        self.assertIn(f"via commit devin-powerups@{self.GATE_SHA}",
+                      proc.stdout)
+
+    def test_x_full_owner_cite_clears(self):
+        # `Icaro0310/devin-powerups@<sha>` — owner compare must be
+        # case-insensitive (tokens are downcased by ascii_downcase).
+        threads = [thread("T1", replies=[
+            (PR_AUTHOR, "OWNER",
+             f"fixed upstream: Icaro0310/devin-powerups@{self.GATE_SHA}"),
+        ])]
+        proc, out, _ = self.run_block(
+            self.findings, self.xrepo_fixtures(threads))
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(out["blocking"], "0")
+
+    def test_x_other_repo_still_blocking(self):
+        # a same-owner cite into a NON-gate repo never clears — nothing
+        # ties an arbitrary sibling commit to the finding.
+        threads = [thread("T1", replies=[
+            (PR_AUTHOR, "OWNER",
+             f"fixed in devin-state@{self.GATE_SHA}"),
+        ])]
+        proc, out, log = self.run_block(
+            self.findings, self.xrepo_fixtures(threads))
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(out["blocking"], "1")
+        self.assertNotIn("devin-powerups/commits", log)
+
+    def test_x_wrong_owner_still_blocking(self):
+        threads = [thread("T1", replies=[
+            (PR_AUTHOR, "OWNER",
+             f"fixed in upstream/devin-powerups@{self.GATE_SHA}"),
+        ])]
+        proc, out, _ = self.run_block(
+            self.findings, self.xrepo_fixtures(threads))
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(out["blocking"], "1")
+
+    def test_x_stale_commit_still_blocking(self):
+        # cited commit OLDER than the finding's base proves no fix
+        threads = [thread("T1", replies=[
+            (PR_AUTHOR, "OWNER",
+             f"fixed in devin-powerups@{self.GATE_SHA}"),
+        ])]
+        proc, out, _ = self.run_block(
+            self.findings,
+            self.xrepo_fixtures(threads, cited_date="2026-10-18T00:00:00Z"))
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(out["blocking"], "1")
+
+    def test_x_unqualified_author_still_blocking(self):
+        threads = [thread("T1", replies=[
+            ("mallory", "NONE",
+             f"fixed in devin-powerups@{self.GATE_SHA}"),
+        ])]
+        proc, out, _ = self.run_block(
+            self.findings, self.xrepo_fixtures(threads))
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(out["blocking"], "1")
+
+    # --- v1.5: manual-blocking0 delivery path -------------------------
+
+    def test_approve_denied_posts_manual_audit(self):
+        fx = {"compares.json": {}, "commits.json": [],
+              "status.json": status_fixture()}
+        proc, _, log = self.run_block(
+            self.approve, fx,
+            extra_env=self.approve_env(GH_STUB_PR_REVIEW_FAIL="deny"))
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("pr review --approve", log)
+        self.assertIn("manual-blocking0", log)
+        self.assertIn("pr comment", log)  # audit trail was posted
+
+    def test_approve_denied_other_error_fails(self):
+        fx = {"compares.json": {}, "commits.json": [],
+              "status.json": status_fixture()}
+        proc, _, log = self.run_block(
+            self.approve, fx,
+            extra_env=self.approve_env(GH_STUB_PR_REVIEW_FAIL="other"))
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertNotIn("manual-blocking0", proc.stdout)
+
+    def test_approve_denied_comment_failure_fails(self):
+        # the audit comment IS the mechanism — if it cannot post, the
+        # gate fails red rather than going green silently.
+        fx = {"compares.json": {}, "commits.json": [],
+              "status.json": status_fixture()}
+        proc, _, _ = self.run_block(
+            self.approve, fx,
+            extra_env=self.approve_env(GH_STUB_PR_REVIEW_FAIL="deny",
+                                       GH_STUB_PR_COMMENT_FAIL="1"))
+        self.assertNotEqual(proc.returncode, 0)
 
 
 if __name__ == "__main__":

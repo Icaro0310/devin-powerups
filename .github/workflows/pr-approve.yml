@@ -68,16 +68,18 @@ name: pr-approve
 #     accounts, or without a success status on the head. Bot-resolved
 #     remains the primary path — the fallback is strictly additive.
 #   - Gate fallback cross-repo (v1.5): a reply may also cite the fix
-#     commit in a SIBLING repo under the same owner — `repo@sha` or
-#     `owner/repo@sha`. That is the correct disposition when the finding
-#     targets caller wiring whose code actually lives in the reusable
-#     workflow repo itself (seen: devin-assure#89 — "the fix belongs in
-#     devin-powerups, no commit here can resolve it" held blocking=1
-#     forever). Verification: the cited repo must share this repo's
-#     owner, the commit must exist there, and its committer date must
-#     postdate the commit the finding was left on (no ancestry check is
-#     possible across repos — postdate is the evidence), plus the same
-#     Devin Review success status on the head. Everything else from the
+#     commit in the GATE'S OWN repo — `devin-powerups@sha` or
+#     `Icaro0310/devin-powerups@sha` (owner compared case-insensitively).
+#     That is the correct disposition when the finding targets caller
+#     wiring whose code actually lives in the reusable workflow repo
+#     itself (seen: devin-assure#89 — "the fix belongs in devin-powerups,
+#     no commit here can resolve it" held blocking=1 forever). Cites in
+#     any other repo never clear: existence+date alone cannot tie an
+#     unrelated commit to the finding. Verification: the cited commit
+#     must exist in the gate repo and its committer date must postdate
+#     the commit the finding was left on (no ancestry check is possible
+#     across repos — postdate is the evidence), plus the same Devin
+#     Review success status on the head. Everything else from the
 #     in-repo fallback holds.
 #   - Approval delivery (v1.5): when the evaluation is clean but
 #     `gh pr review --approve` fails specifically because Actions cannot
@@ -393,10 +395,15 @@ jobs:
                 break
               done
               # Cross-repo cites (v1.5): [owner/]repo@sha — the fix lives
-              # in a sibling repo under the same owner (e.g. the reusable
-              # gate repo itself). No ancestry across repos, so evidence
-              # is existence + committer-date postdating the finding's
-              # base commit + clean Devin status on the head.
+              # in the gate's own repository (devin-powerups) under the
+              # same owner. Restricted to the gate repo: a cite in any
+              # other sibling would clear on existence+date alone, with
+              # nothing tying it to the finding (a reply naming this repo
+              # asserts "the fix belongs in the shared workflow"). No
+              # ancestry across repos, so evidence is existence +
+              # committer-date postdating the finding's base commit +
+              # clean Devin status on the head.
+              gate_repo="${GATE_REPO:-Icaro0310/devin-powerups}"
               if [ -z "$resolved" ]; then
                 for xref in ${x_list//,/ }; do
                   [ -n "$xref" ] || continue
@@ -406,13 +413,15 @@ jobs:
                     */*) cowner="${crepopart%%/*}"; crepo="${crepopart#*/}" ;;
                     *)   cowner="${REPO%%/*}"; crepo="$crepopart" ;;
                   esac
-                  # Same-owner only — a cite in an unrelated org is not
-                  # evidence for this repo's gate.
-                  [ "$cowner" = "${REPO%%/*}" ] || continue
-                  cdate=$(gh api "repos/$cowner/$crepo/commits/$csha" --jq .commit.committer.date 2>/dev/null || true)
+                  # Owner compare is case-insensitive (tokens arrive
+                  # downcased) and the repo must be the gate repo itself.
+                  repo_owner="${REPO%%/*}"
+                  [ "${cowner,,}" = "${repo_owner,,}" ] || continue
+                  [ "${cowner,,}/${crepo,,}" = "${gate_repo,,}" ] || continue
+                  cdate=$(gh api "repos/$cowner/$crepo/commits/$csha" --jq '.commit.committer.date // ""' 2>/dev/null || true)
                   [ -n "$cdate" ] || continue
                   [ -n "$fbase" ] || continue
-                  fdate=$(gh api "repos/$REPO/commits/$fbase" --jq .commit.committer.date 2>/dev/null || true)
+                  fdate=$(gh api "repos/$REPO/commits/$fbase" --jq '.commit.committer.date // ""' 2>/dev/null || true)
                   # ISO-8601 dates sort lexically — the cited fix must be
                   # younger than the commit the finding was left on.
                   { [ -n "$fdate" ] && [ "$cdate" \> "$fdate" ]; } || continue
@@ -481,7 +490,10 @@ jobs:
                 if [ "$v" = "APPROVED" ] || [ "$count" = "0" ]; then
                   undelivered=""
                   if ! approve_out=$(gh pr review --approve "https://github.com/$REPO/pull/$pr" 2>&1); then
-                    if echo "$approve_out" | grep -qi "not permitted to approve"; then
+                    # Exact GitHub denial only — any other approval
+                    # failure (network, perms, other restrictions) keeps
+                    # failing the run.
+                    if echo "$approve_out" | grep -qi "not permitted to approve pull requests"; then
                       # v1.5 manual-blocking0: the evaluation is clean but
                       # Actions cannot deliver the APPROVE review in this
                       # repo — log, comment, summarize, keep the check
@@ -494,10 +506,12 @@ jobs:
                   fi
                   echo "approved PR #$pr ($v${count:+ with $count blocking})${undelivered:+ — $undelivered, review undeliverable}"
                   if [ -n "$undelivered" ]; then
+                    # The audit comment IS the mechanism — if it cannot
+                    # post, the gate fails red rather than going green
+                    # with no public record.
                     gh pr comment "https://github.com/$REPO/pull/$pr" --body \
-                      "gate-resolved-via: manual-blocking0 — evaluation clean on ${HEAD_SHA} ($v, $count unresolved blocking finding(s)), but Actions cannot deliver an APPROVE review in this repo. Manual merge is the authorized path; this comment is the audit trail." \
-                      || echo "::warning::manual-blocking0 audit comment failed to post on PR #$pr"
-                    echo "- PR #$pr — gate-resolved-via: manual-blocking0 ($v, $count blocking; APPROVE delivery denied)" >> "$GITHUB_STEP_SUMMARY"
+                      "gate-resolved-via: manual-blocking0 — evaluation clean on ${HEAD_SHA} ($v, $count unresolved blocking finding(s)), but Actions cannot deliver an APPROVE review in this repo. Manual merge is the authorized path; this comment is the audit trail."
+                    echo "- PR #$pr — gate-resolved-via: manual-blocking0 ($v, $count blocking; APPROVE delivery denied)" >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
                     echo "::warning::PR #$pr evaluated clean but approve-review is undeliverable (Actions cannot approve) — manual merge authorized by blocking=0"
                   fi
                   # Approving via fallback: the veto lifted on threads
