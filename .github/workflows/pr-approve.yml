@@ -1,8 +1,9 @@
 name: pr-approve
 
-# Version: v1.4 (gate fallback resolution — D-2026-10-20). Callers pin
-# @v<minor> tags; the owner moves the tag on merge, caller pins roll
-# forward after that.
+# Version: v1.5 (gate fallback resolution — D-2026-10-20, extended by
+# D-2026-10-20b: cross-repo fix anchors + idempotent audit comment).
+# Callers pin @v<minor> tags; the owner moves the tag on merge, caller
+# pins roll forward after that.
 
 # Approves pull requests from trusted automation authors, but only after
 # Devin Review (devin-ai-integration[bot]) has submitted a review on the
@@ -62,11 +63,33 @@ name: pr-approve
 #     UNRESOLVED — only the veto lifts; the run logs
 #     `fallback-resolved:` lines, emits a `fallback_resolutions` map,
 #     and the approval posts a `gate-resolved-via: fallback` comment
-#     naming thread + commit. Fallback never fires on reply-less
+#     naming thread + anchor. Fallback never fires on reply-less
 #     threads, on shas that are not ancestors of the head (quoting an
 #     unrelated commit stays blocking), on replies by non-collaborator
 #     accounts, or without a success status on the head. Bot-resolved
 #     remains the primary path — the fallback is strictly additive.
+#     Cross-repo anchors (v1.5 — canary assure#89: the finding on a
+#     caller's `auto-approve.yml` can only be fixed by a commit in THIS
+#     repo, so no in-repo sha can be an ancestor): a qualified reply
+#     may instead cite `owner/repo@<sha>`, a
+#     `github.com/owner/repo/commit/<sha>` URL or a
+#     `github.com/owner/repo/pull/<n>` URL where `owner` is the PR
+#     repo's own owner (org-scoped — any other owner is rejected).
+#     Commit anchors verify the commit EXISTS upstream
+#     (`repos/{o}/{r}/commits/{sha}` 200); pull anchors verify the PR
+#     MERGED (`merged_at` non-null — an open PR is not a landed fix).
+#     Cross-repo anchors share no ancestry with the head, so the
+#     ancestor+postdate rule does not apply — landedness replaces it.
+#     Anchors naming the PR's own repo (`o/r` == `REPO`) still take the
+#     same-repo ancestor+postdate path; existence alone would reopen
+#     the cite-head exploit. A same-repo pull anchor additionally
+#     requires its merge commit to be an ancestor of the head — a fix
+#     that merged to main but is not in this head is not a fix here.
+#     The audit comment is idempotent (v1.5 — repeated triggers used to
+#     stack duplicates): the posted body records its resolved
+#     thread|anchor set on a `gate-fallback-pairs:` line, and a prior
+#     bot comment carrying the same set suppresses a duplicate; a
+#     different set (a NEW thread got fallback-resolved) posts fresh.
 #
 # Trusted authors are the owner's own PRs, dependabot, and workflows
 # (open-pr-bot opens PRs as github-actions[bot]; dispatch needs write
@@ -252,6 +275,28 @@ jobs:
           fallback_threads="{}"
           blocking=0
           devin_state=""
+          # same_repo_ok <sha> <finding-base>: the v1.4 in-head proof —
+          # the cited commit exists in this repo AND is an ancestor of
+          # the reviewed head (compare ahead/identical — a reply quoting
+          # an unrelated or rewritten-by-rebase sha never clears) AND
+          # strictly postdates the commit the finding was left on
+          # (citing the flagged commit itself, an older one, or the head
+          # without a later push -> identical, proves no fix).
+          same_repo_ok() {
+            local csha="$1" fbase="$2" st
+            gh api "repos/$REPO/commits/$csha" >/dev/null 2>&1 || return 1
+            st=$(gh api "repos/$REPO/compare/${csha}...${HEAD_SHA}" --jq .status 2>/dev/null || true)
+            [ "$st" = "ahead" ] || [ "$st" = "identical" ] || return 1
+            [ -n "$fbase" ] || return 1
+            st=$(gh api "repos/$REPO/compare/${fbase}...${csha}" --jq .status 2>/dev/null || true)
+            [ "$st" = "ahead" ]
+          }
+          # Org scope for cross-repo anchors (v1.5): the anchor's owner
+          # must equal the PR repo's owner — a fix is only verifiable
+          # inside the same org trust boundary. Anchors are already
+          # lowercased by the extractor; lowercase REPO once to match.
+          repo_lc="${REPO,,}"
+          owner_lc="${repo_lc%%/*}"
           for pr in $PR_NUMBERS; do
             # Fetch the finding (first comment — always the Devin note)
             # and the LAST 50 comments separately: fix replies are the
@@ -309,47 +354,94 @@ jobs:
                   | .comments.nodes[0] as $f
                   | select(([($f.author.login // "")] | inside(["devin-ai-integration", "devin-ai-integration[bot]"]))
                       and ($f.body | test("\"kind\": \"(bug|security)\"")))
-                  # Fallback material: hex 7-40 tokens from qualified
+                  # Fallback material: fix anchors from qualified
                   # replies (any comment after the first by the PR
                   # author or a repo-collaborator account — OWNER,
                   # MEMBER, COLLABORATOR associations). Replies by
-                  # anyone else never feed the sha list, so a random
+                  # anyone else never feed the anchor list, so a random
                   # commenter cannot quote a commit into the gate. The
                   # finding itself is excluded by id (it rides inside
                   # replies(last:50) when the thread is short). `base`
                   # pins the commit the finding was left on, for the
-                  # postdate check in the loop.
+                  # postdate check in the loop. Anchor shapes emitted,
+                  # all lowercased for canonical compare/dedupe:
+                  #   sha:HEX                  — bare commit token
+                  #   commit:OWNER/REPO@HEX    — repo@sha or a
+                  #     github.com/o/r/commit/sha URL (v1.5)
+                  #   pull:OWNER/REPO#N        — github.com/o/r/pull/N
+                  #     URL (v1.5)
                   | { id: .id,
                       base: ($f.originalCommit.oid // ""),
-                      shas: ([ .replies.nodes[]
+                      refs: ([ .replies.nodes[]
                                | select(.id != $f.id)
                                | select(([.authorAssociation // ""] | inside(["OWNER", "MEMBER", "COLLABORATOR"]))
                                    or ((.author.login // "") == $pra))
-                               | .body | scan("\\b[0-9a-fA-F]{7,40}\\b") | ascii_downcase ]
-                             | unique) }
+                               | .body as $b
+                               | ([ $b | scan("\\b[0-9a-fA-F]{7,40}\\b")
+                                    | "sha:" + ascii_downcase ]
+                                  + [ $b | scan("\\b([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)@([0-9a-fA-F]{7,40})\\b")
+                                      | "commit:" + (.[0] + "@" + .[1] | ascii_downcase) ]
+                                  + [ $b | scan("(?i)https?://github\\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/commit/([0-9a-fA-F]{7,40})\\b")
+                                      | "commit:" + (.[0] + "@" + .[1] | ascii_downcase) ]
+                                  + [ $b | scan("(?i)https?://github\\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/pull/([0-9]+)\\b")
+                                      | "pull:" + (.[0] + "#" + .[1] | ascii_downcase) ])
+                             ] | flatten | unique) }
                 ]')
             count=0
             fb_count=0
             fb_pairs=()
-            while IFS=$'\t' read -r tid sha_list fbase; do
+            while IFS=$'\t' read -r tid ref_list fbase; do
               resolved=""
-              # A thread with no qualified replies yields an empty sha
+              # A thread with no qualified replies yields an empty ref
               # list and stays blocking — zero-reply safety rail.
-              for sha in ${sha_list//,/ }; do
-                [ -n "$sha" ] || continue
-                # The cited commit must exist in this repo AND be an
-                # ancestor of the reviewed head — a reply quoting an
-                # unrelated (or rewritten-by-rebase) sha never clears.
-                gh api "repos/$REPO/commits/$sha" >/dev/null 2>&1 || continue
-                cmp_status=$(gh api "repos/$REPO/compare/${sha}...${HEAD_SHA}" --jq .status 2>/dev/null || true)
-                [ "$cmp_status" = "ahead" ] || [ "$cmp_status" = "identical" ] || continue
-                # And it must POSTDATE the commit the finding was left
-                # on — citing the flagged commit itself, an older one,
-                # or the head without any later push (head == finding
-                # commit -> identical) proves no fix.
-                [ -n "$fbase" ] || continue
-                post_status=$(gh api "repos/$REPO/compare/${fbase}...${sha}" --jq .status 2>/dev/null || true)
-                [ "$post_status" = "ahead" ] || continue
+              for ref in ${ref_list//,/ }; do
+                [ -n "$ref" ] || continue
+                kind="${ref%%:*}"
+                anchor="${ref#*:}"
+                verified=""
+                case "$kind" in
+                  sha)
+                    same_repo_ok "$anchor" "$fbase" \
+                      && verified="commit:$anchor" ;;
+                  commit)
+                    cref="${anchor%@*}"
+                    csha="${anchor##*@}"
+                    [ "${cref%%/*}" = "$owner_lc" ] || continue
+                    if [ "$cref" = "$repo_lc" ]; then
+                      # Own repo spelled as an anchor: the fix must be
+                      # IN this head — existence alone would reopen the
+                      # cite-head exploit the postdate check closed.
+                      same_repo_ok "$csha" "$fbase" \
+                        && verified="commit:$anchor"
+                    else
+                      # Cross-repo fix (canary assure#89): no shared
+                      # ancestry with the head — verify landedness
+                      # instead: the commit EXISTS upstream.
+                      gh api "repos/$cref/commits/$csha" >/dev/null 2>&1 \
+                        && verified="commit:$anchor"
+                    fi ;;
+                  pull)
+                    pref="${anchor%#*}"
+                    pnum="${anchor##*#}"
+                    [ "${pref%%/*}" = "$owner_lc" ] || continue
+                    # A PR anchor verifies by MERGEDNESS — an open PR is
+                    # not a landed fix (merged_at non-null proves it).
+                    prj=$(gh api "repos/$pref/pulls/$pnum" 2>/dev/null || true)
+                    [ -n "$(echo "$prj" | jq -r '.merged_at // empty')" ] \
+                      || continue
+                    if [ "$pref" = "$repo_lc" ]; then
+                      # Same repo: the merged fix must also be IN this
+                      # head — a merge to main that never entered the PR
+                      # leaves the flagged code untouched.
+                      mcs=$(echo "$prj" | jq -r '.merge_commit_sha // empty')
+                      [ -n "$mcs" ] || continue
+                      st=$(gh api "repos/$REPO/compare/${mcs}...${HEAD_SHA}" --jq .status 2>/dev/null || true)
+                      [ "$st" = "ahead" ] || [ "$st" = "identical" ] \
+                        || continue
+                    fi
+                    verified="pull:$anchor" ;;
+                esac
+                [ -n "$verified" ] || continue
                 # Clean re-verification on the head: the "Devin Review"
                 # status must be success — the fix commit was itself
                 # re-reviewed clean (the "2 re-review passes" proxy).
@@ -360,19 +452,19 @@ jobs:
                         and ((.avatar_url // "") | contains("/in/811515")))]
                       | .[0].state // "none"')
                 fi
-                # Not success -> no token can rescue this thread.
+                # Not success -> no anchor can rescue this thread.
                 [ "$devin_state" = "success" ] || break
-                resolved="$sha"
+                resolved="$verified"
                 break
               done
               if [ -n "$resolved" ]; then
-                echo "fallback-resolved: PR #$pr thread $tid via commit $resolved"
+                echo "fallback-resolved: PR #$pr thread $tid via ${resolved/:/ }"
                 fb_count=$((fb_count + 1))
-                fb_pairs+=("$tid@$resolved")
+                fb_pairs+=("$tid|$resolved")
               else
                 count=$((count + 1))
               fi
-            done < <(echo "$candidates" | jq -r '.[] | .id + "\t" + (.shas | join(",")) + "\t" + .base')
+            done < <(echo "$candidates" | jq -r '.[] | .id + "\t" + (.refs | join(",")) + "\t" + .base')
             echo "unresolved blocking findings on $HEAD_SHA for PR #$pr: $count${fb_count:+ ($fb_count cleared by fallback)}"
             blocking_map=$(echo "$blocking_map" | jq -c --arg p "$pr" --argjson c "$count" '. + {($p): $c}')
             fallback_map=$(echo "$fallback_map" | jq -c --arg p "$pr" --argjson c "$fb_count" '. + {($p): $c}')
@@ -421,17 +513,44 @@ jobs:
                   echo "approved PR #$pr ($v${count:+ with $count blocking})"
                   # Approving via fallback: the veto lifted on threads
                   # the bot never self-resolved — say so publicly, naming
-                  # thread + commit, and leave the threads unresolved so
-                  # the findings stay visible for audit.
+                  # thread + anchor, and leave the threads unresolved so
+                  # the findings stay visible for audit. Idempotent
+                  # (v1.5): every retrigger (status, late review, reply)
+                  # re-approves and would stack identical comments, so
+                  # the body records its resolved set on a
+                  # `gate-fallback-pairs:` line — a prior bot comment
+                  # carrying the same set suppresses the duplicate,
+                  # while a different set (a NEW thread got
+                  # fallback-resolved) posts fresh.
                   fb=$(echo "$fmap" | jq -r --arg p "$pr" '.[$p] // 0')
                   if [ "$fb" != "0" ]; then
                     list=""
+                    pairs=()
                     for pair in $(echo "$fthreads" | jq -r --arg p "$pr" '.[$p][]?'); do
-                      list="$list"$'\n'"- thread ${pair%%@*} via commit ${pair##*@}"
+                      via="${pair##*|}"
+                      list="$list"$'\n'"- thread ${pair%%|*} via ${via/:/ }"
+                      pairs+=("$pair")
                     done
-                    gh pr comment "https://github.com/$REPO/pull/$pr" --body \
-                      "gate-resolved-via: fallback — $fb blocking thread(s) cleared by replies citing verified fix commits, with the Devin Review status on ${HEAD_SHA} re-verified clean:$list"$'\n\n'"Threads left unresolved — the findings stay visible."
-                    echo "posted gate-resolved-via: fallback comment on PR #$pr ($fb thread(s))"
+                    pairline=$(printf '%s\n' "${pairs[@]:-}" | sed '/^$/d' \
+                      | sort -u | tr '\n' ' ' | sed 's/ *$//')
+                    prior=$(gh api "repos/$REPO/issues/$pr/comments" --paginate 2>/dev/null \
+                      | jq -sr 'add // [] | .[]
+                          | select((.user.login // "") | endswith("[bot]"))
+                          | (.body // "")
+                          | (try (capture("gate-fallback-pairs: (?<p>[^\\n]*)") | .p) // empty)' || true)
+                    dup=0
+                    while IFS= read -r prev; do
+                      prev_n=$(echo "$prev" | tr ' ' '\n' | sed '/^$/d' \
+                        | sort -u | tr '\n' ' ' | sed 's/ *$//')
+                      if [ "$prev_n" = "$pairline" ]; then dup=1; break; fi
+                    done <<< "$prior"
+                    if [ "$dup" = "1" ]; then
+                      echo "gate-resolved-via: fallback audit for this resolved set already on PR #$pr — skipping duplicate comment"
+                    else
+                      gh api -X POST "repos/$REPO/issues/$pr/comments" \
+                        -f body="gate-resolved-via: fallback — $fb blocking thread(s) cleared by replies citing verified fix commits, with the Devin Review status on ${HEAD_SHA} re-verified clean:$list"$'\n\n'"Threads left unresolved — the findings stay visible."$'\n'"gate-fallback-pairs: $pairline" >/dev/null
+                      echo "posted gate-resolved-via: fallback comment on PR #$pr ($fb thread(s))"
+                    fi
                   fi
                 else
                   echo "::warning::PR #$pr held ($v) with $count unresolved blocking finding(s) — fix, reply to the threads and push"
@@ -452,4 +571,4 @@ jobs:
           BLOCKING: ${{ steps.findings.outputs.blocking }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.sha }}
         run: |
-          echo "::warning::Auto-approve held on $HEAD_SHA: verdicts $VERDICT_MAP${BLOCKING:+ with $BLOCKING unresolved blocking finding(s) total}. Fix, reply to the finding threads citing the fix commit and push — Devin's re-review resolves them and re-runs this job (a reply citing a fix commit inside a clean-re-reviewed head also clears via the gate fallback)."
+          echo "::warning::Auto-approve held on $HEAD_SHA: verdicts $VERDICT_MAP${BLOCKING:+ with $BLOCKING unresolved blocking finding(s) total}. Fix, reply to the finding threads citing the fix commit and push — Devin's re-review resolves them and re-runs this job (a reply citing a fix commit inside a clean-re-reviewed head — or a landed same-owner upstream fix via owner/repo@sha, /commit/sha or merged /pull/n anchors — also clears via the gate fallback)."
