@@ -79,6 +79,16 @@ const REDACTED_TAG = '<REDACTED:';
 // off-limits to re-processing; text around it is not.
 const TAG_RUN = /<REDACTED:[^>\n]*>/g;
 
+// env_assignment without the `^` anchor — used ONLY for re-scanning
+// tag-free fragments. The anchored pattern misses a KEY= candidate that
+// doesn't lead the fragment: after a closed tag, non-key text may come
+// first ('API_KEY=<tag>suffix OTHER_TOKEN=raw' — upstream still leaks
+// the tail there). `\s*` then a word-boundary lookbehind on the name
+// reproduces the anchored match exactly at a key-led fragment start —
+// leading whitespace stays inside the match — and still finds each
+// KEY= later in the fragment.
+const ENV_FRAGMENT_RE = rx(String.raw`\s*(?<![\p{L}\p{N}_])(?:export\s+)?[A-Za-z_][A-Za-z0-9_]*(?:KEY|SECRET|TOKEN|PASSWORD|PASSWD|CREDENTIAL)[A-Za-z0-9_]*\s*=\s*\S[^\n]*`);
+
 // --- _fingerprint -----------------------------------------------------------
 // sha256(value.encode('utf-8', 'surrogatepass'))[:16]. The manual encoder keeps
 // lone surrogates identical to Python (JS 'utf8' would emit U+FFFD instead).
@@ -351,7 +361,7 @@ function* iterFragmentMatches(
     while (hi > lo && (text[hi - 1] === ' ' || text[hi - 1] === '\t')) hi--;
   }
   if (lo >= hi) return;
-  for (const fm of text.slice(lo, hi).matchAll(re)) {
+  for (const fm of text.slice(lo, hi).matchAll(env ? ENV_FRAGMENT_RE : re)) {
     const whole = fm[0];
     // A malformed (unclosed) tag inside the fragment — still never
     // re-processed, same as the whole-match rule.

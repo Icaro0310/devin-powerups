@@ -29,9 +29,11 @@ it redacts text snippets only; full-file and database scanning remain
 Python CLI capabilities, out of scope for this package.
 
 The parity corpus (`test/redact-corpus.jsonl`) codifies the current
-behaviour of `devin-redact`, including known upstream limitations
-(e.g. `devin-state#66`). It is a **parity spec, not a security spec** —
-a case passing here does not mean the case is safe.
+behaviour of `devin-redact`, including fixes landed upstream — the
+`env_tag_*` cases reflect `devin-state#66` as resolved by
+`devin-state#79` (the second assignment redacts). It is a **parity
+spec, not a security spec** — a case passing here does not mean the
+case is safe.
 
 ## Session states
 
