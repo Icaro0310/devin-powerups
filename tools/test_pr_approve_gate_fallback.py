@@ -50,7 +50,19 @@ GH_STUB = r"""#!/usr/bin/env bash
 # `gh` test stub: logs every call to GH_STUB_LOG, serves GH_FIXTURE_DIR.
 set -u
 echo "gh $*" >> "${GH_STUB_LOG:?missing GH_STUB_LOG}"
-[ "${1:-}" = "pr" ] && exit 0
+if [ "${1:-}" = "pr" ]; then
+  # Knobs for the manual-blocking0 path: fail the APPROVE review with
+  # the real GitHub restriction ("deny") or an unrelated error ("other").
+  if [ "${2:-}" = "review" ] && [ "${GH_STUB_PR_REVIEW_FAIL:-}" = "deny" ]; then
+    echo "gh: GraphQL: GitHub Actions is not permitted to approve pull requests. (addPullRequestReview)" >&2
+    exit 1
+  fi
+  if [ "${2:-}" = "review" ] && [ "${GH_STUB_PR_REVIEW_FAIL:-}" = "other" ]; then
+    echo "gh: upstream timed out (HTTP 502)" >&2
+    exit 1
+  fi
+  exit 0
+fi
 [ "${1:-}" = "api" ] || { echo "unstubbed: $*" >&2; exit 1; }
 shift
 endpoint="" ; jqexpr="" ; pr="" ; method="GET"
@@ -85,6 +97,9 @@ case "$endpoint" in
     fi ;;
   repos/*/issues/*/comments)
     if [ "${method^^}" = "POST" ]; then
+      if [ -n "${GH_STUB_COMMENT_POST_FAIL:-}" ]; then
+        echo "gh: Not Found (HTTP 404)" >&2; exit 1
+      fi
       out="{\"id\": 1}"
     else
       num="${endpoint##*/issues/}" ; num="${num%%/*}"
@@ -800,6 +815,63 @@ class GateFallback(unittest.TestCase):
                     self.approve, fx, extra_env=self.approve_env())
                 self.assertEqual(proc.returncode, 0, proc.stderr)
                 self.assertIn("-X POST", log)
+
+    # --- v1.6: manual-blocking0 — clean evaluation, undeliverable
+    # APPROVE review. The check still reflects the evaluation, with a
+    # public audit trail (observed personal-agent-system#37). --------
+
+    def manual_env(self, **over):
+        env = {"GH_STUB_PR_REVIEW_FAIL": "deny",
+               "FALLBACK_MAP": '{"5": 0}', "FALLBACK_THREADS": '{"5": []}'}
+        env.update(over)
+        return self.approve_env(**env)
+
+    def test_manual_blocking0_posts_audit_comment(self):
+        # exact GitHub restriction -> warning + manual-blocking0 audit
+        fx = {"compares.json": {}, "commits.json": [],
+              "status.json": status_fixture()}
+        proc, _, log = self.run_block(
+            self.approve, fx, extra_env=self.manual_env())
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("pr review --approve", log)
+        self.assertIn("gate-resolved-via: manual-blocking0", log)
+        self.assertIn("-X POST", log)
+        self.assertIn("issues/5/comments", log)
+        self.assertIn(f"head:{HEAD_SHA}", log)
+
+    def test_manual_blocking0_other_error_still_fails(self):
+        # a different approve failure is NOT the documented path
+        fx = {"compares.json": {}, "commits.json": [],
+              "status.json": status_fixture()}
+        proc, _, _ = self.run_block(
+            self.approve, fx,
+            extra_env=self.manual_env(GH_STUB_PR_REVIEW_FAIL="other"))
+        self.assertNotEqual(proc.returncode, 0)
+
+    def test_manual_blocking0_comment_failure_is_fatal(self):
+        # the audit trail IS the mechanism — undeliverable comment =
+        # red job, never a silent green
+        fx = {"compares.json": {}, "commits.json": [],
+              "status.json": status_fixture()}
+        proc, _, _ = self.run_block(
+            self.approve, fx,
+            extra_env=self.manual_env(GH_STUB_COMMENT_POST_FAIL="1"))
+        self.assertNotEqual(proc.returncode, 0)
+
+    def test_manual_blocking0_idempotent_same_head(self):
+        # a prior manual-blocking0 audit for the same head suppresses
+        # the duplicate comment — GET listing only, no POST
+        fx = {"compares.json": {}, "commits.json": [],
+              "status.json": status_fixture(),
+              "issue_comments_pr5.json": [{
+                  "user": {"login": "github-actions[bot]"},
+                  "body": ("gate-resolved-via: manual-blocking0 — earlier\n"
+                           f"gate-fallback-pairs: manual-blocking0 head:{HEAD_SHA}")}]}
+        proc, _, log = self.run_block(
+            self.approve, fx, extra_env=self.manual_env())
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertNotIn("-X POST", log)
+        self.assertIn("skipping duplicate", proc.stdout)
 
 
 if __name__ == "__main__":
