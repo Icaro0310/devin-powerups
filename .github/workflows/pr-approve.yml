@@ -1,7 +1,9 @@
 name: pr-approve
 
-# Version: v1.5 (gate fallback resolution — D-2026-10-20, extended by
-# D-2026-10-20b: cross-repo fix anchors + idempotent audit comment).
+# Version: v1.6 (gate fallback resolution — D-2026-10-20, extended by
+# D-2026-10-20b: cross-repo fix anchors + idempotent audit comment, and
+# D-2026-10-21: manual-blocking0 — clean evaluation surviving an
+# undeliverable APPROVE review).
 # Callers pin @v<minor> tags; the owner moves the tag on merge, caller
 # pins roll forward after that.
 
@@ -94,6 +96,19 @@ name: pr-approve
 #     `gate-fallback-pairs:` line; a prior github-actions[bot] comment
 #     carrying the same set suppresses a duplicate, while a different
 #     set — a NEW thread resolved or a NEW head — posts fresh.
+#
+#   - Manual blocking=0 (v1.6 — observed personal-agent-system#37,
+#     COMMENTED + 0 blocking, approve delivery denied): when the
+#     evaluation is clean but `gh pr review --approve` fails with the
+#     EXACT GitHub restriction "not permitted to approve pull requests",
+#     the approval cannot be delivered at all — that is an infra fact,
+#     not a finding. The check still reflects the clean evaluation:
+#     the job posts a `gate-resolved-via: manual-blocking0` audit
+#     comment (fatal if undeliverable — the trail IS the mechanism),
+#     writes a step-summary line, and continues. Any OTHER approve
+#     error still fails the job. The green check then records a clean
+#     gate evaluation, never a formal approving review — this is the
+#     documented second path, not a silent convention.
 #
 # Trusted authors are the owner's own PRs, dependabot, and workflows
 # (open-pr-bot opens PRs as github-actions[bot]; dispatch needs write
@@ -564,8 +579,45 @@ jobs:
             case "$v" in
               APPROVED|STATUS_CLEAN|COMMENTED)
                 if [ "$v" = "APPROVED" ] || [ "$count" = "0" ]; then
-                  gh pr review --approve "https://github.com/$REPO/pull/$pr"
-                  echo "approved PR #$pr ($v${count:+ with $count blocking})"
+                  approve_err=""
+                  if approve_err=$(gh pr review --approve "https://github.com/$REPO/pull/$pr" 2>&1); then
+                    echo "approved PR #$pr ($v${count:+ with $count blocking})"
+                  elif echo "$approve_err" | grep -qF "not permitted to approve pull requests"; then
+                    # manual-blocking0 (v1.6): clean evaluation, but the
+                    # APPROVE review is undeliverable — GitHub Actions may
+                    # not approve pull requests at all on this repo. The
+                    # exact upstream message is matched (a broad substring
+                    # could mask a different restriction and launder a
+                    # real failure). The audit comment is the mechanism:
+                    # if it cannot post the job fails — no silent green.
+                    echo "::warning::PR #$pr evaluated clean ($v, blocking=$count) but the APPROVE review is undeliverable: GitHub Actions is not permitted to approve pull requests. Taking the documented manual-blocking0 path."
+                    # Idempotent like the fallback audit: a prior
+                    # manual-blocking0 comment for THIS head suppresses
+                    # a duplicate; a new head posts fresh evidence. A
+                    # failed dedupe lookup falls through to posting —
+                    # a possible duplicate beats a missing audit trail.
+                    manual_seen=$(gh api "repos/$REPO/issues/$pr/comments" --paginate 2>/dev/null \
+                      | jq -sr --arg h "head:$HEAD_SHA" 'add // [] | .[]
+                          | select((.user.login // "") == "github-actions[bot]")
+                          | (.body // "")
+                          | select(contains("gate-resolved-via: manual-blocking0") and contains($h))
+                          | "seen"' | head -1 || true)
+                    if [ "$manual_seen" = "seen" ]; then
+                      echo "gate-resolved-via: manual-blocking0 audit already on PR #$pr for head $HEAD_SHA — skipping duplicate comment"
+                    else
+                      audit="gate-resolved-via: manual-blocking0 — PR #$pr evaluated clean (verdict $v, unresolved blocking findings: $count) on ${HEAD_SHA}, but the APPROVE review cannot be delivered: GitHub Actions is not permitted to approve pull requests on this repository. The green required check records the clean gate evaluation, not a formal approving review — merge proceeds on this audit trail."$'\n'"gate-fallback-pairs: manual-blocking0 head:$HEAD_SHA"
+                      gh api -X POST "repos/$REPO/issues/$pr/comments" \
+                        -f body="$audit" >/dev/null
+                      echo "posted gate-resolved-via: manual-blocking0 audit comment on PR #$pr"
+                    fi
+                    {
+                      echo "### gate-resolved-via: manual-blocking0 — PR #$pr"
+                      echo "Clean evaluation on \`${HEAD_SHA}\` (verdict \`$v\`, blocking \`$count\`); the APPROVE review is undeliverable under the GitHub Actions approval restriction. Audit comment posted on the PR."
+                    } >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
+                  else
+                    echo "::error::PR #$pr approve failed: $approve_err"
+                    exit 1
+                  fi
                   # Approving via fallback: the veto lifted on threads
                   # the bot never self-resolved — say so publicly, naming
                   # thread + anchor, and leave the threads unresolved so
