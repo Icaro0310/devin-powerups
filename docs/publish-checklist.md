@@ -89,6 +89,36 @@ and the PyPI cross-repo caveat.
   (`git merge-base --is-ancestor HEAD origin/main`) before uploading.
   Seen live: `devin-doctor` 0.1.1 reached Open VSX while `main` was 0.1.0.
 
+#### Post-rename Trusted Publisher state (audited 2026-10-22, issue #69)
+
+The Fase-3/4 renames left every existing PyPI project pointing its TP at
+the **old repo name** — the TP `owner/repo/workflow/environment` tuple is
+an exact match and GitHub redirects do not apply. Current state: the
+repoint is **already done in practice** — every publishing repo has a
+green `Upload to PyPI` step (which always performs the OIDC exchange)
+*after* its rename:
+
+| PyPI project(s) | publishing repo | workflow | env | verified by |
+|---|---|---|---|---|
+| `devin-memory` | `devin-brain` | `pypi-publish.yml` | `pypi` | `memory-v0.1.1` run green 2026-10-15 |
+| `poordjaevin` | `devin-judge` | `pypi-publish.yml` | `pypi` | `v0.1.3` run green 2026-10-17 |
+| `devin-redact`, `devin-janitor`, `devin-backup` | `devin-state` | `pypi-publish.yml` | `pypi` | `redact-v0.2.4`/`janitor-v0.1.2` runs green 2026-10-21/22 |
+| `devin-qa-pack`, `devin-evals`, `devin-metrics` | `devin-assure` | `pypi-publish.yml` | `pypi` | `qa-pack-v0.2.1`/`metrics-v0.2.1` runs green 2026-10-17/20 |
+| `devin-doctor`, `devin-search`, `devin-history`, `devin-pm`, `devin-graph` | `devin-explore` | `pypi-publish.yml` | `pypi` | `search-v0.2.1`/`pm-v0.1.1` runs green 2026-10-17/20 |
+| `devin-fanout` (orchestrator), `devin-switch`, `devin-office` | `devin-control` | `pypi-publish.yml` | per-package: `pypi`, `pypi-switch`, `pypi-office` | `switch-v0.1.1`/`orchestrator-v0.2.0` runs green 2026-10-20 |
+| `devin-devkit`, `devin-skill-catalog` | `devin-devkit` | `pypi-publish.yml` | `pypi-devkit` / `pypi-skill-catalog` (resolved per package) | `devkit-v0.1.1`/`skill-catalog-v0.1.1` runs green 2026-10-15/20 |
+| `devin-internals-spec` | `devin-internals-spec` | `pypi-publish.yml` | `pypi` | run green 2026-10-14 |
+
+Package names did **not** change with the renames — `devin-brain` still
+ships the `devin-memory` wheel, `devin-judge` ships `poordjaevin`, and
+the monorepos publish each member package from `packages/*/` under its
+original name. The projects keep their PyPI names; only the TP `repo`
+field moved. A green upload **is** the TP proof: the OIDC exchange runs
+before any file transfer, so `invalid-publisher`/`stale-pending` cannot
+pass silently. Remaining human-only residue (PyPI UI, not CI): visually
+confirm no stale *pending* publishers linger under account → Publishing,
+then close #69.
+
 
 ## VS Code Marketplace
 
