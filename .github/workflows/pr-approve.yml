@@ -214,7 +214,7 @@ jobs:
             # cannot see the PR author on status payloads. Case brackets are
             # escaped: unescaped [bot] is a one-char class that also matches
             # lookalike accounts like "dependabotb".
-            prs=$(_gh "repos/$REPO/commits/$HEAD_SHA/pulls" \
+            prs=$({ _gh "repos/$REPO/commits/$HEAD_SHA/pulls" || true; } \
               | jq --arg sha "$HEAD_SHA" \
                 '[.[] | select(.state == "open" and .head.sha == $sha)]')
             pr_numbers=""
@@ -245,8 +245,9 @@ jobs:
             pending=0
             for pr in $pr_numbers; do
               [ -n "${verdicts[$pr]+set}" ] && continue
-              reviews=$(_gh "repos/$REPO/pulls/$pr/reviews?per_page=100" --paginate \
-                | jq -s '[add[] | select(.user.login == "devin-ai-integration[bot]")]')
+              reviews=$({ _gh "repos/$REPO/pulls/$pr/reviews?per_page=100" \
+                --paginate || true; } \
+                | jq -s '[(add // [])[] | select(.user.login == "devin-ai-integration[bot]")]')
               rsha=$(echo "$reviews" | jq -r --arg sha "$HEAD_SHA" \
                 '[.[] | select(.commit_id == $sha)] | last | .commit_id // empty')
               if [ -z "$rsha" ]; then
@@ -257,8 +258,9 @@ jobs:
                 # reviews can't slip in.
                 for c in $(echo "$reviews" | jq -r 'sort_by(.submitted_at) | reverse | .[].commit_id'); do
                   [ "$c" = "$HEAD_SHA" ] && continue
-                  cmp=$(_gh "repos/$REPO/compare/$c...$HEAD_SHA")
-                  [ "$(echo "$cmp" | jq .behind_by)" = "0" ] \
+                  cmp=$({ _gh "repos/$REPO/compare/$c...$HEAD_SHA" || true; })
+                  [ -n "$cmp" ] \
+                    && [ "$(echo "$cmp" | jq .behind_by)" = "0" ] \
                     && [ "$(echo "$cmp" | jq '.files | length')" = "0" ] \
                     && { rsha="$c"; break; }
                 done
@@ -272,7 +274,7 @@ jobs:
                 # posted right after the status can't race past the gate,
                 # and only for a sole PR on the head — a clean status can't
                 # be attributed to one PR's diff when heads are shared.
-                st=$(_gh "repos/$REPO/commits/$HEAD_SHA/status" \
+                st=$({ _gh "repos/$REPO/commits/$HEAD_SHA/status" || true; } \
                   | jq -r '[.statuses[] | select(.context == "Devin Review"
                       and ((.avatar_url // "") | contains("/in/811515")))]
                     | .[0].state // empty')
@@ -378,7 +380,7 @@ jobs:
             # newest, so a deep thread still yields them (first:50 alone
             # would silently drop a reply past the 50th). pullRequest
             # .author is the reply-author check's PR-author leg.
-            threads=$(_gh graphql --paginate \
+            threads=$({ _gh graphql --paginate \
               -f owner="${REPO%%/*}" -f name="${REPO##*/}" -F pr="$pr" -f query='
                 query($owner: String!, $name: String!, $pr: Int!, $endCursor: String) {
                   repository(owner: $owner, name: $name) {
@@ -413,7 +415,14 @@ jobs:
                       }
                     }
                   }
-                }')
+                }' || true; })
+            # Empty after retries: the fetch itself failed (transient
+            # 403s die as unverifiable, never as zero findings — the
+            # gate must not approve what it could not count).
+            if [ -z "$threads" ]; then
+              echo "::error::reviewThreads fetch failed after retries — findings unverifiable, approval held"
+              exit 1
+            fi
             pr_author=$(echo "$threads" | jq -rs \
               '.[0].data.repository.pullRequest.author.login // ""')
             # Blocking candidates = same predicate as before: not
@@ -540,7 +549,7 @@ jobs:
                 # re-reviewed clean (the "2 re-review passes" proxy).
                 # Per-head signal, lazily fetched once per run.
                 if [ -z "$devin_state" ]; then
-                  devin_state=$(gh api "repos/$REPO/commits/$HEAD_SHA/status" \
+                  devin_state=$({ _gh "repos/$REPO/commits/$HEAD_SHA/status" || true; } \
                     | jq -r '[.statuses[] | select(.context == "Devin Review"
                         and ((.avatar_url // "") | contains("/in/811515")))]
                       | .[0].state // "none"')
