@@ -395,3 +395,5 @@ with `--backend`:
 
 `--requires-devin-closed` wraps the command with a "Devin not running"
 guard — required for jobs that would VACUUM or rewrite Devin stores.
+
+# E2E probe
