@@ -317,7 +317,8 @@ jobs:
                       verdicts[$pr]="CHANGES_REQUESTED"
                       echo "Review Coverage on $HEAD_SHA reports blocking findings for PR #$pr — reviewed, held." ;;
                     *DEGRADED*)
-                      : # partial coverage is not review evidence ;;
+                      # partial coverage is not review evidence
+                      : ;;
                     *)
                       verdicts[$pr]="FALLBACK_COVERED"
                       echo "Review Coverage success on $HEAD_SHA — fallback reviewers covered PR #$pr, adopting as review evidence." ;;
