@@ -429,6 +429,37 @@ class GateFallback(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertEqual(out["blocking"], "0")
 
+    def test_v18_could_not_run_notice_is_not_a_finding(self):
+        # A reviewer that could not produce an analysis posts a
+        # "could not run" notice — reviewer unavailability, not a code
+        # defect. It must not count as a blocking finding.
+        fx = self.base_fixtures([])
+        fx["pulls_reviews_pr5.json"] = [
+            {"user": {"login": "github-actions[bot]"},
+             "state": "CHANGES_REQUESTED", "commit_id": HEAD_SHA,
+             "body": "## AI review could not run\nThis is an automated "
+                     "notice, not a substantive review."},
+        ]
+        proc, out, _ = self.run_block(self.findings, fx)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(out["blocking"], "0")
+
+    def test_v18_real_finding_next_to_notice_counts(self):
+        # A real blocker review counts even when a could-not-run notice
+        # exists on the same head.
+        fx = self.base_fixtures([])
+        fx["pulls_reviews_pr5.json"] = [
+            {"user": {"login": "github-actions[bot]"},
+             "state": "CHANGES_REQUESTED", "commit_id": HEAD_SHA,
+             "body": "## AI review could not run\nnot a substantive review"},
+            {"user": {"login": "github-actions[bot]"},
+             "state": "CHANGES_REQUESTED", "commit_id": HEAD_SHA,
+             "body": "## AI Automated Review\nBlocker: SQL injection."},
+        ]
+        proc, out, _ = self.run_block(self.findings, fx)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(out["blocking"], "1")
+
     def test_b_reply_without_commit_still_blocking(self):
         threads = [thread("T1", replies=[
             (PR_AUTHOR, "OWNER", "fixed it, please re-check"),

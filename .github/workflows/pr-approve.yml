@@ -633,6 +633,9 @@ jobs:
             # github-actions[bot] on the head — count those as blocking
             # alongside the Devin threads. Commit pinning to the head
             # keeps stale fallback reviews from an older sha out.
+            # "could not run" notices are excluded: a reviewer that could
+            # not produce an analysis is unavailability (held via missing
+            # coverage evidence), not a fabricated code defect.
             fb_reviews_raw=$({ _gh "repos/$REPO/pulls/$pr/reviews?per_page=100" \
               --paginate || true; })
             if [ -z "$fb_reviews_raw" ]; then
@@ -643,7 +646,10 @@ jobs:
               | jq -s --arg sha "$HEAD_SHA" '[add[] | select(
                   .user.login == "github-actions[bot]"
                   and .state == "CHANGES_REQUESTED"
-                  and .commit_id == $sha)] | length')
+                  and .commit_id == $sha
+                  and ((.body // "")
+                       | test("could not run|not a substantive review"; "i")
+                       | not))] | length')
             [ "${fb_reviews:-0}" != "0" ] \
               && echo "fallback blocking reviews on $HEAD_SHA for PR #$pr: $fb_reviews"
             count=$((count + fb_reviews))
