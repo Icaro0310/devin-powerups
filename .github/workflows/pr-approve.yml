@@ -601,18 +601,18 @@ jobs:
                   devin_state=$({ _gh "repos/$REPO/commits/$HEAD_SHA/status" || true; } \
                     | jq -r '[.statuses[] | select(.context == "Devin Review"
                         and ((.avatar_url // "") | contains("/in/811515")))]
-                      | .[0] | (select(.state == "success"
-                          and (.description // "" | test("completed analysis"; "i")))
-                        | "EXECUTED") // .state // "none"')
-                  if [ "$devin_state" != "EXECUTED" ]; then
+                      | .[0] | if .state != "success" then (.state // "none")
+                          elif (.description // "" | test("completed analysis"; "i"))
+                          then "EXECUTED" else "unproven" end')
+                  if [ "$devin_state" = "EXECUTED" ]; then
+                    devin_state="success"
+                  else
                     cov=$({ _gh "repos/$REPO/commits/$HEAD_SHA/status" || true; } \
                       | jq -r '[.statuses[] | select(.context == "Review Coverage"
                           and .state == "success"
                           and (.description // "" | test("DEGRADED|findings=blocking") | not))]
                         | length')
                     [ "${cov:-0}" -gt 0 ] && devin_state="success"
-                  else
-                    devin_state="success"
                   fi
                 fi
                 # Not success -> no anchor can rescue this thread.
@@ -633,8 +633,13 @@ jobs:
             # github-actions[bot] on the head — count those as blocking
             # alongside the Devin threads. Commit pinning to the head
             # keeps stale fallback reviews from an older sha out.
-            fb_reviews=$({ _gh "repos/$REPO/pulls/$pr/reviews?per_page=100" \
-              --paginate || true; } \
+            fb_reviews_raw=$({ _gh "repos/$REPO/pulls/$pr/reviews?per_page=100" \
+              --paginate || true; })
+            if [ -z "$fb_reviews_raw" ]; then
+              echo "::error::reviews fetch failed after retries — fallback blocking findings unverifiable, approval held"
+              exit 1
+            fi
+            fb_reviews=$(echo "$fb_reviews_raw" \
               | jq -s --arg sha "$HEAD_SHA" '[add[] | select(
                   .user.login == "github-actions[bot]"
                   and .state == "CHANGES_REQUESTED"

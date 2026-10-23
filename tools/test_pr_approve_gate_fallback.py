@@ -106,6 +106,10 @@ case "$endpoint" in
       f="$GH_FIXTURE_DIR/issue_comments_pr${num}.json"
       [ -f "$f" ] && out=$(cat "$f") || out="[]"
     fi ;;
+  repos/*/pulls/*/reviews*)
+    num="${endpoint##*/pulls/}" ; num="${num%%/reviews*}"
+    f="$GH_FIXTURE_DIR/pulls_reviews_pr${num}.json"
+    [ -f "$f" ] && out=$(cat "$f") || out="[]" ;;
   repos/*/pulls/*)
     # keyed "owner/repo#number" — keeps same-repo and cross-repo pulls apart
     key="${endpoint#repos/}"
@@ -188,11 +192,28 @@ def graphql_fixture(threads, author=PR_AUTHOR):
     }
 
 
-def status_fixture(state="success"):
+def status_fixture(state="success",
+                   description="Completed analysis in 26s"):
     return {"statuses": [{
         "context": "Devin Review",
         "state": state,
+        "description": description,
         "avatar_url": "https://avatars.githubusercontent.com/in/811515?v=4",
+    }]}
+
+
+def coverage_fixture(description="devin=SKIPPED_CREDITS a=ok b=ok"):
+    return {"statuses": [{
+        "context": "Devin Review",
+        "state": "success",
+        "description": "Full review skipped: trial expired and no "
+                       "credits remaining",
+        "avatar_url": "https://avatars.githubusercontent.com/in/811515?v=4",
+    }, {
+        "context": "Review Coverage",
+        "state": "success",
+        "description": description,
+        "avatar_url": "https://avatars.githubusercontent.com/in/148668982?v=4",
     }]}
 
 
@@ -339,6 +360,74 @@ class GateFallback(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertEqual(out["blocking"], "0")
         self.assertEqual(json.loads(out["fallback_resolutions"]), {"5": 1})
+
+    # --- v1.8: status re-verification hardened + fallback reviews --------
+
+    def test_v18_skipped_credits_status_does_not_clear_anchor(self):
+        # state=success with a skip description is NOT re-review proof:
+        # the fix anchor stays unverifiable and the thread keeps blocking.
+        threads = [thread("T1", replies=[
+            (PR_AUTHOR, "OWNER", f"Fixed in {FIX_SHA}"),
+        ])]
+        fx = self.base_fixtures(
+            threads, compares=self.ok_compares(),
+            status="success")
+        fx["status.json"] = status_fixture(
+            "success", "Full review skipped: trial expired and no "
+                       "credits remaining")
+        proc, out, _ = self.run_block(self.findings, fx)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(out["blocking"], "1")
+        self.assertNotIn("fallback-resolved", proc.stdout)
+
+    def test_v18_coverage_success_clears_anchor_when_devin_skipped(self):
+        # Devin skipped but a clean "Review Coverage" status exists on the
+        # head — the fallback reviewers re-ran, anchors may verify.
+        threads = [thread("T1", replies=[
+            (PR_AUTHOR, "OWNER", f"Fixed in {FIX_SHA}"),
+        ])]
+        fx = self.base_fixtures(threads, compares=self.ok_compares())
+        fx["status.json"] = coverage_fixture()
+        proc, out, _ = self.run_block(self.findings, fx)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(out["blocking"], "0")
+        self.assertIn("fallback-resolved", proc.stdout)
+
+    def test_v18_degraded_coverage_does_not_clear_anchor(self):
+        threads = [thread("T1", replies=[
+            (PR_AUTHOR, "OWNER", f"Fixed in {FIX_SHA}"),
+        ])]
+        fx = self.base_fixtures(threads, compares=self.ok_compares())
+        fx["status.json"] = coverage_fixture(
+            "devin=SKIPPED_CREDITS a=ok b=failed DEGRADED")
+        proc, out, _ = self.run_block(self.findings, fx)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(out["blocking"], "1")
+
+    def test_v18_fallback_blocking_review_counts(self):
+        # Zero devin threads, but reviewer B left CHANGES_REQUESTED on the
+        # head — blocking=1. A stale-sha or non-blocking review does not.
+        threads = []
+        fx = self.base_fixtures(threads)
+        fx["pulls_reviews_pr5.json"] = [
+            {"user": {"login": "github-actions[bot]"},
+             "state": "CHANGES_REQUESTED", "commit_id": HEAD_SHA},
+            {"user": {"login": "github-actions[bot]"},
+             "state": "CHANGES_REQUESTED", "commit_id": "old-sha-stale"},
+            {"user": {"login": "github-actions[bot]"},
+             "state": "COMMENTED", "commit_id": HEAD_SHA},
+            {"user": {"login": "human-reviewer"},
+             "state": "CHANGES_REQUESTED", "commit_id": HEAD_SHA},
+        ]
+        proc, out, _ = self.run_block(self.findings, fx)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(out["blocking"], "1")
+
+    def test_v18_no_fallback_reviews_stays_zero(self):
+        fx = self.base_fixtures([])
+        proc, out, _ = self.run_block(self.findings, fx)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(out["blocking"], "0")
 
     def test_b_reply_without_commit_still_blocking(self):
         threads = [thread("T1", replies=[
