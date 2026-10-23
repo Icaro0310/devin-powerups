@@ -301,24 +301,24 @@ jobs:
                 else
                   status_seen="${st%%|*}"
                 fi
-                # Fallback evidence (v1.8): when Devin skipped, failed or
+                # Fallback evidence (v1.9): when Devin skipped, failed or
                 # never ran, ai-review-fallback.yml posts a
-                # "Review Coverage" status AFTER both reviewers finished
-                # — findings already posted, so no double-sighting. A
-                # success without markers means reviewed and clean;
-                # findings=blocking means reviewed but held; DEGRADED,
-                # failure or absent is not evidence.
-                cov=$({ _gh "repos/$REPO/commits/$HEAD_SHA/status" || true; } \
-                  | jq -r '[.statuses[] | select(.context == "Review Coverage")]
-                    | .[0] | "\(.state // "")|\(.description // "")"')
+                # "Review Coverage" CHECK RUN after both reviewers finish
+                # — findings already posted, so no double-sighting. The
+                # check run is the source of truth: conclusion=success
+                # adopts as evidence, findings=blocking in the summary
+                # holds, action_required/failure/absent is not evidence.
+                # The mirrored commit status is never read here — a
+                # green mirror cannot upgrade degraded coverage.
+                cov=$({ _gh "repos/$REPO/commits/$HEAD_SHA/check-runs?check_name=Review%20Coverage&per_page=50" || true; } \
+                  | jq -r '[(.check_runs // [])[] | select(.status == "completed")]
+                    | sort_by(.completed_at) | last
+                    | "\(.conclusion // "")|\(.output.summary // "")"')
                 if [ "${cov%%|*}" = "success" ]; then
                   case "${cov#*|}" in
-                    *findings=blocking*)
+                    *findings=blocking*|*DEGRADED*)
                       verdicts[$pr]="CHANGES_REQUESTED"
                       echo "Review Coverage on $HEAD_SHA reports blocking findings for PR #$pr — reviewed, held." ;;
-                    *DEGRADED*)
-                      # partial coverage is not review evidence
-                      : ;;
                     *)
                       verdicts[$pr]="FALLBACK_COVERED"
                       echo "Review Coverage success on $HEAD_SHA — fallback reviewers covered PR #$pr, adopting as review evidence." ;;
@@ -595,8 +595,9 @@ jobs:
                 # v1.8 a bare success no longer suffices: a skipped-for-
                 # credits status is green too, so the description must
                 # carry the completed-analysis marker. A "Review
-                # Coverage" success also satisfies re-verification —
-                # the fallback reviewers re-ran on this head.
+                # Coverage" check-run success also satisfies
+                # re-verification — the fallback reviewers re-ran on
+                # this head.
                 if [ -z "$devin_state" ]; then
                   devin_state=$({ _gh "repos/$REPO/commits/$HEAD_SHA/status" || true; } \
                     | jq -r '[.statuses[] | select(.context == "Devin Review"
@@ -607,10 +608,16 @@ jobs:
                   if [ "$devin_state" = "EXECUTED" ]; then
                     devin_state="success"
                   else
-                    cov=$({ _gh "repos/$REPO/commits/$HEAD_SHA/status" || true; } \
-                      | jq -r '[.statuses[] | select(.context == "Review Coverage"
-                          and .state == "success"
-                          and (.description // "" | test("DEGRADED|findings=blocking") | not))]
+                    # A "Review Coverage" CHECK RUN with conclusion
+                    # success also satisfies re-verification — the
+                    # fallback reviewers re-ran on this head. The
+                    # mirrored status is never read: action_required
+                    # (degraded) can never be mistaken for success here.
+                    cov=$({ _gh "repos/$REPO/commits/$HEAD_SHA/check-runs?check_name=Review%20Coverage&per_page=50" || true; } \
+                      | jq -r '[(.check_runs // [])[] | select(.status == "completed"
+                          and .conclusion == "success"
+                          and ((.output.summary // "")
+                               | test("DEGRADED|findings=blocking") | not))]
                         | length')
                     [ "${cov:-0}" -gt 0 ] && devin_state="success"
                   fi

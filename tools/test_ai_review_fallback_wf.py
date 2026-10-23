@@ -58,7 +58,17 @@ def test_coverage_runs_always_and_posts_own_status():
     block = _job_block("coverage")
     assert "always()" in block
     assert "statuses: write" in block
+    assert "checks: write" in block  # the check run is the source of truth
     assert "publish-review-coverage.py" in block
+
+
+def test_pr_approve_reads_coverage_check_run_not_status_mirror():
+    """v1.9: the gate must read the check run (Checks API, where
+    action_required exists) — never the mirrored commit status, which
+    cannot express degraded coverage honestly."""
+    assert "check-runs?check_name=Review%20Coverage" in APPROVE
+    # coverage evidence is never drawn from the status mirror anymore
+    assert '.statuses[] | select(.context == "Review Coverage"' not in APPROVE
 
 
 def test_tailscale_jobs_have_id_token_write_only_where_needed():
