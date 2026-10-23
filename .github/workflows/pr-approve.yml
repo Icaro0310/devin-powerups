@@ -197,11 +197,15 @@ jobs:
           # Transient 403s (secondary rate limits on the Actions token)
           # used to crash unguarded calls mid-step — retry the expensive
           # fetches with backoff; a persistent failure still exits
-          # nonzero and the job fails closed.
+          # nonzero and the job fails closed. gh api prints the error
+          # response body to STDOUT even on failure, so a bare retry
+          # still feeds jq N concatenated error objects — output is only
+          # emitted after a verified success, keeping "no results" and
+          # "query failed" distinguishable downstream.
           _gh() {
-            local try
+            local try out
             for try in 1 2 3; do
-              gh api "$@" && return 0
+              out=$(gh api "$@") && { printf '%s\n' "$out"; return 0; }
               sleep $((try * 15))
             done
             return 1
@@ -334,10 +338,14 @@ jobs:
           # Transient 403s (secondary rate limits) crashed the thread
           # fetch and jq then died on null — retry with backoff; a
           # persistent failure exits nonzero and stays fail-closed.
+          # gh api writes the error body to stdout on failure, so output
+          # is emitted only after a verified success — an exhausted call
+          # yields genuinely empty stdout, not error JSON for jq to
+          # iterate.
           _gh() {
-            local try
+            local try out
             for try in 1 2 3; do
-              gh api "$@" && return 0
+              out=$(gh api "$@") && { printf '%s\n' "$out"; return 0; }
               sleep $((try * 15))
             done
             return 1
