@@ -22,7 +22,7 @@ name: ai-review-fallback
 #     surface is controlled by the PR.
 #
 # Boundaries kept: Ollama is tailnet-only (tailscale serve on the VM);
-# the Tailscale identity is an ephemeral OAuth tag; coverage never spoofs
+# the Tailscale identity is an ephemeral tagged node; coverage never spoofs
 # the "Devin Review" context and never approves — pr-approve.yml decides.
 
 on:
@@ -71,11 +71,10 @@ jobs:
       - name: Preflight — creds and reachability
         id: pre
         env:
-          TS_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          TS_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
+          TS_KEY: ${{ secrets.TS_AUTHKEY }}
         run: |
-          if [ -z "$TS_ID" ] || [ -z "$TS_SECRET" ]; then
-            echo "::warning::Tailscale OAuth creds absent (ACL/tag pending admin console) — reviewer A unavailable"
+          if [ -z "$TS_KEY" ]; then
+            echo "::warning::Tailscale auth key absent — reviewer A unavailable"
             echo "ok=false" >> "$GITHUB_OUTPUT"; exit 0
           fi
           if [ -z "$OLLAMA_URL" ]; then
@@ -89,8 +88,7 @@ jobs:
         if: steps.pre.outputs.ok == 'true'
         uses: tailscale/github-action@99a8333667fff04fdd6cffb46dfd409f8329a7bf
         with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          authkey: ${{ secrets.TS_AUTHKEY }}
           tags: tag:gh-ollama-review
         continue-on-error: true
 
@@ -148,11 +146,10 @@ jobs:
       - name: Preflight — creds and reachability
         id: pre
         env:
-          TS_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          TS_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
+          TS_KEY: ${{ secrets.TS_AUTHKEY }}
         run: |
-          if [ -z "$TS_ID" ] || [ -z "$TS_SECRET" ] || [ -z "$OLLAMA_URL" ]; then
-            echo "::warning::Tailscale creds or OLLAMA_TAILNET_URL absent — reviewer B unavailable"
+          if [ -z "$TS_KEY" ] || [ -z "$OLLAMA_URL" ]; then
+            echo "::warning::Tailscale key or OLLAMA_TAILNET_URL absent — reviewer B unavailable"
             echo "ok=false" >> "$GITHUB_OUTPUT"; exit 0
           fi
           echo "ok=true" >> "$GITHUB_OUTPUT"
@@ -162,8 +159,7 @@ jobs:
         if: steps.pre.outputs.ok == 'true'
         uses: tailscale/github-action@99a8333667fff04fdd6cffb46dfd409f8329a7bf
         with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          authkey: ${{ secrets.TS_AUTHKEY }}
           tags: tag:gh-ollama-review
         continue-on-error: true
 
