@@ -27,8 +27,9 @@ test('tag-gap rescan finds KEY= after a non-key suffix', () => {
   // devin-powerups#223 review: the fragment rescan inherits the env
   // pattern's `^` anchor, so 'API_KEY=<tag>suffix OTHER_TOKEN=raw' left
   // the tail raw — the fragment starts with a non-key word. The port
-  // scans env fragments de-anchored; upstream Python still anchors, so
-  // this case stays out of the parity corpus on purpose.
+  // scans env fragments de-anchored; upstream converged in
+  // devin-state#82 (shipped in devin-redact 0.2.5), so the case now
+  // also lives in the parity corpus as env_tag_suffix_head.
   const input = 'API_KEY=<REDACTED:abc123>suffix OTHER_TOKEN=rawsecret99';
   const fp = createHash('sha256')
     .update(' OTHER_TOKEN=rawsecret99', 'utf8')

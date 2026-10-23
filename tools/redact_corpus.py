@@ -73,6 +73,10 @@ CASES = [
     # containing a closed <REDACTED:…> tag re-scans each tag-free fragment —
     # only the tag's own span is off-limits.
     ("env_tag_tail",       "API_KEY=<REDACTED:abc123> OTHER_TOKEN=rawsecret99"),
+    # Non-key fragment head (devin-powerups#223, upstream devin-state#82):
+    # a fragment starting with a non-key word must still find each KEY=
+    # later in the fragment — the rescan uses a de-anchored variant.
+    ("env_tag_suffix_head", "API_KEY=<REDACTED:abc123>suffix OTHER_TOKEN=rawsecret99"),
     ("env_tag_nested",     "OUTER_KEY=<REDACTED:x1> INNER_KEY=<REDACTED:y2> DEEP_SECRET=z9"),
     ("env_tag_mid_value",  "FIRST_KEY=firstval1<REDACTED:mid99> SECOND_KEY=secondval2"),
     ("env_tag_code_head",  "FIRST_KEY = frozenset({'x'}) <REDACTED:t0> REAL_TOKEN=tv9x"),
