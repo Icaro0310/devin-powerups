@@ -88,6 +88,9 @@ case "$endpoint" in
     out=$(cat "$f") ;;
   repos/*/commits/*/status)
     out=$(cat "$GH_FIXTURE_DIR/status.json") ;;
+  repos/*/commits/*/check-runs*)
+    f="$GH_FIXTURE_DIR/check_runs.json"
+    [ -f "$f" ] && out=$(cat "$f") || out='{"check_runs":[]}' ;;
   repos/*/compare/*)
     pair="${endpoint##*/compare/}"
     if jq -e --arg p "$pair" 'has($p)' "$GH_FIXTURE_DIR/compares.json" >/dev/null 2>&1; then
@@ -202,8 +205,13 @@ def status_fixture(state="success",
     }]}
 
 
-def coverage_fixture(description="devin=SKIPPED_CREDITS a=ok b=ok"):
-    return {"statuses": [{
+def coverage_fixtures(summary="devin=SKIPPED_CREDITS a=EXECUTED b=EXECUTED",
+                      conclusion="success", mirror_state="success"):
+    """v1.9: coverage is a Checks-API run (source of truth) plus a commit
+    status mirror. Returns BOTH fixture files: `status.json` carries the
+    skipped Devin status + the mirror, `check_runs.json` carries the
+    check run the gate actually reads."""
+    status = {"statuses": [{
         "context": "Devin Review",
         "state": "success",
         "description": "Full review skipped: trial expired and no "
@@ -211,10 +219,18 @@ def coverage_fixture(description="devin=SKIPPED_CREDITS a=ok b=ok"):
         "avatar_url": "https://avatars.githubusercontent.com/in/811515?v=4",
     }, {
         "context": "Review Coverage",
-        "state": "success",
-        "description": description,
+        "state": mirror_state,
+        "description": summary,
         "avatar_url": "https://avatars.githubusercontent.com/in/148668982?v=4",
     }]}
+    checks = {"check_runs": [{
+        "name": "Review Coverage",
+        "status": "completed",
+        "conclusion": conclusion,
+        "completed_at": "2026-10-23T20:00:00Z",
+        "output": {"title": "Review Coverage", "summary": summary},
+    }]}
+    return {"status.json": status, "check_runs.json": checks}
 
 
 def extract_run_block(workflow_text, marker):
@@ -381,25 +397,55 @@ class GateFallback(unittest.TestCase):
         self.assertNotIn("fallback-resolved", proc.stdout)
 
     def test_v18_coverage_success_clears_anchor_when_devin_skipped(self):
-        # Devin skipped but a clean "Review Coverage" status exists on the
-        # head — the fallback reviewers re-ran, anchors may verify.
+        # Devin skipped but a clean "Review Coverage" check run exists on
+        # the head — the fallback reviewers re-ran, anchors may verify.
         threads = [thread("T1", replies=[
             (PR_AUTHOR, "OWNER", f"Fixed in {FIX_SHA}"),
         ])]
         fx = self.base_fixtures(threads, compares=self.ok_compares())
-        fx["status.json"] = coverage_fixture()
+        fx.update(coverage_fixtures())
         proc, out, _ = self.run_block(self.findings, fx)
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertEqual(out["blocking"], "0")
         self.assertIn("fallback-resolved", proc.stdout)
 
     def test_v18_degraded_coverage_does_not_clear_anchor(self):
+        # check-run conclusion action_required (degraded) is not review
+        # evidence — the anchor cannot verify.
         threads = [thread("T1", replies=[
             (PR_AUTHOR, "OWNER", f"Fixed in {FIX_SHA}"),
         ])]
         fx = self.base_fixtures(threads, compares=self.ok_compares())
-        fx["status.json"] = coverage_fixture(
-            "devin=SKIPPED_CREDITS a=ok b=failed DEGRADED")
+        fx.update(coverage_fixtures(
+            "DEGRADED a-only — devin=SKIPPED_CREDITS a=EXECUTED b=FAILED "
+            "— partial coverage, requires human review",
+            conclusion="action_required", mirror_state="pending"))
+        proc, out, _ = self.run_block(self.findings, fx)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(out["blocking"], "1")
+
+    def test_v19_status_mirror_success_alone_clears_nothing(self):
+        # The commit-status mirror is NEVER evidence: a green "Review
+        # Coverage" status without the check run proves nothing — the
+        # gate reads the check run, and only that.
+        threads = [thread("T1", replies=[
+            (PR_AUTHOR, "OWNER", f"Fixed in {FIX_SHA}"),
+        ])]
+        fx = self.base_fixtures(threads, compares=self.ok_compares())
+        fx.update(coverage_fixtures())  # mirror says success…
+        del fx["check_runs.json"]       # …but the check run is absent
+        proc, out, _ = self.run_block(self.findings, fx)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(out["blocking"], "1")
+
+    def test_v19_failure_check_run_clears_nothing(self):
+        threads = [thread("T1", replies=[
+            (PR_AUTHOR, "OWNER", f"Fixed in {FIX_SHA}"),
+        ])]
+        fx = self.base_fixtures(threads, compares=self.ok_compares())
+        fx.update(coverage_fixtures(
+            "no review executed — devin=SKIPPED_CREDITS a=UNAVAILABLE b=UNAVAILABLE",
+            conclusion="failure", mirror_state="failure"))
         proc, out, _ = self.run_block(self.findings, fx)
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertEqual(out["blocking"], "1")
