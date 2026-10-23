@@ -1,9 +1,10 @@
 name: pr-approve
 
-# Version: v1.6 (gate fallback resolution — D-2026-10-20, extended by
-# D-2026-10-20b: cross-repo fix anchors + idempotent audit comment, and
-# D-2026-10-21: manual-blocking0 — clean evaluation surviving an
-# undeliverable APPROVE review).
+# Version: v1.8 (D-2026-10-24: false-success fix — Devin "skipped for
+# credits" posts state=success too, so status adoption now requires the
+# completed-analysis description; Review Coverage status from
+# ai-review-fallback.yml counts as review evidence; fallback reviewers'
+# CHANGES_REQUESTED reviews count as blocking).
 # Callers pin @v<minor> tags; the owner moves the tag on merge, caller
 # pins roll forward after that.
 
@@ -159,9 +160,10 @@ concurrency:
     pr-approve-${{ github.repository }}-${{
       github.event.pull_request.number
       || (github.event_name == 'status'
-          && github.event.context == 'Devin Review'
           && github.event.state == 'success'
-          && contains(github.event.avatar_url || '', '/in/811515')
+          && (github.event.context == 'Review Coverage'
+              || (github.event.context == 'Devin Review'
+                  && contains(github.event.avatar_url || '', '/in/811515')))
           && github.event.sha)
       || github.run_id }}
   cancel-in-progress: true
@@ -178,6 +180,9 @@ jobs:
        github.event.context == 'Devin Review' &&
        github.event.state == 'success' &&
        contains(github.event.avatar_url || '', '/in/811515')) ||
+      (github.event_name == 'status' &&
+       github.event.context == 'Review Coverage' &&
+       github.event.state == 'success') ||
       (github.event_name != 'status' &&
        contains(fromJSON('["Icaro0310","dependabot[bot]","github-actions[bot]"]'),
        github.event.pull_request.user.login) &&
@@ -278,16 +283,47 @@ jobs:
                 # posted right after the status can't race past the gate,
                 # and only for a sole PR on the head — a clean status can't
                 # be attributed to one PR's diff when heads are shared.
+                # state=success alone is NOT evidence (v1.8): a
+                # credit-exhausted skip also posts success — only a
+                # description proving a completed analysis counts.
                 st=$({ _gh "repos/$REPO/commits/$HEAD_SHA/status" || true; } \
                   | jq -r '[.statuses[] | select(.context == "Devin Review"
                       and ((.avatar_url // "") | contains("/in/811515")))]
-                    | .[0].state // empty')
-                if [ "$st" = "success" ] && [ "$status_seen" = "success" ]; then
-                  verdicts[$pr]="STATUS_CLEAN"
-                  echo "Devin Review status success on $HEAD_SHA with no review object for PR #$pr — clean analysis, adopting."
-                  continue
+                    | .[0] | "\(.state)|\(.description // "")"')
+                if [ "${st%%|*}" = "success" ] \
+                    && [[ "${st#*|}" == *ompleted\ analysis* ]]; then
+                  if [ "$status_seen" = "EXECUTED" ]; then
+                    verdicts[$pr]="STATUS_CLEAN"
+                    echo "Devin Review status success on $HEAD_SHA with no review object for PR #$pr — clean analysis, adopting."
+                    continue
+                  fi
+                  status_seen="EXECUTED"
                 else
-                  status_seen="$st"
+                  status_seen="${st%%|*}"
+                fi
+                # Fallback evidence (v1.8): when Devin skipped, failed or
+                # never ran, ai-review-fallback.yml posts a
+                # "Review Coverage" status AFTER both reviewers finished
+                # — findings already posted, so no double-sighting. A
+                # success without markers means reviewed and clean;
+                # findings=blocking means reviewed but held; DEGRADED,
+                # failure or absent is not evidence.
+                cov=$({ _gh "repos/$REPO/commits/$HEAD_SHA/status" || true; } \
+                  | jq -r '[.statuses[] | select(.context == "Review Coverage")]
+                    | .[0] | "\(.state // "")|\(.description // "")"')
+                if [ "${cov%%|*}" = "success" ]; then
+                  case "${cov#*|}" in
+                    *findings=blocking*)
+                      verdicts[$pr]="CHANGES_REQUESTED"
+                      echo "Review Coverage on $HEAD_SHA reports blocking findings for PR #$pr — reviewed, held." ;;
+                    *DEGRADED*)
+                      # partial coverage is not review evidence
+                      : ;;
+                    *)
+                      verdicts[$pr]="FALLBACK_COVERED"
+                      echo "Review Coverage success on $HEAD_SHA — fallback reviewers covered PR #$pr, adopting as review evidence." ;;
+                  esac
+                  [ -n "${verdicts[$pr]+set}" ] && continue
                 fi
               fi
               if [ -n "$rsha" ]; then
@@ -310,7 +346,7 @@ jobs:
             v="${verdicts[$pr]:-no-review}"
             case "$v" in
               APPROVED) any_approvable=true ;;
-              COMMENTED|STATUS_CLEAN) any_reviewed=true; any_approvable=true ;;
+              COMMENTED|STATUS_CLEAN|FALLBACK_COVERED) any_reviewed=true; any_approvable=true ;;
               CHANGES_REQUESTED) ;;
               *)
                 any_no_review=true
@@ -555,12 +591,29 @@ jobs:
                 # Clean re-verification on the head: the "Devin Review"
                 # status must be success — the fix commit was itself
                 # re-reviewed clean (the "2 re-review passes" proxy).
-                # Per-head signal, lazily fetched once per run.
+                # Per-head signal, lazily fetched once per run. Since
+                # v1.8 a bare success no longer suffices: a skipped-for-
+                # credits status is green too, so the description must
+                # carry the completed-analysis marker. A "Review
+                # Coverage" success also satisfies re-verification —
+                # the fallback reviewers re-ran on this head.
                 if [ -z "$devin_state" ]; then
                   devin_state=$({ _gh "repos/$REPO/commits/$HEAD_SHA/status" || true; } \
                     | jq -r '[.statuses[] | select(.context == "Devin Review"
                         and ((.avatar_url // "") | contains("/in/811515")))]
-                      | .[0].state // "none"')
+                      | .[0] | if .state != "success" then (.state // "none")
+                          elif (.description // "" | test("completed analysis"; "i"))
+                          then "EXECUTED" else "unproven" end')
+                  if [ "$devin_state" = "EXECUTED" ]; then
+                    devin_state="success"
+                  else
+                    cov=$({ _gh "repos/$REPO/commits/$HEAD_SHA/status" || true; } \
+                      | jq -r '[.statuses[] | select(.context == "Review Coverage"
+                          and .state == "success"
+                          and (.description // "" | test("DEGRADED|findings=blocking") | not))]
+                        | length')
+                    [ "${cov:-0}" -gt 0 ] && devin_state="success"
+                  fi
                 fi
                 # Not success -> no anchor can rescue this thread.
                 [ "$devin_state" = "success" ] || break
@@ -575,6 +628,25 @@ jobs:
                 count=$((count + 1))
               fi
             done < <(echo "$candidates" | jq -r '.[] | .id + "\t" + (.refs | join(",")) + "\t" + .base')
+            # Fallback reviewers (v1.8): reviewer B publishes blocking
+            # findings as a native CHANGES_REQUESTED review from
+            # github-actions[bot] on the head — count those as blocking
+            # alongside the Devin threads. Commit pinning to the head
+            # keeps stale fallback reviews from an older sha out.
+            fb_reviews_raw=$({ _gh "repos/$REPO/pulls/$pr/reviews?per_page=100" \
+              --paginate || true; })
+            if [ -z "$fb_reviews_raw" ]; then
+              echo "::error::reviews fetch failed after retries — fallback blocking findings unverifiable, approval held"
+              exit 1
+            fi
+            fb_reviews=$(echo "$fb_reviews_raw" \
+              | jq -s --arg sha "$HEAD_SHA" '[add[] | select(
+                  .user.login == "github-actions[bot]"
+                  and .state == "CHANGES_REQUESTED"
+                  and .commit_id == $sha)] | length')
+            [ "${fb_reviews:-0}" != "0" ] \
+              && echo "fallback blocking reviews on $HEAD_SHA for PR #$pr: $fb_reviews"
+            count=$((count + fb_reviews))
             echo "unresolved blocking findings on $HEAD_SHA for PR #$pr: $count${fb_count:+ ($fb_count cleared by fallback)}"
             blocking_map=$(echo "$blocking_map" | jq -c --arg p "$pr" --argjson c "$count" '. + {($p): $c}')
             fallback_map=$(echo "$fallback_map" | jq -c --arg p "$pr" --argjson c "$fb_count" '. + {($p): $c}')
@@ -617,7 +689,7 @@ jobs:
             v=$(echo "$vmap" | jq -r --arg p "$pr" '.[$p] // "no-review"')
             count=$(echo "$bmap" | jq -r --arg p "$pr" '.[$p] // 0')
             case "$v" in
-              APPROVED|STATUS_CLEAN|COMMENTED)
+              APPROVED|STATUS_CLEAN|COMMENTED|FALLBACK_COVERED)
                 if [ "$v" = "APPROVED" ] || [ "$count" = "0" ]; then
                   approve_err=""
                   if approve_err=$(gh pr review --approve "https://github.com/$REPO/pull/$pr" 2>&1); then
