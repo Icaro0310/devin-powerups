@@ -202,7 +202,8 @@
               "description": {"type": "string", "minLength": 1},
               "tools": {"type": "array", "items": {"type": "string"}},
               "manual": {"type": "array", "items": {"type": "string"}, "minItems": 1},
-              "alias_of": {"type": "string", "minLength": 1}
+              "alias_of": {"type": "string", "minLength": 1},
+              "switch_profile": {"type": ["string", "boolean"]}
             }
           }
         }
