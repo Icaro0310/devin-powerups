@@ -213,6 +213,19 @@ jobs:
           # review that impersonates a blocking finding. Real blockers
           # still publish as request_changes via review_blockers.
           on-model-failure: fail
+          # Bound the action's own retry loop. Defaults (8 retries x
+          # 300s request timeout + 15s delay) outlive the 15min job
+          # timeout on every failure mode: #238 logged ~55min of
+          # periodic /api/tags probes with zero chat completions.
+          # json_object lets the 1.5B hit the verdict contract instead
+          # of emitting free text that fails the parse -> retry cycle;
+          # the token cap bounds generation time on the CPU-only VM.
+          # Worst case is now ~7min of honest FAILED, not a hang.
+          ai-response-format: json_object
+          ai-primary-retries: "2"
+          ai-primary-retry-delay-sec: "10"
+          ai-max-tokens: "2048"
+          ai-request-timeout-sec: "120"
         continue-on-error: true
 
       - name: Record outcome
