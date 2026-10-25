@@ -1643,7 +1643,12 @@ Closure of the MÉDIO-3/4 + skill-audit flagged list. Two were factual and fixed
   the boundary where it enters — the diff, not the tree. Staged mode
   (`git diff --cached`, index blob) is the local pre-commit gate;
   `--pr-base <ref>` diffs `<ref>...HEAD` in CI; `--all` covers the
-  no-merge-base fallback. Banned shapes: the owner's literal home dir
+  no-merge-base fallback. Both diff modes scan only the lines the diff
+  adds — a pre-existing doc example of a banned shape is context, not
+  the diff's leak, and must not block unrelated edits — and findings
+  report `file:line: rule` without the matched line, which would
+  re-leak the path into CI logs and annotations. Banned shapes: the
+  owner's literal home dir
   (`/home/<owner>` — deliberately NOT `/home/*`, runners live in
   /home/runner and docs legitimately show /home/user), macOS /Users/
   paths, and Windows `<drive>:\Users\<name>` profiles — the last two
@@ -1658,8 +1663,11 @@ Closure of the MÉDIO-3/4 + skill-audit flagged list. Two were factual and fixed
   (same model as the publish-auth meta-check, D-2026-10-11b). The
   scanner is fetched from `v1` into `.powerups-sensor` when the caller
   does not ship it — script and workflow versions move together
-  (D-2026-10-13i); a repo carrying its own copy runs that copy, so
-  this PR exercises the new code on itself.
+  (D-2026-10-13i). A checkout copy is trusted only for heads a writer
+  could produce (same-repo PRs, pushes — that is how this PR exercises
+  the new code on itself); fork PR heads run the pinned fetch instead,
+  because a contributor-controlled scanner inside the required gate
+  could exit 0 and approve itself.
 - **Evidence:** `--selftest` covers the unit matrix (owner home,
   macOS, both Windows slash forms, runner/other-user negatives) and
   all three git modes, including staged-blob-vs-worktree and the

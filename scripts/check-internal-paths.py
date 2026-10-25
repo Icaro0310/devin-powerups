@@ -9,11 +9,20 @@ token); the block has to happen at the boundary where files enter the
 commit.
 
 Default mode reads the staged file list
-(``git diff --cached --name-only --diff-filter=ACM``) and scans the
-*staged blob* — run it as a pre-commit gate locally. ``--pr-base <ref>``
-switches to ``git diff <ref>...HEAD`` for CI. ``--all`` scans every
-tracked text file — the fallback when no merge base exists (first push
-of a branch, tag events).
+(``git diff --cached --name-only --diff-filter=ACM``) and scans only
+the lines that diff *adds* to the staged blob — run it as a pre-commit
+gate locally. ``--pr-base <ref>`` switches to ``git diff <ref>...HEAD``
+added lines for CI. Added-lines scoping is deliberate: a pre-existing
+doc example of a banned path shape is not this diff's leak, and
+flagging it would block every unrelated edit of that file. ``--all``
+scans every tracked text file end to end — the fallback when no merge
+base exists (first push of a branch, tag events); it is whole-tree by
+design, so repos carrying legitimate path examples should not rely on
+it passing.
+
+Findings report ``file:line: rule`` and never echo the line: copying
+the match into CI logs or annotations would re-leak the path (and
+whatever sits next to it on the line).
 
 Patterns — built from fragments on purpose, so this file stays clean
 under its own scan:
@@ -81,7 +90,10 @@ RULES: list[tuple[str, re.Pattern[str]]] = [
     ),
 ]
 
-EXCERPT_LEN = 120
+# Hunk header of a ``git diff -U0`` — captures the new-side start and
+# count of each added run.
+HUNK_RE = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@",
+                     re.MULTILINE)
 
 
 class GitError(RuntimeError):
@@ -130,15 +142,39 @@ def read_target(repo: Path, mode: str, rel: str) -> bytes | None:
     return proc.stdout if proc.returncode == 0 else None
 
 
-def scan_text(rel: str, text: str) -> list[str]:
+def added_lines(repo: Path, mode: str, base: str | None,
+                rel: str) -> set[int] | None:
+    """New-side line numbers the diff adds inside ``rel`` — the scan
+    scope for staged/pr modes, so a changed file's pre-existing content
+    (an old doc example the PR only edits near) is not flagged. ``None``
+    means whole-file: ``--all`` has no diff to scope by."""
+    if mode == "all":
+        return None
+    if mode == "staged":
+        out = _git(repo, "diff", "--cached", "-U0",
+                   "--diff-filter=ACM", "--", rel)
+    else:  # pr
+        out = _git(repo, "diff", f"{base}...HEAD", "-U0",
+                   "--diff-filter=ACM", "--", rel)
+    lines: set[int] = set()
+    for m in HUNK_RE.finditer(out):
+        start = int(m.group(1))
+        count = int(m.group(2)) if m.group(2) is not None else 1
+        lines.update(range(start, start + count))
+    return lines
+
+
+def scan_text(rel: str, text: str,
+              only: set[int] | None = None) -> list[str]:
     findings: list[str] = []
     for lineno, line in enumerate(text.splitlines(), 1):
+        if only is not None and lineno not in only:
+            continue
         for name, rx in RULES:
             if rx.search(line):
-                excerpt = line.strip()
-                if len(excerpt) > EXCERPT_LEN:
-                    excerpt = excerpt[: EXCERPT_LEN - 1] + "…"
-                findings.append(f"{rel}:{lineno}: {name}: {excerpt}")
+                # No excerpt: the match itself is the leak. file:line:
+                # rule is everything a fix needs.
+                findings.append(f"{rel}:{lineno}: {name}")
     return findings
 
 
@@ -152,7 +188,8 @@ def run(repo: Path, mode: str, base: str | None) -> tuple[list[str], int]:
         if blob is None or b"\0" in blob[:8192]:
             continue
         scanned += 1
-        findings += scan_text(rel, blob.decode("utf-8", errors="replace"))
+        findings += scan_text(rel, blob.decode("utf-8", errors="replace"),
+                              added_lines(repo, mode, base, rel))
     return findings, scanned
 
 
@@ -207,9 +244,18 @@ def selftest() -> int:
                    "docs: " + ok_user + "\n"
                    "alt: " + ok_home_sibling + "\n")
     expect("unit: runner/other homes pass", hits == [], "; ".join(hits))
-    expect("unit: finding format is file:line: excerpt",
+    expect("unit: finding is file:line: rule, no excerpt",
            scan_text("x.json", "a\n" + leak_home + "\n")
-           == ["x.json:2: personal-path/home-owner: " + leak_home])
+           == ["x.json:2: personal-path/home-owner"])
+    all_hits = (scan_text("x.json", leak_home + "\n")
+                + scan_text("y.md", leak_mac + "\n")
+                + scan_text("z.ini", leak_win_bs + "\n"))
+    expect("unit: findings never echo the matched path",
+           all_hits != []
+           and not any(leak in h for h in all_hits
+                       for leak in (leak_home, leak_mac, leak_win_bs)))
+    expect("unit: only= scopes the scan to added lines",
+           scan_text("x.json", leak_home + "\nclean\n", only={2}) == [])
 
     with tempfile.TemporaryDirectory() as td:
         base = Path(td)
@@ -247,6 +293,32 @@ def selftest() -> int:
                any(f.startswith("clean.json:") for f in findings),
                "; ".join(findings))
 
+        # ---- staged mode: only lines the diff adds are scanned ------
+        repo = base / "staged-partial"
+        _init_repo(repo)
+        (repo / "guide.md").write_text(
+            "intro\nold example " + leak_win_bs + "\noutro\n")
+        _git(repo, "add", "guide.md")
+        _git(repo, "-c", "user.email=t@t", "-c", "user.name=t",
+             "commit", "-qm", "base")
+        # Unrelated edit on line 1: the pre-existing example on line 2
+        # is context, not an addition — it must not fail the gate.
+        (repo / "guide.md").write_text(
+            "intro edited\nold example " + leak_win_bs + "\noutro\n")
+        _git(repo, "add", "guide.md")
+        findings, _ = run(repo, "staged", None)
+        expect("staged: pre-existing example not flagged",
+               findings == [], "; ".join(findings))
+        # A newly staged line carrying a path still flags.
+        (repo / "guide.md").write_text(
+            "intro edited\nold example " + leak_win_bs + "\noutro\n"
+            "new " + leak_home + "\n")
+        _git(repo, "add", "guide.md")
+        findings, _ = run(repo, "staged", None)
+        expect("staged: newly added path line flagged",
+               findings == ["guide.md:4: personal-path/home-owner"],
+               "; ".join(findings))
+
         # ---- pr-base mode ------------------------------------------
         repo = base / "pr"
         _init_repo(repo)
@@ -270,6 +342,24 @@ def selftest() -> int:
                not any(f.startswith("README.md") for f in findings))
         findings, _ = run(repo, "pr", "feat")
         expect("pr-base: empty diff is clean", findings == [])
+
+        # ---- pr-base mode: pre-existing content is not rescanned ----
+        repo = base / "pr-partial"
+        _init_repo(repo)
+        (repo / "guide.md").write_text(
+            "l1\nexample " + leak_win_bs + "\nl3\n")
+        _git(repo, "add", "guide.md")
+        _git(repo, "-c", "user.email=t@t", "-c", "user.name=t",
+             "commit", "-qm", "base")
+        _git(repo, "checkout", "-qb", "feat")
+        (repo / "guide.md").write_text(
+            "l1\nexample " + leak_win_bs + "\nl3 edited\n")
+        _git(repo, "add", "guide.md")
+        _git(repo, "-c", "user.email=t@t", "-c", "user.name=t",
+             "commit", "-qm", "doc tweak")
+        findings, _ = run(repo, "pr", "main")
+        expect("pr-base: untouched pre-existing example passes",
+               findings == [], "; ".join(findings))
 
         # ---- all mode -----------------------------------------------
         repo = base / "all"
@@ -338,8 +428,11 @@ def main(argv: list[str] | None = None) -> int:
     for finding in findings:
         print(finding)
         if annotate:
-            file_part, line_part, rest = finding.split(":", 2)
-            print(f"::error file={file_part},line={line_part}::{rest.strip()}")
+            # rpartition: filenames may contain ':' — the rule name and
+            # the line number are the two right-hand fields.
+            head, _, rule = finding.rpartition(": ")
+            file_part, _, line_part = head.rpartition(":")
+            print(f"::error file={file_part},line={line_part}::{rule}")
     if findings:
         print(f"check-internal-paths: {len(findings)} personal-path "
               f"finding(s) in {scanned} scanned file(s) — a machine path "
