@@ -23,7 +23,7 @@ their own pace. Concrete release tags (`v1.0.0`) mark the underlying commit.
 | `labeler.yml` | PR path-based auto-labeling | `pull_request_target` (opened/synchronize/reopened) | none |
 | `scorecard.yml` | OpenSSF Scorecard | `push` main + `schedule` + `workflow_dispatch` | none |
 | `codeql.yml` | CodeQL analysis | `push`/`pull_request` main + `schedule` | `language` (default `python`) |
-| `secrets-scan.yml` | Secret-shaped string scan | called from repo `ci.yml` | none |
+| `secrets-scan.yml` | Secret-shaped string scan + publish-workflow meta-check + personal-machine-paths diff gate (`scripts/check-internal-paths.py` — scans only the lines `diff <base>...HEAD` adds for the owner's home dir, macOS/Windows profile paths in text files; fork PRs run the pinned `v1` copy, heads without a usable base diff the default branch, whole-tree `--all` is the last resort) | called from repo `ci.yml` | none |
 | `adapters-check.yml` | Distributed-adapter hygiene scan (personal paths, internal names, token shapes, SKILL.md command coherence) + `safe-executable.cjs` byte-lockstep against `adapters/shared/` | called from repo `ci.yml` | none |
 | `config-restricted-check.yml` | VS Code extension `untrustedWorkspaces` coverage (declaration required; `limited` is restricted-by-default) | called from repo `ci.yml` | none |
 | `python-test.yml` | pytest on windows+ubuntu | called from repo `ci.yml` | `python-version`, `package-dir` |

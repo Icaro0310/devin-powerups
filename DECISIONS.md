@@ -1630,3 +1630,51 @@ Closure of the MÉDIO-3/4 + skill-audit flagged list. Two were factual and fixed
 - **Result:** sensor green on the hub + template; flags 13–15 floats on
   real sibling checkouts (dep-groups, ruff-action, publish installs),
   confirming it catches the class, not just the fixtures.
+
+## D-2026-10-25 — Personal-paths diff gate rides secrets-scan; literal-owner match only
+
+- **Context:** a `git add -A` swept a machine-state snapshot —
+  absolute home paths, username, cron schedules — into a public repo.
+  Neither existing sensor covers the class: secrets-scan greps the
+  tree for token shapes (a path is not a token) and adapters-check
+  only scans adapter roots (`adapters/`, `packages/*/adapters/`,
+  `.devin/skills/`), not arbitrary state files at the repo root.
+- **Decision:** `scripts/check-internal-paths.py` blocks the class at
+  the boundary where it enters — the diff, not the tree. Staged mode
+  (`git diff --cached`, index blob) is the local pre-commit gate;
+  `--pr-base <ref>` diffs `<ref>...HEAD` in CI; `--all` covers the
+  no-merge-base fallback. Both diff modes scan only the lines the diff
+  adds — a pre-existing doc example of a banned shape is context, not
+  the diff's leak, and must not block unrelated edits — and findings
+  report `file:line: rule` without the matched line, which would
+  re-leak the path into CI logs and annotations. Banned shapes: the
+  owner's literal home dir
+  (`/home/<owner>` — deliberately NOT `/home/*`, runners live in
+  /home/runner and docs legitimately show /home/user), macOS /Users/
+  paths, and Windows `<drive>:\Users\<name>` profiles — the last two
+  generalize safely because they never appear on Linux CI or in
+  legitimate ecosystem code. Scope is the incident's text-file class
+  (.json .yaml .yml .txt .md .env .cfg .ini .toml .csv .log). No
+  allowlist — unlike known-fake secrets fixtures, a personal path is
+  never legitimate; the fix is sanitize or gitignore.
+- **Wiring:** a step inside `secrets-scan.yml`, not a new reusable —
+  every `ci.yml` caller already invokes that gate, so one `v1` retag
+  propagates the sensor to the whole ecosystem with zero caller PRs
+  (same model as the publish-auth meta-check, D-2026-10-11b). The
+  scanner is fetched from `v1` into `.powerups-sensor` when the caller
+  does not ship it — script and workflow versions move together
+  (D-2026-10-13i). A checkout copy is trusted only for heads a writer
+  could produce (same-repo PRs, pushes — that is how this PR exercises
+  the new code on itself); fork PR heads run the pinned fetch instead,
+  because a contributor-controlled scanner inside the required gate
+  could exit 0 and approve itself.
+- **Evidence:** `--selftest` covers the unit matrix (owner home,
+  macOS, both Windows slash forms, runner/other-user negatives) and
+  all three git modes, including staged-blob-vs-worktree and the
+  dotfile edge (`.env` has no `Path.suffix`).
+- **Expected outcome:** the next `git add -A` carrying a machine path
+  fails the PR at the reusable gate in every consumer repo after
+  retag; locally the same script works as a staged-file gate before
+  the commit exists.
+- **Result:** sensor green on the hub's own diff (this PR); per-repo
+  activation lands with the next `v1` retag.
