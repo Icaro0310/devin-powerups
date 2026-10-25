@@ -772,9 +772,9 @@ jobs:
                     continue
                   fi
                   approve_err=""
-                  if gh api "repos/$REPO/pulls/$pr/reviews?per_page=100" 2>/dev/null \
-                      | jq -e --arg sha "$HEAD_SHA" \
-                        'map(select(.state == "APPROVED"
+                  if gh api "repos/$REPO/pulls/$pr/reviews?per_page=100" --paginate 2>/dev/null \
+                      | jq -se --arg sha "$HEAD_SHA" \
+                        '(add // []) | map(select(.state == "APPROVED"
                           and .commit_id == $sha
                           and .user.login == "github-actions[bot]")) | length > 0' \
                       >/dev/null; then
