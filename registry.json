@@ -470,7 +470,8 @@
           "devin-search",
           "devin-brain",
           "devin-judge"
-        ]
+        ],
+        "switch_profile": false
       },
       "no-devin": {
         "label": "No Devin",
