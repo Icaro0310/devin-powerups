@@ -1039,6 +1039,68 @@ class GateFallback(unittest.TestCase):
         self.assertNotIn("-X POST", log)
         self.assertIn("skipping duplicate", proc.stdout)
 
+    # --- v1.9: pre-approve freshness + dedup ---------------------------
+
+    def test_v19_head_moved_skips_approve(self):
+        # live head diverged from the evaluated HEAD_SHA — posting would
+        # approve commits the gate never reviewed; the fresh run owns it
+        newer = "f" * 40
+        fx = {"compares.json": {}, "commits.json": [],
+              "status.json": status_fixture(),
+              "pulls.json": {"Icaro0310/devin-test#5": {
+                  "head": {"sha": newer}}}}
+        proc, _, log = self.run_block(
+            self.approve, fx, extra_env=self.approve_env())
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertNotIn("pr review --approve", log)
+        self.assertIn("head moved", proc.stdout)
+        self.assertIn(newer[:12], proc.stdout)
+
+    def test_v19_already_approved_head_skips_duplicate(self):
+        # same-head retriggers (review reply, status) re-enter this
+        # step — a prior bot APPROVED on this head suppresses a second
+        fx = {"compares.json": {}, "commits.json": [],
+              "status.json": status_fixture(),
+              "pulls.json": {"Icaro0310/devin-test#5": {
+                  "head": {"sha": HEAD_SHA}}},
+              "pulls_reviews_pr5.json": [
+                  {"user": {"login": "github-actions[bot]"},
+                   "state": "APPROVED", "commit_id": HEAD_SHA},
+                  {"user": {"login": "github-actions[bot]"},
+                   "state": "APPROVED", "commit_id": "stale-old-sha"}]}
+        proc, _, log = self.run_block(
+            self.approve, fx, extra_env=self.approve_env())
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertNotIn("pr review --approve", log)
+        self.assertIn("skipping duplicate review", proc.stdout)
+
+    def test_v19_fresh_unapproved_head_still_approves(self):
+        # guard present, conditions clean: head matches and no prior
+        # bot approval — the real approve must still fire
+        fx = {"compares.json": {}, "commits.json": [],
+              "status.json": status_fixture(),
+              "pulls.json": {"Icaro0310/devin-test#5": {
+                  "head": {"sha": HEAD_SHA}}},
+              "pulls_reviews_pr5.json": [
+                  {"user": {"login": "devin-ai-integration[bot]"},
+                   "state": "APPROVED", "commit_id": HEAD_SHA},
+                  {"user": {"login": "github-actions[bot]"},
+                   "state": "COMMENTED", "commit_id": HEAD_SHA}]}
+        proc, _, log = self.run_block(
+            self.approve, fx, extra_env=self.approve_env())
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("pr review --approve", log)
+
+    def test_v19_pull_lookup_404_fails_open(self):
+        # no pulls.json fixture -> the stub 404s the live-head GET;
+        # a broken guard must not hold a clean PR — approve still runs
+        fx = {"compares.json": {}, "commits.json": [],
+              "status.json": status_fixture()}
+        proc, _, log = self.run_block(
+            self.approve, fx, extra_env=self.approve_env())
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("pr review --approve", log)
+
 
 if __name__ == "__main__":
     unittest.main()

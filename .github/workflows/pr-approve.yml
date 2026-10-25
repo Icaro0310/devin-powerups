@@ -1,10 +1,21 @@
 name: pr-approve
 
-# Version: v1.8 (D-2026-10-24: false-success fix — Devin "skipped for
+# Version: v1.9 (D-2026-10-26: self-cancellation fix — the APPROVED
+# review our own approve step posts triggers pull_request_review, and
+# the resulting run used to land on the same PR-keyed concurrency
+# group, cancelling the approving run 14ms after the post and
+# rendering as a failed check on the rollup. Non-Devin review runs now
+# key to their run_id so they can never cancel the gate; cancel-
+# in-progress stays true for real stale-head supersede. Belt for the
+# residual race: a run whose head already moved short-circuits before
+# the wait, the approve step re-verifies the live head per PR, and an
+# already-APPROVED head skips the duplicate review).
+#
+# v1.8 (D-2026-10-24): false-success fix — Devin "skipped for
 # credits" posts state=success too, so status adoption now requires the
 # completed-analysis description; Review Coverage status from
 # ai-review-fallback.yml counts as review evidence; fallback reviewers'
-# CHANGES_REQUESTED reviews count as blocking).
+# CHANGES_REQUESTED reviews count as blocking.
 # Callers pin @v<minor> tags; the owner moves the tag on merge, caller
 # pins roll forward after that.
 
@@ -121,13 +132,20 @@ name: pr-approve
 # disabled or slow), the run ends without approval instead of approving
 # unreviewed code — merge then needs a manual review.
 
-# Concurrency (v1.5, review-hardened): a status event, a review
-# submission and a reply on the same PR/head can launch overlapping
-# runs — two runs racing the audit-comment dedupe GET->POST would both
-# post the same comment. Same-key triggers cancel mid-flight losers;
-# a status run (keyed by head sha) still can't see a PR-numbered run,
-# so the residual race is a narrow cross-event overlap on the same
-# change — the dedupe check still dedupes sequential reruns.
+# Concurrency (v1.5, review-hardened; v1.9 self-cancel fix): a status
+# event, a review submission and a reply on the same PR/head can
+# launch overlapping runs — two runs racing an audit-comment or
+# approve dedupe GET->POST would both post. Same-key triggers cancel
+# mid-flight losers; a status run (keyed by head sha) still can't see
+# a PR-numbered run, so the residual race is a narrow cross-event
+# overlap on the same change — the dedupe check still dedupes
+# sequential reruns. One key is carved out: pull_request_review runs
+# not authored by the Devin app (above all the github-actions[bot]
+# review posted by our own approve step) land on a unique
+# nondevin-review-<run_id> key. They only ever skip on the job `if:`,
+# so cancelling the gate with them was pure loss — and a cancelled
+# run renders as a failed check on the PR rollup even after a
+# successful approve.
 on:
   pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review]
@@ -158,7 +176,10 @@ concurrency:
   # duplicates.
   group: >-
     pr-approve-${{ github.repository }}-${{
-      github.event.pull_request.number
+      (github.event_name == 'pull_request_review'
+        && github.event.review.user.login != 'devin-ai-integration[bot]'
+        && format('nondevin-review-{0}', github.run_id))
+      || github.event.pull_request.number
       || (github.event_name == 'status'
           && github.event.state == 'success'
           && (github.event.context == 'Review Coverage'
@@ -166,6 +187,16 @@ concurrency:
                   && contains(github.event.avatar_url || '', '/in/811515')))
           && github.event.sha)
       || github.run_id }}
+  # cancel-in-progress stays on for stale-head supersede (a push during
+  # the wait must kill the old-head run instantly). What changed is the
+  # group key above: a run that can only skip on `if:` — every
+  # pull_request_review not authored by the Devin app, most notably the
+  # github-actions[bot] review that OUR OWN approve posts — lands on a
+  # unique key instead of the PR key. Before v1.9 it cancelled the very
+  # run that had just approved the PR, which rendered as a failed check
+  # on the rollup even though the review posted (the "approved + fail"
+  # artifact). Real supersede runs (synchronize, Devin review, reply)
+  # keep the PR key and keep cancelling mid-flight losers.
   cancel-in-progress: true
 
 permissions:
@@ -215,6 +246,29 @@ jobs:
             done
             return 1
           }
+          # Superseded-head short-circuit (v1.9): queued runs now wake
+          # one after another — a run dispatched for a head that has
+          # already moved must not evaluate it, because a fresh run owns
+          # the new head. Skip fast and report nothing pending; the
+          # approve-time recheck below is the belt for staleness picked
+          # up inside the run itself. Fail-open on the lookup: a failed
+          # fetch falls through to the normal (fail-closed) evaluation.
+          if [ -n "${PR_NUMBER:-}" ]; then
+            live_head=$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq .head.sha 2>/dev/null || true)
+            if [ -n "$live_head" ] && [ "$live_head" != "$HEAD_SHA" ]; then
+              echo "head moved to ${live_head:0:12} since this run queued — superseded, nothing to gate"
+              {
+                echo "verdict=superseded"
+                echo "pr_numbers="
+                echo "verdict_map={}"
+                echo "any_reviewed=false"
+                echo "any_approvable=false"
+                echo "any_no_review=false"
+                echo "head_sha=$HEAD_SHA"
+              } >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
           pr_numbers="$PR_NUMBER"
           if [ "$GITHUB_EVENT_NAME" = "status" ]; then
             # Status events carry the commit, not the PR — find every open
@@ -704,8 +758,28 @@ jobs:
             case "$v" in
               APPROVED|STATUS_CLEAN|COMMENTED|FALLBACK_COVERED)
                 if [ "$v" = "APPROVED" ] || [ "$count" = "0" ]; then
+                  # v1.9: freshness + dedup before posting. Runs
+                  # serialize now — a queued run can be stale by the
+                  # time it reaches here, and same-head retriggers
+                  # (reply, review, status) would each post another
+                  # APPROVED. Re-verify the live head per PR and skip
+                  # when this head already carries our review. Both
+                  # lookups fail open into the approve attempt — a
+                  # broken guard must not hold a clean PR.
+                  live_head=$(gh api "repos/$REPO/pulls/$pr" --jq .head.sha 2>/dev/null || true)
+                  if [ -n "$live_head" ] && [ "$live_head" != "$HEAD_SHA" ]; then
+                    echo "PR #$pr head moved to ${live_head:0:12} since evaluation — skipping approve; a fresh run owns the new head"
+                    continue
+                  fi
                   approve_err=""
-                  if approve_err=$(gh pr review --approve "https://github.com/$REPO/pull/$pr" 2>&1); then
+                  if gh api "repos/$REPO/pulls/$pr/reviews?per_page=100" --paginate 2>/dev/null \
+                      | jq -se --arg sha "$HEAD_SHA" \
+                        '(add // []) | map(select(.state == "APPROVED"
+                          and .commit_id == $sha
+                          and .user.login == "github-actions[bot]")) | length > 0' \
+                      >/dev/null; then
+                    echo "PR #$pr already approved on ${HEAD_SHA:0:12} — skipping duplicate review"
+                  elif approve_err=$(gh pr review --approve "https://github.com/$REPO/pull/$pr" 2>&1); then
                     echo "approved PR #$pr ($v${count:+ with $count blocking})"
                   elif echo "$approve_err" | grep -qF "not permitted to approve pull requests"; then
                     # manual-blocking0 (v1.6): clean evaluation, but the
