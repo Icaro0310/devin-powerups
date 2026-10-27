@@ -50,8 +50,19 @@ def test_no_checkout_of_pr_head():
 def test_fallback_jobs_gate_on_classifier():
     for name in ("review-a", "review-b"):
         block = _job_block(name)
-        assert "needs: classify" in block
+        needs_line = next(l for l in block.splitlines() if "needs:" in l)
+        assert "classify" in needs_line, needs_line
         assert "EXECUTED" in block
+
+
+def test_review_b_serializes_after_review_a():
+    """The shared tailnet Ollama serves one request at a time (-np 1).
+    Parallel A+B queued the loser into its client timeout; B must wait
+    for A, and always() keeps B's own outcome honest when A failed."""
+    block = _job_block("review-b")
+    needs_line = next(l for l in block.splitlines() if "needs:" in l)
+    assert "review-a" in needs_line, needs_line
+    assert "always()" in block
 
 
 def test_coverage_runs_always_and_posts_own_status():
