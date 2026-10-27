@@ -118,6 +118,11 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           fail_on: none
           incremental: "false"
+          ai-response-format: json_object
+          ai-primary-retries: "2"
+          ai-primary-retry-delay-sec: "10"
+          ai-max-tokens: "2048"
+          ai-request-timeout-sec: "300"
         continue-on-error: true
 
       - name: Record outcome
@@ -137,8 +142,11 @@ jobs:
           echo "reviewer A: $r (findings=${{ steps.rev.outputs.findings_count || '?' }}, critical=${{ steps.rev.outputs.critical_count || '?' }})"
 
   review-b:
-    needs: classify
-    if: needs.classify.outputs.state != 'EXECUTED'
+    # Serialized after A: single-slot Ollama (-np 1) shared across
+    # repos queues requests server-side; parallel reviewers meant the
+    # second died at the client timeout while queued.
+    needs: [classify, review-a]
+    if: always() && needs.classify.outputs.state != 'EXECUTED'
     runs-on: ubuntu-latest
     # The action retries an unreachable endpoint internally and has no
     # bound of its own — PR #238 hung 55min issuing periodic probes with
@@ -225,7 +233,7 @@ jobs:
           ai-primary-retries: "2"
           ai-primary-retry-delay-sec: "10"
           ai-max-tokens: "2048"
-          ai-request-timeout-sec: "120"
+          ai-request-timeout-sec: "300"
         continue-on-error: true
 
       - name: Record outcome
