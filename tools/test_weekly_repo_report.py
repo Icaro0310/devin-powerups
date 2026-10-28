@@ -552,3 +552,79 @@ class TestCIBadge(unittest.TestCase):
             rep = wrr.collect_report(path, opener=opener)
         self.assertFalse(any("actions" in u for u in calls))
         self.assertNotIn("ci", rep["repos"][0])
+
+
+class TestE2ELine(unittest.TestCase):
+    def _briefing(self, tmp, entries):
+        path = Path(tmp) / "scout-briefing.json"
+        path.write_text(json.dumps({"e2e": entries}), encoding="utf-8")
+        return path
+
+    def test_load_briefing_maps_repo_to_status_and_tests(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self._briefing(tmp, [
+                {"repo": "devin-x", "status": "pass", "tests": 397},
+                {"repo": "devin-y", "status": "no_tests", "tests": None},
+                {"status": "skipped"},  # missing repo key — ignored
+            ])
+            e2e_map = wrr.load_e2e_briefing(path)
+        self.assertEqual(e2e_map["devin-x"], {"status": "pass", "tests": 397})
+        self.assertEqual(e2e_map["devin-y"], {"status": "no_tests", "tests": None})
+        self.assertNotIn("status", e2e_map)
+        self.assertEqual(len(e2e_map), 2)
+
+    def test_load_briefing_rejects_non_list_e2e(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self._briefing(tmp, {"repo": "devin-x"})
+            with self.assertRaises(ValueError):
+                wrr.load_e2e_briefing(path)
+
+    def test_e2e_line_renders_per_repo(self):
+        def opener(req, timeout=0):
+            return _BytesResponse(b"[]")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = registry(tmp, [project("devin-a"), project("devin-b"),
+                                  project("devin-c")])
+            e2e_map = {
+                "devin-a": {"status": "pass", "tests": 397},
+                "devin-b": {"status": "no_tests", "tests": None},
+            }
+            rep = wrr.collect_report(path, opener=opener, e2e_map=e2e_map)
+            html_out = wrr.render_html(rep)
+        self.assertIn("E2E: <b>pass</b> (397 tests)", html_out)
+        self.assertIn("E2E: <b>no_tests</b>", html_out)
+        self.assertIn("E2E: not in briefing.", html_out)
+        self.assertEqual(rep["repos"][0]["e2e"]["status"], "pass")
+        self.assertIsNone(rep["repos"][2]["e2e"])
+
+    def test_e2e_line_renders_on_error_and_empty_sections(self):
+        def opener(req, timeout=0):
+            if "/devin-err/commits" in req.full_url:
+                raise urllib.error.URLError("dns fail")
+            return _BytesResponse(b"[]")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = registry(tmp, [project("devin-err"), project("devin-ok")])
+            rep = wrr.collect_report(
+                path, opener=opener,
+                e2e_map={"devin-err": {"status": "fail", "tests": 12},
+                         "devin-ok": {"status": "pass", "tests": 3}})
+            html_out = wrr.render_html(rep)
+        self.assertIn("E2E: <b>fail</b> (12 tests)", html_out)
+        self.assertIn("E2E: <b>pass</b> (3 tests)", html_out)
+
+    def test_without_e2e_no_line(self):
+        def opener(req, timeout=0):
+            return _BytesResponse(b"[]")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = registry(tmp, [project("devin-x")])
+            rep = wrr.collect_report(path, opener=opener)
+        self.assertNotIn("e2e", rep["repos"][0])
+        self.assertNotIn("E2E:", wrr.render_html(rep))
+
+    def test_cli_e2e_missing_file_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = registry(tmp, [project("devin-x")])
+            rc = wrr.main(["--registry", str(path), "--out", f"{tmp}/o.html",
+                           "--e2e", f"{tmp}/missing.json"])
+        self.assertEqual(rc, 2)
+

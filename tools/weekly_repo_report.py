@@ -14,7 +14,8 @@ Usage:
     python tools/weekly_repo_report.py [--registry registry.json]
                                        [--out weekly-repo-report.html]
                                        [--days 7] [--max-commits 25]
-                                       [--timeout 15]
+                                       [--timeout 15] [--with-ci]
+                                       [--e2e scout-briefing.json]
 
     python tools/weekly_repo_report.py --send weekly-repo-report.html
                                        --to someone@example.com
@@ -24,6 +25,11 @@ Usage:
 MAILERSEND_SMTP_PORT, MAILERSEND_SMTP_USER, MAILERSEND_SMTP_PASSWORD) over
 verified TLS (ssl.create_default_context). The sender identity must be supplied
 with ``--from`` or ``REPORT_SENDER``; it is not the SMTP login.
+
+--e2e takes the path to a scout briefing JSON (reports/scout-<date>.json in
+the personal-agent-system workspace) and renders one E2E status line per
+repo — pass/fail (N tests), no_tests, skipped, or "not in briefing" when the
+repo is absent. Render-only: no extra network calls are made.
 """
 
 from __future__ import annotations
@@ -345,6 +351,38 @@ def _ci_badge(ci: dict | None) -> str:
             f"{inner}</b>]</small>")
 
 
+def load_e2e_briefing(path: Path) -> dict[str, dict]:
+    """Load per-repo E2E status from a scout briefing JSON.
+
+    The briefing's ``e2e`` list carries ``{repo, status, tests}`` entries
+    (status: pass/fail/no_tests/skipped). Returns {repo_name: entry}; a
+    repo absent from the list simply has no entry.
+    """
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    entries = data.get("e2e") if isinstance(data, dict) else None
+    if not isinstance(entries, list):
+        raise ValueError("briefing JSON: 'e2e' must be a list")
+    result = {}
+    for entry in entries:
+        if isinstance(entry, dict) and isinstance(entry.get("repo"), str):
+            result[entry["repo"]] = {
+                "status": entry.get("status"),
+                "tests": entry.get("tests"),
+            }
+    return result
+
+
+def _e2e_line(e2e: dict | None) -> str:
+    """Render the per-repo E2E status line; ``None`` means absent from the
+    briefing (muted), not an error."""
+    if e2e is None:
+        return '<p class="e2e muted">E2E: not in briefing.</p>'
+    status = html.escape(str(e2e.get("status") or "unknown"))
+    tests = e2e.get("tests")
+    suffix = f" ({int(tests)} tests)" if isinstance(tests, int) and not isinstance(tests, bool) else ""
+    return f'<p class="e2e">E2E: <b>{status}</b>{suffix}</p>'
+
+
 def collect_report(
     registry_path: Path,
     days: int = DEFAULT_DAYS,
@@ -353,6 +391,7 @@ def collect_report(
     now: datetime | None = None,
     opener=urllib.request.urlopen,
     with_ci: bool = False,
+    e2e_map: dict | None = None,
 ) -> dict:
     """Fetch all public-project commits and return the report data."""
     if days <= 0 or max_commits <= 0 or timeout <= 0:
@@ -364,6 +403,8 @@ def collect_report(
         result = fetch_commits(repo, since, now, timeout=timeout, opener=opener)
         if with_ci:
             result["ci"] = fetch_ci_status(repo, timeout=timeout, opener=opener)
+        if e2e_map is not None:
+            result["e2e"] = e2e_map.get(repo["name"])
         if len(result["commits"]) > max_commits:
             result["truncated"] = len(result["commits"]) - max_commits
             result["commits"] = result["commits"][:max_commits]
@@ -389,6 +430,8 @@ def render_html(report: dict) -> str:
         # repo urls are validated to https://github.com/<owner>/<repo> at load.
         url = html.escape(repo["url"], quote=True)
         header = f'<h2><a href="{url}">{name}</a>{_ci_badge(repo.get("ci"))}</h2>'
+        if "e2e" in repo:
+            header += f'\n{_e2e_line(repo["e2e"])}'
         if repo["error"]:
             sections.append(
                 f"{header}\n"
@@ -528,6 +571,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--with-ci", action="store_true",
                         help="PW-2: include a CI badge per repo (latest "
                         "Actions run; extra API call per repo)")
+    parser.add_argument("--e2e", metavar="BRIEFING_JSON",
+                        help="render a per-repo E2E status line from a "
+                        "scout briefing JSON (its 'e2e' list); render-only, "
+                        "no extra API calls")
     parser.add_argument("--send", metavar="HTML", help="send an existing report file via MailerSend SMTP")
     parser.add_argument("--to", metavar="ADDR", help="email recipient (required with --send)")
     parser.add_argument("--from", dest="sender", default=os.environ.get("REPORT_SENDER", ""),
@@ -544,6 +591,14 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("--from must not be empty")
         return send_report_email(Path(args.send), args.to, args.sender)
 
+    e2e_map = None
+    if args.e2e:
+        try:
+            e2e_map = load_e2e_briefing(Path(args.e2e))
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            print(f"::error::e2e briefing problem: {exc}", file=sys.stderr)
+            return 2
+
     try:
         report = collect_report(
             Path(args.registry),
@@ -551,6 +606,7 @@ def main(argv: list[str] | None = None) -> int:
             days=args.days,
             max_commits=args.max_commits,
             timeout=args.timeout,
+            e2e_map=e2e_map,
         )
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"::error::registry problem: {exc}", file=sys.stderr)
