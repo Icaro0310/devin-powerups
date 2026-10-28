@@ -18,9 +18,8 @@ permissions:
 jobs:
   snapshot:
     permissions:
-      contents: write
-      issues: write
-      pull-requests: write
+      contents: write   # push the snapshots data branch
+      issues: write     # open an issue on collection failure
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -73,12 +72,10 @@ jobs:
           python3 tools/fork_visibility.py --json "snapshots/forks-$(date +%F).json"
 
       - name: Commit snapshots
-        id: commit
         if: steps.window.outputs.active == 'true'
         run: |
           if git diff --quiet snapshots/ 2>/dev/null && [ -z "$(git status --porcelain snapshots/)" ]; then
             echo "no changes"
-            echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git config user.name "github-actions[bot]"
@@ -106,7 +103,6 @@ jobs:
           fi
           git commit -m "chore: weekly baseline snapshot $(date +%F)"
           git push -u origin snapshots
-          echo "changed=true" >> "$GITHUB_OUTPUT"
 
       - name: Fail if collectors recorded errors
         if: steps.window.outputs.active == 'true'
