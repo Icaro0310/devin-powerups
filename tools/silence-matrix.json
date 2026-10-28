@@ -150,6 +150,10 @@
   "threshold_h": 1,
   "repo": "Icaro0310/personal-agent-system"
  },
+ "vm-freshness-watch": {
+  "threshold_h": 2,
+  "repo": "Icaro0310/personal-agent-system"
+ },
  "slack-poll": {
   "threshold_h": 1,
   "repo": "Icaro0310/personal-agent-system"
