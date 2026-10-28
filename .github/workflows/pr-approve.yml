@@ -161,6 +161,11 @@ on:
         required: false
         type: number
         default: 12
+      runner:
+        description: "runs-on label — private repos pass 'self-hosted' to use their own runner instead of billed minutes."
+        required: false
+        type: string
+        default: "ubuntu-latest"
 
 concurrency:
   # Only events that can actually launch the approval job share the
@@ -205,7 +210,7 @@ permissions:
 
 jobs:
   approve:
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
     if: >-
       (github.event_name == 'status' &&
        github.event.context == 'Devin Review' &&
