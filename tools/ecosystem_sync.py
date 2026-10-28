@@ -549,6 +549,67 @@ def collect_health() -> list[tuple[str, str]]:
     return checks
 
 
+def collect_open_prs(repos: dict[str, str], timeout: int) -> list[tuple[str, int, str]]:
+    """Open PRs per physical repo -> [(repo, number, title)].
+
+    ``repos`` maps repo name -> owner. Failures are skipped silently: an
+    unauthenticated or unreachable ``gh`` must not blank the state file.
+    """
+    out: list[tuple[str, int, str]] = []
+    for name, owner in sorted(repos.items()):
+        try:
+            proc = subprocess.run(
+                ["gh", "pr", "list", "--repo", f"{owner}/{name}",
+                 "--state", "open", "--json", "number,title", "--limit", "25"],
+                capture_output=True, text=True, timeout=timeout + 5)
+            if proc.returncode != 0:
+                continue
+            for pr in json.loads(proc.stdout):
+                out.append((name, int(pr["number"]), str(pr["title"])))
+        except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError,
+                KeyError, TypeError):
+            continue
+    return out
+
+
+def write_state_md(path: Path, rows: list[Row],
+                   health: list[tuple[str, str]],
+                   prs: list[tuple[str, int, str]],
+                   generated: datetime) -> None:
+    """Markdown snapshot for agent consumption (push-memory source of truth)."""
+    lines = [
+        "# Ecosystem state",
+        "",
+        f"<!-- generated {generated.isoformat()} UTC by tools/ecosystem_sync.py — do not edit -->",
+        "",
+        "## Published versions",
+        "",
+        "| product | channel | local | remote | state |",
+        "|---|---|---|---|---|",
+    ]
+    for r in rows:
+        lines.append(f"| {r.product} | {r.channel} | {r.local} | {r.remote} | {r.state} |")
+    lines += ["", "## Service health", ""]
+    for name, status in health:
+        lines.append(f"- {name}: {status}")
+    drift = [r for r in rows if r.state in DRIFT_STATES]
+    lines += ["", "## Drift requiring action", ""]
+    if drift:
+        for r in drift:
+            lines.append(f"- **{r.product}** ({r.channel}): local {r.local} vs remote {r.remote} [{r.state}]")
+    else:
+        lines.append("- none")
+    lines += ["", "## Open PRs", ""]
+    if prs:
+        for repo, number, title in prs:
+            lines.append(f"- {repo}#{number} — {title}")
+    else:
+        lines.append("- none")
+    lines.append("")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
 def build_rows(products: list[Product], extensions: list[VsCodeExt],
                website_html: str | None, timeout: int, offline: bool,
                opener=urllib.request.urlopen) -> list[Row]:
@@ -750,6 +811,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--issue", action="store_true",
                         help="open a deduplicated 'drift' GitHub issue per affected repo")
     parser.add_argument("--json", action="store_true", help="machine-readable output")
+    parser.add_argument("--state-md", metavar="PATH",
+                        help="write a markdown state snapshot (agent push-memory)")
     args = parser.parse_args(argv)
 
     if args.timeout <= 0:
@@ -794,6 +857,13 @@ def main(argv: list[str] | None = None) -> int:
         ))
     else:
         print(render_report(rows, health, roots, datetime.now(timezone.utc)))
+
+    generated = datetime.now(timezone.utc)
+    if args.state_md:
+        owners = {name: owner for owner, name in
+                  (_repo_basename(e["url"]) for e in entries)}
+        prs = collect_open_prs(owners, args.timeout)
+        write_state_md(Path(args.state_md), rows, health, prs, generated)
 
     drift_rows = [r for r in rows if r.state in DRIFT_STATES]
     if args.issue:
