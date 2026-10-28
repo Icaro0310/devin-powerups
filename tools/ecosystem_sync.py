@@ -531,13 +531,50 @@ def check_ollama_via_vm(timeout: int = 10) -> str | None:
     return None if "200" in proc.stdout else f"ollama http={proc.stdout.strip()}"
 
 
-def collect_health() -> list[tuple[str, str]]:
+def check_slack_auth(roots: list[Path], timeout: int) -> str | None:
+    """Slack auth.test — proves the notify channel is alive, not just that
+    some caller reported success. Token from env or the first
+    ``*/gateways/.env`` under the roots; never logged. None = ok."""
+    token = os.environ.get("SLACK_BOT_TOKEN") or os.environ.get("SLACK_USER_TOKEN")
+    if not token:
+        for root in roots:
+            for env_file in sorted(root.glob("*/gateways/.env")):
+                try:
+                    for line in env_file.read_text(encoding="utf-8").splitlines():
+                        m = re.match(
+                            r"\s*(SLACK_BOT_TOKEN|SLACK_USER_TOKEN)\s*=\s*(.*\S)\s*$", line)
+                        if m:
+                            token = m.group(2).strip().strip("\"'")
+                            if m.group(1) == "SLACK_BOT_TOKEN":
+                                break
+                except OSError:
+                    continue
+                if token:
+                    break
+            if token:
+                break
+    if not token:
+        return "skip (no SLACK_*_TOKEN in env or gateways/.env)"
+    try:
+        req = urllib.request.Request(
+            "https://slack.com/api/auth.test", data=b"",
+            headers={"Authorization": f"Bearer {token}"})
+        data = json.loads(urllib.request.urlopen(req, timeout=timeout).read())
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        return f"{type(exc).__name__}: {exc}"[:140]
+    return None if data.get("ok") else str(data.get("error") or "not ok")[:140]
+
+
+def collect_health(roots: list[Path] | None = None,
+                   timeout: int = DEFAULT_TIMEOUT) -> list[tuple[str, str]]:
     """Daemon probes -> [(name, status)]; failures read DAEMON-DOWN."""
     checks: list[tuple[str, str]] = []
     failure = check_daemon(HEALTHZ_URL)
     checks.append(("mcp-hub/office healthz", "ok" if failure is None else f"DAEMON-DOWN {failure}"))
     failure = check_ollama_via_vm()
     checks.append(("ollama (via devin-vm)", "ok" if failure is None else f"DAEMON-DOWN {failure}"))
+    failure = check_slack_auth(roots or [], timeout)
+    checks.append(("slack auth.test", "ok" if failure is None else f"DAEMON-DOWN {failure}"))
     for unit in SYSTEMD_USER_UNITS:
         state = systemd_unit_state(unit)
         if state == "skip":
@@ -844,7 +881,7 @@ def main(argv: list[str] | None = None) -> int:
 
     rows = build_rows(products, extensions, website_html,
                       timeout=args.timeout, offline=args.offline)
-    health = [] if args.offline else collect_health()
+    health = [] if args.offline else collect_health(roots, args.timeout)
 
     if args.json:
         print(json.dumps(
