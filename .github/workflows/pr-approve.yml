@@ -210,7 +210,7 @@ permissions:
 
 jobs:
   approve:
-    runs-on: ${{ inputs.runner }}
+    runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
     if: >-
       (github.event_name == 'status' &&
        github.event.context == 'Devin Review' &&
