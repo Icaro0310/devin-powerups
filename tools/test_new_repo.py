@@ -345,6 +345,135 @@ class NewRepoTests(unittest.TestCase):
         self.assertEqual(rc, 1)
         self.assertEqual(self.registry.read_bytes(), before)
 
+    # -- --github (opt-in remote create + push) ----------------------------
+
+    def fake_run(self, calls, fail_on=None):
+        """subprocess.run double: records (argv, kwargs); fail_on is a
+        predicate receiving argv that raises CalledProcessError."""
+
+        def run(argv, **kwargs):
+            calls.append((list(argv), kwargs))
+            if fail_on and fail_on(list(argv)):
+                raise new_repo.subprocess.CalledProcessError(1, list(argv))
+            return new_repo.subprocess.CompletedProcess(argv, 0)
+
+        return run
+
+    def test_github_flag_commits_and_creates_remote(self):
+        calls = []
+        with mock.patch.object(
+            new_repo.subprocess, "run", self.fake_run(calls)
+        ):
+            rc = new_repo.main(self.argv("--github", "alpha", "Alpha tool"))
+        self.assertEqual(rc, 0)
+        argv0 = [argv for argv, _ in calls]
+        self.assertEqual(argv0[0], ["gh", "auth", "status"])
+        create = [
+            (argv, kw) for argv, kw in calls
+            if argv[:3] == ["gh", "repo", "create"]
+        ]
+        self.assertEqual(len(create), 1)
+        argv, kw = create[0]
+        self.assertEqual(
+            argv,
+            ["gh", "repo", "create", "TestOwner/devin-alpha", "--public",
+             "--source=.", "--push"],
+        )
+        self.assertEqual(kw.get("cwd"), self.dest())
+        self.assertIn(
+            ["git", "commit", "-m", "init"],
+            [argv for argv, _ in calls],
+        )
+        add = [argv for argv, _ in calls if argv[:2] == ["git", "add"]]
+        self.assertEqual(len(add), 1)
+        self.assertIn("pyproject.toml", add[0])
+        self.assertIn(
+            "pushed https://github.com/TestOwner/devin-alpha",
+            self._stdout.getvalue(),
+        )
+
+    def test_without_github_no_subprocess_and_hint_printed(self):
+        with mock.patch.object(new_repo.subprocess, "run") as run:
+            rc = new_repo.main(self.argv("alpha", "Alpha tool"))
+        self.assertEqual(rc, 0)
+        run.assert_not_called()
+        self.assertIn("gh repo create", self._stdout.getvalue())
+
+    def test_github_dry_run_prints_plan_without_executing(self):
+        with mock.patch.object(new_repo.subprocess, "run") as run:
+            rc = new_repo.main(
+                self.argv("--dry-run", "--github", "alpha", "Alpha tool")
+            )
+        self.assertEqual(rc, 0)
+        run.assert_not_called()
+        out = self._stdout.getvalue()
+        self.assertIn("gh auth status", out)
+        self.assertIn(
+            "gh repo create TestOwner/devin-alpha --public --source=. --push",
+            out,
+        )
+        self.assertFalse(self.dest().exists())
+
+    def test_github_visibility_private_mirrored(self):
+        calls = []
+        with mock.patch.object(
+            new_repo.subprocess, "run", self.fake_run(calls)
+        ):
+            rc = new_repo.main(
+                self.argv("--github", "--visibility", "private",
+                          "--kind", "system", "alpha", "Alpha tool")
+            )
+        self.assertEqual(rc, 0)
+        create = [
+            argv for argv, _ in calls
+            if argv[:3] == ["gh", "repo", "create"]
+        ]
+        self.assertIn("--private", create[0])
+        self.assertNotIn("--public", create[0])
+
+    def test_github_missing_gh_fails_loudly(self):
+        before = self.registry.read_bytes()
+        with mock.patch.object(
+            new_repo.subprocess,
+            "run",
+            side_effect=FileNotFoundError("gh"),
+        ):
+            rc = new_repo.main(self.argv("--github", "alpha", "Alpha tool"))
+        self.assertEqual(rc, 2)
+        self.assertIn("gh", self._stderr.getvalue())
+        self.assertFalse(self.dest().exists())
+        self.assertEqual(self.registry.read_bytes(), before)
+
+    def test_github_unauthenticated_fails_loudly(self):
+        before = self.registry.read_bytes()
+        calls = []
+        with mock.patch.object(
+            new_repo.subprocess,
+            "run",
+            self.fake_run(calls, fail_on=lambda a: a[:2] == ["gh", "auth"]),
+        ):
+            rc = new_repo.main(self.argv("--github", "alpha", "Alpha tool"))
+        self.assertEqual(rc, 1)
+        self.assertIn("gh auth", self._stderr.getvalue())
+        self.assertFalse(self.dest().exists())
+        self.assertEqual(self.registry.read_bytes(), before)
+
+    def test_github_create_failure_leaves_registry_untouched(self):
+        before = self.registry.read_bytes()
+        calls = []
+        with mock.patch.object(
+            new_repo.subprocess,
+            "run",
+            self.fake_run(
+                calls, fail_on=lambda a: a[:2] == ["gh", "repo"]
+            ),
+        ):
+            rc = new_repo.main(self.argv("--github", "alpha", "Alpha tool"))
+        self.assertEqual(rc, 1)
+        self.assertIn("github publish failed", self._stderr.getvalue())
+        self.assertTrue(self.dest().is_dir())
+        self.assertEqual(self.registry.read_bytes(), before)
+
     # -- classification ---------------------------------------------------
 
     def last_entry(self):

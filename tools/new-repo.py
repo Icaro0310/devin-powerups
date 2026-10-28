@@ -13,12 +13,21 @@ Creates ../devin-<name>/ next to this repo, fills {{name}} / {{module}} /
 and runs `git init -b main`. Unless --no-register is given, it also appends a
 registry entry to registry.json — the merged document is validated against
 registry.schema.json *before* anything is written, and registry.json is only
-updated after the scaffold + git init succeed (atomic write). Does NOT create
-the GitHub remote — do that with:
-    gh repo create Icaro0310/devin-<name> --public --source=. --push
+updated after the scaffold + git init succeed (atomic write).
 
-Exit codes: 0 ok · 1 validation drift (name, schema) or git failure ·
-2 input/file problem (missing template, unreadable registry, existing dest).
+By default it does NOT create the GitHub remote — it prints the command for
+you to run after review:
+    gh repo create Icaro0310/devin-<name> --public --source=. --push
+The opt-in --github flag performs that step instead: `gh auth status`
+pre-flight (fails loudly when gh is missing or unauthenticated), an initial
+commit of the scaffolded files, then `gh repo create <owner>/devin-<name>
+--public|--private --source=. --push` (visibility mirrors --visibility).
+Nothing is ever pushed unless --github is passed; --dry-run prints the same
+plan without executing any of it.
+
+Exit codes: 0 ok · 1 validation drift (name, schema), git/gh failure ·
+2 input/file problem (missing template, unreadable registry, existing dest,
+gh CLI not installed).
 """
 
 import argparse
@@ -38,6 +47,7 @@ ECOSYSTEM = HUB.parent
 TEMPLATE = HUB / "template"
 REGISTRY_PATH = HUB / "registry.json"
 SCHEMA_PATH = HUB / "registry.schema.json"
+DEFAULT_OWNER = "Icaro0310"
 
 SKIP_DIRS = {".git", "__pycache__", ".pytest_cache"}
 
@@ -279,6 +289,28 @@ def _git_init(dest: Path) -> None:
     subprocess.run(["git", "init", "-b", "main"], cwd=dest, check=True)
 
 
+def _git_commit(dest: Path, files: list[str]) -> None:
+    """Stage the scaffolded files and record the initial commit."""
+    subprocess.run(["git", "add", "--", *files], cwd=dest, check=True)
+    subprocess.run(["git", "commit", "-m", "init"], cwd=dest, check=True)
+
+
+def _gh(args: list[str], cwd: Path | None = None) -> None:
+    """Run a gh subcommand; OSError/CalledProcessError propagate."""
+    subprocess.run(["gh", *args], cwd=cwd, check=True)
+
+
+def _github_owner(registry_path: Path) -> str:
+    """Owner for the remote: registry.json's ``owner``, else DEFAULT_OWNER."""
+    try:
+        owner = json.loads(
+            Path(registry_path).read_text(encoding="utf-8")
+        ).get("owner")
+    except (OSError, json.JSONDecodeError):
+        owner = None
+    return owner if isinstance(owner, str) and owner else DEFAULT_OWNER
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="new-repo.py",
@@ -298,6 +330,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-register",
         action="store_true",
         help="scaffold only; do not touch registry.json",
+    )
+    parser.add_argument(
+        "--github",
+        action="store_true",
+        help="opt-in: commit the scaffolded files and run "
+             "'gh repo create <owner>/devin-<name> --source=. --push' "
+             "(--public/--private mirrors --visibility); never pushes "
+             "without this flag",
     )
     parser.add_argument(
         "--kind",
@@ -414,6 +454,7 @@ def main(argv: list[str] | None = None) -> int:
     registry_path = Path(args.registry)
     merged = None
     entry = None
+    owner = None
     if not args.no_register:
         try:
             schema = json.loads(
@@ -423,7 +464,6 @@ def main(argv: list[str] | None = None) -> int:
             print(f"error: cannot load schema {args.schema}: {exc}",
                   file=sys.stderr)
             return 2
-        owner = None
         try:
             owner = json.loads(
                 registry_path.read_text(encoding="utf-8")
@@ -466,12 +506,23 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"  {error}", file=sys.stderr)
             return 1
 
+    remote_owner = owner or _github_owner(registry_path)
+    visibility_flag = (
+        "--private" if args.visibility == "private" else "--public"
+    )
+
     if args.dry_run:
         print(f"dry-run: would scaffold {dest} from {TEMPLATE} "
               f"({len(files)} files):")
         for _, rel_str in files:
             print(f"  create {rel_str}")
         print(f"would run: git init -b main  (cwd={dest})")
+        if args.github:
+            print("would run: gh auth status  (pre-flight)")
+            print(f"would run: git add -- <{len(files)} scaffolded files> "
+                  f"&& git commit -m init  (cwd={dest})")
+            print(f"would run: gh repo create {remote_owner}/devin-{name} "
+                  f"{visibility_flag} --source=. --push  (cwd={dest})")
         if entry is not None:
             print(f"would append to {registry_path} "
                   "(schema-validated before write):")
@@ -481,6 +532,19 @@ def main(argv: list[str] | None = None) -> int:
         print("dry-run: nothing was created or modified")
         return 0
 
+    if args.github:
+        # Fail loudly before any side effects when gh cannot publish.
+        try:
+            _gh(["auth", "status"])
+        except FileNotFoundError:
+            print("error: --github needs the GitHub CLI ('gh') on PATH",
+                  file=sys.stderr)
+            return 2
+        except subprocess.CalledProcessError as exc:
+            print(f"error: 'gh auth status' failed — run 'gh auth login' "
+                  f"first ({exc})", file=sys.stderr)
+            return 1
+
     scaffold(TEMPLATE, dest, name, module, args.description)
     try:
         _git_init(dest)
@@ -488,6 +552,19 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: git init failed in {dest}: {exc}", file=sys.stderr)
         print("note: registry.json was left unchanged", file=sys.stderr)
         return 1
+
+    if args.github:
+        try:
+            _git_commit(dest, [rel for _, rel in files])
+            _gh(["repo", "create", f"{remote_owner}/devin-{name}",
+                 visibility_flag, "--source=.", "--push"], cwd=dest)
+        except (OSError, subprocess.CalledProcessError) as exc:
+            print(f"error: github publish failed in {dest}: {exc}",
+                  file=sys.stderr)
+            print("note: registry.json was left unchanged; the local "
+                  "scaffold is complete — retry the remote step manually",
+                  file=sys.stderr)
+            return 1
 
     if merged is not None:
         try:
@@ -501,10 +578,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"registered devin-{name} in {registry_path}")
 
     print(f"created {dest}")
-    visibility_flag = "--private" if args.visibility == "private" else "--public"
-    staged = " ".join(shlex.quote(rel) for _, rel in files)
-    print(f"next: cd {dest} && git add {staged} && git commit -m init && "
-          f"gh repo create Icaro0310/devin-{name} {visibility_flag} --source=. --push")
+    if args.github:
+        print(f"pushed https://github.com/{remote_owner}/devin-{name} "
+              f"({args.visibility})")
+    else:
+        staged = " ".join(shlex.quote(rel) for _, rel in files)
+        print(f"next: cd {dest} && git add {staged} && git commit -m init && "
+              f"gh repo create {remote_owner}/devin-{name} "
+              f"{visibility_flag} --source=. --push")
     return 0
 
 
