@@ -1,4 +1,5 @@
-"""Tests for ecosystem_sync --state-md snapshot generation."""
+"""Tests for ecosystem_sync: --state-md snapshot, freshness/silence
+sensors, heartbeat-ledger matrix and workflow freshness roll-up."""
 import importlib.util
 import json
 import sqlite3
@@ -247,16 +248,37 @@ class OpenSilenceIssuesTests(unittest.TestCase):
 
 
 class CollectFreshnessTests(unittest.TestCase):
-    def test_five_rows_one_per_component(self):
-        probes = {name: (None, False, "x") for name in
-                  ("_probe_dispatcher", "_probe_slack_output", "_probe_scout",
-                   "_probe_review_fallback", "_probe_heartbeat")}
+    def _collect(self, matrix, heartbeats=None, evidence="", workflow_rows=None,
+                 roots=None, probes=None):
+        """collect_freshness with every probe/evidence seam mocked."""
+        probe_defaults = {name: (None, False, "x") for name in
+                          ("_probe_dispatcher", "_probe_slack_output",
+                           "_probe_scout", "_probe_review_fallback",
+                           "_probe_heartbeat")}
+        probe_defaults.update(probes or {})
         stack = [mock.patch.object(es, n, return_value=v)
-                 for n, v in probes.items()]
+                 for n, v in probe_defaults.items()]
+        stack += [
+            mock.patch.object(es, "_load_silence_matrix",
+                              return_value=matrix),
+            mock.patch.object(es, "_read_heartbeats",
+                              return_value=heartbeats or {}),
+            mock.patch.object(es, "_install_evidence",
+                              return_value=evidence),
+            mock.patch.object(es, "_workflow_freshness",
+                              return_value=workflow_rows or []),
+        ]
         for p in stack:
             p.start()
         self.addCleanup(mock.patch.stopall)
-        rows = es.collect_freshness([Path("/nonexistent")], {}, 5, now=NOW)
+        return es.collect_freshness(
+            roots if roots is not None else [Path("/nonexistent")],
+            {}, 5, now=NOW)
+
+    def test_five_rows_one_per_component(self):
+        matrix = {t: {"threshold_h": h, "repo": "o/r"}
+                  for t, h, _ in es._FRESHNESS_CHECKS}
+        rows = self._collect(matrix)
         self.assertEqual(len(rows), 5)
         self.assertTrue(all(r.channel == "freshness" for r in rows))
         self.assertTrue(all(r.state == "unavailable" for r in rows))
@@ -264,6 +286,327 @@ class CollectFreshnessTests(unittest.TestCase):
             {r.product for r in rows},
             {"dispatcher", "slack-output", "scout", "review-fallback",
              "heartbeat"})
+
+    def test_special_probe_wins_over_ledger(self):
+        # "dispatcher" exists in the ledger AND the matrix, but the
+        # bespoke probe result (unavailable) must win.
+        matrix = {"dispatcher": {"threshold_h": 48, "repo": "o/r"}}
+        heartbeats = {"dispatcher": {
+            "last_success_at": NOW - 60, "last_failure_at": None,
+            "last_detail": ""}}
+        rows = self._collect(matrix, heartbeats)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].state, "unavailable")  # bespoke probe
+
+
+class HeartbeatLedgerTests(unittest.TestCase):
+    def _env(self, d):
+        return mock.patch.dict(es.os.environ,
+                               {"XDG_STATE_HOME": d, "HOME": d},
+                               clear=False)
+
+    def test_parses_success_failure_and_detail(self):
+        d = tempfile.mkdtemp()
+        self.addCleanup(
+            lambda: __import__("shutil").rmtree(d, ignore_errors=True))
+        ledger = Path(d) / "devin" / "heartbeats.jsonl"
+        ledger.parent.mkdir(parents=True)
+        ledger.write_text("\n".join([
+            '{"ts": %d, "tool": "office", "event": "success", "detail": "tick"}'
+            % (NOW - 7200),
+            '{"ts": %d, "tool": "office", "event": "failure", "detail": "boom"}'
+            % (NOW - 3600),
+            '{"ts": %d, "tool": "office", "event": "success", "detail": "ok2"}'
+            % (NOW - 1800),
+            '{"ts": %d, "tool": "queue-api", "event": "success"}' % NOW,
+        ]) + "\n")
+        with self._env(d):
+            beats = es._read_heartbeats([])
+        self.assertEqual(set(beats), {"office", "queue-api"})
+        office = beats["office"]
+        self.assertAlmostEqual(office["last_success_at"], NOW - 1800)
+        self.assertAlmostEqual(office["last_failure_at"], NOW - 3600)
+        self.assertEqual(office["last_detail"], "ok2")  # newest event wins
+        self.assertIsNone(beats["queue-api"]["last_failure_at"])
+
+    def test_malformed_lines_skipped(self):
+        d = tempfile.mkdtemp()
+        self.addCleanup(
+            lambda: __import__("shutil").rmtree(d, ignore_errors=True))
+        ledger = Path(d) / "devin" / "heartbeats.jsonl"
+        ledger.parent.mkdir(parents=True)
+        ledger.write_text("\n".join([
+            "not json at all",
+            '{"tool": "no-ts"}',
+            '{"ts": "not-an-epoch", "tool": "bad-ts", "event": "success"}',
+            '{"ts": 40, "tool": "counter", "event": "success"}',
+            '["a", "list"]',
+            '{"ts": %d, "tool": "good", "event": "success"}' % NOW,
+            "",
+        ]) + "\n")
+        with self._env(d):
+            beats = es._read_heartbeats([])
+        self.assertEqual(set(beats), {"good"})
+        self.assertAlmostEqual(beats["good"]["last_success_at"], NOW)
+
+    def test_merges_env_file_and_root_candidates(self):
+        d = tempfile.mkdtemp()
+        self.addCleanup(
+            lambda: __import__("shutil").rmtree(d, ignore_errors=True))
+        env_file = Path(d) / "elsewhere.jsonl"
+        env_file.write_text(
+            '{"ts": %d, "tool": "a", "event": "success"}\n' % (NOW - 100))
+        root = Path(d) / "root"
+        nested = (root / ".local" / "state" / "devin" /
+                  "heartbeats.jsonl")
+        nested.parent.mkdir(parents=True)
+        nested.write_text(
+            '{"ts": %d, "tool": "b", "event": "failure", "detail": "x"}\n'
+            % (NOW - 200))
+        env = {"XDG_STATE_HOME": str(Path(d) / "no-xdg"),
+               "HOME": str(Path(d) / "no-home"),
+               "DEVIN_HEARTBEAT_FILE": str(env_file)}
+        with mock.patch.dict(es.os.environ, env, clear=False):
+            beats = es._read_heartbeats([root])
+        self.assertEqual(set(beats), {"a", "b"})
+        self.assertAlmostEqual(beats["b"]["last_failure_at"], NOW - 200)
+
+    def test_no_files_returns_empty(self):
+        d = tempfile.mkdtemp()
+        self.addCleanup(
+            lambda: __import__("shutil").rmtree(d, ignore_errors=True))
+        env = {"XDG_STATE_HOME": d, "HOME": d,
+               "DEVIN_HEARTBEAT_FILE": str(Path(d) / "absent.jsonl")}
+        with mock.patch.dict(es.os.environ, env, clear=False):
+            self.assertEqual(es._read_heartbeats([Path(d)]), {})
+
+
+class MatrixToolRowTests(CollectFreshnessTests):
+    def test_silence_drift_and_ok(self):
+        matrix = {"session-sweep": {"threshold_h": 3, "repo": "o/r"},
+                  "office": {"threshold_h": 0.25, "repo": "o/r"}}
+        heartbeats = {
+            "session-sweep": {"last_success_at": NOW - 10 * 3600,
+                              "last_failure_at": None, "last_detail": ""},
+            "office": {"last_success_at": NOW - 5 * 60,
+                       "last_failure_at": None, "last_detail": "tick"},
+        }
+        rows = {r.product: r for r in self._collect(matrix, heartbeats)}
+        self.assertEqual((rows["session-sweep"].state,
+                          rows["session-sweep"].local), ("drift", "10h"))
+        self.assertEqual((rows["office"].state, rows["office"].local),
+                         ("ok", "5m"))
+        self.assertEqual(rows["office"].remote, "<=15m")
+
+    def test_err_streak_gets_extra_row(self):
+        matrix = {"session-sweep": {"threshold_h": 3, "repo": "o/r"}}
+        heartbeats = {"session-sweep": {
+            "last_success_at": NOW - 2 * 3600,
+            "last_failure_at": NOW - 1800,
+            "last_detail": "exit 1"}}
+        rows = self._collect(matrix, heartbeats)
+        self.assertEqual(len(rows), 2)
+        base, errors = rows
+        self.assertEqual(base.state, "ok")  # success still fresh
+        self.assertEqual(errors.product, "session-sweep (errors)")
+        self.assertEqual((errors.state, errors.local),
+                         ("drift", "err streak"))
+        self.assertIn(errors.state, es.DRIFT_STATES)
+        self.assertIn("exit 1", errors.note)
+
+    def test_only_failures_is_never_plus_errors(self):
+        matrix = {"queue-worker": {"threshold_h": 0.25, "repo": "o/r"}}
+        heartbeats = {"queue-worker": {
+            "last_success_at": None,
+            "last_failure_at": NOW - 600,
+            "last_detail": "crash"}}
+        rows = self._collect(matrix, heartbeats)
+        self.assertEqual(len(rows), 2)
+        self.assertEqual((rows[0].state, rows[0].local), ("drift", "never"))
+        self.assertEqual(rows[1].product, "queue-worker (errors)")
+
+    def test_absent_installed_is_never_drift(self):
+        matrix = {"session-janitor": {"threshold_h": 30, "repo": "o/r"}}
+        rows = self._collect(
+            matrix, heartbeats={},
+            evidence="*/30 * * * * /home/x/bin/session-janitor --run\n")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual((rows[0].state, rows[0].local), ("drift", "never"))
+        self.assertIn("never emitted", rows[0].note)
+
+    def test_absent_installed_via_path_glob(self):
+        d = tempfile.mkdtemp()
+        self.addCleanup(
+            lambda: __import__("shutil").rmtree(d, ignore_errors=True))
+        script = Path(d) / "repo" / "scripts" / "queue-api"
+        script.parent.mkdir(parents=True)
+        script.write_text("#!/bin/sh\n")
+        matrix = {"queue-api": {"threshold_h": 0.25, "repo": "o/r"}}
+        rows = self._collect(matrix, heartbeats={}, roots=[Path(d)])
+        self.assertEqual((rows[0].state, rows[0].local), ("drift", "never"))
+
+    def test_absent_not_installed_is_unavailable(self):
+        matrix = {"vm-sync": {"threshold_h": 192, "repo": "o/r"}}
+        rows = self._collect(matrix, heartbeats={}, evidence="")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].state, "unavailable")
+        self.assertNotIn(rows[0].state, es.DRIFT_STATES)
+
+    def test_fractional_threshold_boundary(self):
+        matrix = {"office": {"threshold_h": 0.25, "repo": "o/r"}}
+        ok = self._collect(matrix, {"office": {
+            "last_success_at": NOW - 14 * 60, "last_failure_at": None,
+            "last_detail": ""}})[0]
+        drift = self._collect(matrix, {"office": {
+            "last_success_at": NOW - 16 * 60, "last_failure_at": None,
+            "last_detail": ""}})[0]
+        self.assertEqual(ok.state, "ok")
+        self.assertEqual(drift.state, "drift")
+
+
+class WorkflowFreshnessTests(unittest.TestCase):
+    OWNERS = {"repo-a": "o", "repo-b": "o"}
+
+    def _gh(self, runs_by_key, default="missing"):
+        def fake(cmd, **kw):
+            repo = cmd[cmd.index("--repo") + 1]
+            wf = cmd[cmd.index("--workflow") + 1]
+            payload = runs_by_key.get((repo, wf), default)
+            if payload == "missing":
+                return mock.Mock(returncode=1, stdout="",
+                                 stderr="could not find any workflows "
+                                        "named x")
+            if payload is None:
+                return mock.Mock(returncode=1, stdout="",
+                                 stderr="HTTP 401 auth required")
+            return mock.Mock(returncode=0, stdout=json.dumps(payload),
+                             stderr="")
+        return fake
+
+    def _iso(self, epoch):
+        return datetime.fromtimestamp(epoch, timezone.utc).isoformat()
+
+    def test_aggregates_across_repos(self):
+        runs = {
+            ("o/repo-a", "python-test.yml"): [
+                {"createdAt": self._iso(NOW - 3600), "conclusion": "success"}],
+            ("o/repo-b", "python-test.yml"): [
+                {"createdAt": self._iso(NOW - 2 * 3600),
+                 "conclusion": "success"}],
+        }
+        with mock.patch.object(es.subprocess, "run",
+                               side_effect=self._gh(runs)):
+            rows = {r.product: r for r in
+                    es._workflow_freshness(self.OWNERS, 5, now=NOW)}
+        self.assertEqual((rows["python-test"].state,
+                          rows["python-test"].local), ("ok", "1h"))
+        # every other workflow: queried ok (could-not-find) but no runs
+        for name in ("ai-review-fallback", "test", "release"):
+            self.assertEqual((rows[name].state, rows[name].local),
+                             ("drift", "never"), name)
+
+    def test_err_streak_row(self):
+        runs = {
+            ("o/repo-a", "release.yml"): [
+                {"createdAt": self._iso(NOW - 1800),
+                 "conclusion": "failure"},
+                {"createdAt": self._iso(NOW - 2 * 3600),
+                 "conclusion": "success"},
+            ],
+        }
+        with mock.patch.object(es.subprocess, "run",
+                               side_effect=self._gh(runs)):
+            rows = {r.product: r for r in
+                    es._workflow_freshness(self.OWNERS, 5, now=NOW)}
+        base = rows["release"]
+        self.assertEqual((base.state, base.local), ("ok", "30m"))
+        errors = rows["release (errors)"]
+        self.assertEqual((errors.state, errors.local),
+                         ("drift", "err streak"))
+        self.assertIn("conclusion=failure", errors.note)
+
+    def test_newer_success_clears_streak(self):
+        runs = {
+            ("o/repo-a", "release.yml"): [
+                {"createdAt": self._iso(NOW - 600), "conclusion": "success"},
+                {"createdAt": self._iso(NOW - 1200), "conclusion": "failure"},
+            ],
+        }
+        with mock.patch.object(es.subprocess, "run",
+                               side_effect=self._gh(runs)):
+            rows = {r.product: r for r in
+                    es._workflow_freshness(self.OWNERS, 5, now=NOW)}
+        self.assertEqual(rows["release"].state, "ok")
+        self.assertNotIn("release (errors)", rows)
+
+    def test_all_repos_fail_is_unavailable(self):
+        with mock.patch.object(es.subprocess, "run",
+                               side_effect=self._gh({}, default=None)):
+            rows = es._workflow_freshness(self.OWNERS, 5, now=NOW)
+        self.assertEqual(len(rows), 4)
+        self.assertTrue(all(r.state == "unavailable" for r in rows))
+
+    def test_threshold_boundary_7d(self):
+        runs = {("o/repo-a", "ai-review-fallback.yml"): [
+            {"createdAt": self._iso(NOW - 8 * 24 * 3600),
+             "conclusion": "success"}]}
+        with mock.patch.object(es.subprocess, "run",
+                               side_effect=self._gh(runs)):
+            rows = {r.product: r for r in
+                    es._workflow_freshness(self.OWNERS, 5, now=NOW)}
+        self.assertEqual((rows["ai-review-fallback"].state,
+                          rows["ai-review-fallback"].remote),
+                         ("drift", "<=7d"))
+
+
+class SilenceMatrixFileTests(unittest.TestCase):
+    def test_shipped_matrix_loads(self):
+        matrix = es._load_silence_matrix()
+        self.assertGreaterEqual(len(matrix), 20)
+        self.assertAlmostEqual(matrix["office"]["threshold_h"], 0.25)
+        self.assertAlmostEqual(matrix["weekly-testgen"]["threshold_h"], 192)
+        self.assertEqual(matrix["review-fallback"]["repo"],
+                         "Icaro0310/devin-powerups")
+        for tool in ("dispatcher", "slack-output", "scout",
+                     "review-fallback", "heartbeat"):
+            self.assertIn(tool, matrix)
+
+    def test_fallback_on_missing_or_invalid(self):
+        missing = es._load_silence_matrix(Path("/nonexistent/matrix.json"))
+        self.assertEqual(set(missing),
+                         {t for t, _, _ in es._FRESHNESS_CHECKS})
+        d = tempfile.mkdtemp()
+        self.addCleanup(
+            lambda: __import__("shutil").rmtree(d, ignore_errors=True))
+        bad = Path(d) / "m.json"
+        bad.write_text('{"x": {"threshold_h": -1}, "y": "nope"}')
+        self.assertEqual(set(es._load_silence_matrix(bad)),
+                         {t for t, _, _ in es._FRESHNESS_CHECKS})
+
+
+class SilenceMonitorSectionTests(unittest.TestCase):
+    def test_state_md_lists_silence_rows(self):
+        d = tempfile.mkdtemp()
+        self.addCleanup(
+            lambda: __import__("shutil").rmtree(d, ignore_errors=True))
+        out = Path(d) / "state.md"
+        rows = [
+            es.Row("devin-x", "pypi", "0.1", "0.1", "ok"),
+            es.Row("office", "freshness", "4m", "<=15m", "ok", "o/r"),
+            es.Row("session-sweep", "freshness", "31h", "<=3h", "drift",
+                   "o/r"),
+            es.Row("vm-sync", "freshness", "—", "<=8d", "unavailable",
+                   "o/r"),
+            es.Row("queue-api (errors)", "freshness", "err streak",
+                   "<=15m", "drift", "o/r"),
+        ]
+        es.write_state_md(out, rows, [], [], datetime.now(timezone.utc))
+        text = out.read_text()
+        self.assertIn("## Silence Monitor", text)
+        self.assertIn("- office: ok", text)
+        self.assertIn("- session-sweep: DRIFT 31h", text)
+        self.assertIn("- vm-sync: n/a", text)
+        self.assertIn("- queue-api (errors): DRIFT err streak", text)
 
 
 class ParseTimestampTests(unittest.TestCase):

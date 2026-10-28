@@ -23,11 +23,16 @@ A health section probes the local daemons (mcp-hub /devin-office healthz,
 Ollama on the tailnet, known systemd --user units). Daemon failures print
 ``DAEMON-DOWN`` lines but never crash the report.
 
-A freshness section watches silent components (dispatcher queue, Slack
-notify ledger, weekly scout, review-fallback runs, heartbeat): a component
-that produces nothing within its expected interval is reported as ``drift``
-in the ``freshness`` channel so it feeds --state-md and, with --issue,
-opens ``silence-alert`` issues plus a Slack notify (``--no-silence-alerts``
+A freshness section watches silent components on top of two sources.
+Five bespoke probes keep working (dispatcher queue, Slack notify ledger,
+weekly scout, review-fallback runs, heartbeat state); a universal silence
+matrix (``tools/silence-matrix.json``) adds every tool that emits to the
+shared heartbeat ledger (``$XDG_STATE_HOME/devin/heartbeats.jsonl`` or
+``$DEVIN_HEARTBEAT_FILE``), plus a per-workflow GitHub Actions freshness
+roll-up. A component that produces nothing within its expected interval —
+or whose recent events are failures — is reported as ``drift`` in the
+``freshness`` channel so it feeds --state-md and, with --issue, opens
+``silence-alert`` issues plus a Slack notify (``--no-silence-alerts``
 disables those side effects).
 
 Usage:
@@ -621,7 +626,8 @@ def collect_open_prs(repos: dict[str, str], timeout: int) -> list[tuple[str, int
 def write_state_md(path: Path, rows: list[Row],
                    health: list[tuple[str, str]],
                    prs: list[tuple[str, int, str]],
-                   generated: datetime) -> None:
+                   generated: datetime,
+                   silence: list[Row] | None = None) -> None:
     """Markdown snapshot for agent consumption (push-memory source of truth)."""
     lines = [
         "# Ecosystem state",
@@ -638,6 +644,20 @@ def write_state_md(path: Path, rows: list[Row],
     lines += ["", "## Service health", ""]
     for name, status in health:
         lines.append(f"- {name}: {status}")
+    if silence is None:
+        silence = [r for r in rows if r.channel == "freshness"]
+    lines += ["", "## Silence Monitor", ""]
+    if silence:
+        for r in silence:
+            if r.state == "ok":
+                status = "ok"
+            elif r.state in DRIFT_STATES:
+                status = f"DRIFT {r.local}"
+            else:
+                status = "n/a"
+            lines.append(f"- {r.product}: {status}")
+    else:
+        lines.append("- none")
     drift = [r for r in rows if r.state in DRIFT_STATES]
     lines += ["", "## Drift requiring action", ""]
     if drift:
@@ -790,13 +810,16 @@ def _fmt_age(seconds: float) -> str:
     return f"{int(round(seconds / 3600.0))}h"
 
 
-def _fmt_threshold(hours: int) -> str:
+def _fmt_threshold(hours: float) -> str:
+    hours = float(hours)
+    if hours < 1:
+        return f"<={int(round(hours * 60))}m"
     if hours >= 24 and hours % 24 == 0:
-        return f"<={hours // 24}d"
-    return f"<={hours}h"
+        return f"<={int(hours) // 24}d"
+    return f"<={hours:g}h"
 
 
-def _fresh_row(product: str, repo: str, threshold_h: int,
+def _fresh_row(product: str, repo: str, threshold_h: float,
                probe: tuple[float | None, bool, str], now: float) -> Row:
     """Map one probe result to a freshness Row (ok | drift | unavailable)."""
     remote = _fmt_threshold(threshold_h)
@@ -1022,16 +1045,271 @@ def _probe_heartbeat(roots: list[Path]) -> tuple[float | None, bool, str]:
     return None, False, "heartbeat state.json not found"
 
 
+# ---------------------------------------------------------------------------
+# Universal silence matrix (freshness v2)
+#
+# On top of the five bespoke probes, every ops tool that emits to the shared
+# heartbeat ledger ($XDG_STATE_HOME/devin/heartbeats.jsonl, overridable via
+# $DEVIN_HEARTBEAT_FILE) gets a row driven by tools/silence-matrix.json:
+#     {tool: {"threshold_h": hours, "repo": "owner/issue-repo"}}
+# Two failure classes land in DRIFT_STATES:
+#   silence    now - last_success_at > threshold        -> "<tool>" row
+#   err streak last_failure_at > last_success_at        -> "<tool> (errors)"
+# A tool absent from the ledger is "drift/never" when it looks installed
+# (crontab/systemd evidence or a scripts|bin path match) and "unavailable"
+# otherwise — never-emitted is signal, uninstalled is noise.
+
+SILENCE_MATRIX_PATH = Path(__file__).resolve().parent / "silence-matrix.json"
+
+
+def _load_silence_matrix(path: Path | None = None) -> dict[str, dict]:
+    """Silence matrix ``{tool: {"threshold_h": float, "repo": str}}``.
+
+    Falls back to the built-in five sensors when the shipped JSON is
+    missing, unreadable or has no valid entries."""
+    source = Path(path) if path else SILENCE_MATRIX_PATH
+    try:
+        data = json.loads(source.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        data = None
+    matrix: dict[str, dict] = {}
+    if isinstance(data, dict):
+        for tool, cfg in data.items():
+            if not isinstance(tool, str) or not tool.strip():
+                continue
+            if not isinstance(cfg, dict):
+                continue
+            try:
+                threshold_h = float(cfg.get("threshold_h"))
+            except (TypeError, ValueError):
+                continue
+            if threshold_h <= 0:
+                continue
+            matrix[tool.strip()] = {
+                "threshold_h": threshold_h,
+                "repo": str(cfg.get("repo") or SILENCE_REPO_PAS),
+            }
+    if not matrix:
+        matrix = {tool: {"threshold_h": float(h), "repo": repo}
+                  for tool, h, repo in _FRESHNESS_CHECKS}
+    return matrix
+
+
+def _heartbeat_ledger_paths(roots: list[Path] | None = None) -> list[Path]:
+    """Candidate heartbeats.jsonl locations, deduped in priority order.
+
+    The ledger lives under the service account's state dir, so beside the
+    XDG default and $DEVIN_HEARTBEAT_FILE we also scan each checkout root
+    (a service home may itself be a root)."""
+    paths: list[Path] = []
+    env_file = os.environ.get("DEVIN_HEARTBEAT_FILE")
+    if env_file:
+        paths.append(Path(env_file).expanduser())
+    xdg = os.environ.get("XDG_STATE_HOME")
+    state_bases = [Path(xdg)] if xdg else []
+    state_bases.append(Path.home() / ".local" / "state")
+    for base in state_bases:
+        paths.append(base / "devin" / "heartbeats.jsonl")
+    for root in roots or []:
+        root = Path(root)
+        paths.append(root / ".local" / "state" / "devin" / "heartbeats.jsonl")
+        paths.extend(sorted(
+            root.glob("*/.local/state/devin/heartbeats.jsonl")))
+    return list(dict.fromkeys(paths))
+
+
+def _read_heartbeats(roots: list[Path] | None = None) -> dict[str, dict]:
+    """Merge every heartbeat ledger into
+    ``{tool: {last_success_at, last_failure_at, last_detail}}``.
+
+    Lines are ``{"ts": epoch, "tool": name, "event": "success"|"failure",
+    "detail": str}``; malformed lines/files are skipped, never fatal."""
+    tools: dict[str, dict] = {}
+    for path in _heartbeat_ledger_paths(roots):
+        try:
+            lines = path.read_text(
+                encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            continue
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entry = json.loads(line)
+            except ValueError:
+                continue
+            if not isinstance(entry, dict):
+                continue
+            tool = entry.get("tool")
+            if not isinstance(tool, str) or not tool.strip():
+                continue
+            ts = _parse_timestamp(entry.get("ts"))
+            if ts is None:
+                continue
+            slot = tools.setdefault(tool.strip(), {
+                "last_success_at": None,
+                "last_failure_at": None,
+                "last_detail": "",
+                "_latest_ts": None,
+            })
+            event = str(entry.get("event") or "").strip().lower()
+            if event == "success":
+                if slot["last_success_at"] is None or ts > slot["last_success_at"]:
+                    slot["last_success_at"] = ts
+            elif event == "failure":
+                if slot["last_failure_at"] is None or ts > slot["last_failure_at"]:
+                    slot["last_failure_at"] = ts
+            if slot["_latest_ts"] is None or ts >= slot["_latest_ts"]:
+                slot["_latest_ts"] = ts
+                detail = entry.get("detail")
+                slot["last_detail"] = str(detail)[:200] if detail is not None else ""
+    for slot in tools.values():
+        slot.pop("_latest_ts", None)
+    return tools
+
+
+def _install_evidence(timeout: int = 5) -> str:
+    """Text corpus for the 'is it installed' heuristic.
+
+    User crontab plus systemd --user unit names — the instrumented fleet
+    (slack-poll, office, queue-*, autodeploy…) runs as services, so unit
+    files count as installation evidence just like crontab lines. Both
+    probes tolerate absence."""
+    chunks: list[str] = []
+    for cmd in (["crontab", "-l"],
+                ["systemctl", "--user", "list-unit-files", "--no-legend"]):
+        try:
+            proc = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=timeout)
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+        if proc.returncode == 0 and proc.stdout:
+            chunks.append(proc.stdout)
+    return "\n".join(chunks)
+
+
+def _tool_is_installed(tool: str, roots: list[Path], evidence: str) -> bool:
+    """'Installed' heuristic: the name appears in crontab/systemd evidence
+    or a ``scripts/<tool>*`` / ``bin/<tool>*`` path exists under a root."""
+    if evidence and re.search(
+            rf"(?<![A-Za-z0-9]){re.escape(tool)}(?![A-Za-z0-9])", evidence):
+        return True
+    for root in roots:
+        for pattern in (f"scripts/{tool}*", f"bin/{tool}*",
+                        f"*/scripts/{tool}*", f"*/bin/{tool}*"):
+            try:
+                if any(root.glob(pattern)):
+                    return True
+            except OSError:
+                continue
+    return False
+
+
+# (workflow file, threshold_days, kind) — kind routes silence issues:
+# "ecosystem" -> devin-powerups, "ops" -> personal-agent-system.
+WORKFLOW_CHECKS = (
+    ("ai-review-fallback.yml", 7, "ecosystem"),
+    ("python-test.yml", 14, "ecosystem"),
+    ("test.yml", 14, "ecosystem"),
+    ("release.yml", 30, "ecosystem"),
+)
+WORKFLOW_KIND_REPOS = {
+    "ecosystem": SILENCE_REPO_HUB,
+    "ops": SILENCE_REPO_PAS,
+}
+
+
+def _workflow_freshness(owners: dict[str, str], timeout: int,
+                        now: float | None = None) -> list[Row]:
+    """Per-workflow GitHub Actions freshness, aggregated across the fleet.
+
+    For each (owner, repo) x workflow the newest 3 runs are inspected;
+    per workflow the newest completed run marks last activity and the
+    newest ``success`` run marks last success. A newest completed run with
+    a non-success conclusion and no newer success is an ``err streak``
+    drift. Every repo failing to query makes the row ``unavailable``.
+    """
+    now = time.time() if now is None else now
+    rows: list[Row] = []
+    for workflow_file, threshold_d, kind in WORKFLOW_CHECKS:
+        threshold_h = threshold_d * 24.0
+        repo = WORKFLOW_KIND_REPOS.get(kind, SILENCE_REPO_HUB)
+        product = Path(workflow_file).stem
+        newest_completed: tuple[float, str] | None = None
+        newest_success: float | None = None
+        queried = 0
+        for name, owner in sorted(owners.items()):
+            try:
+                proc = subprocess.run(
+                    ["gh", "run", "list", "--repo", f"{owner}/{name}",
+                     "--workflow", workflow_file, "--limit", "3",
+                     "--json", "createdAt,conclusion"],
+                    capture_output=True, text=True, timeout=timeout + 5)
+            except (OSError, subprocess.TimeoutExpired):
+                continue
+            if proc.returncode != 0:
+                # Absent-workflow errors are definitive answers, not query
+                # failures — gh says either "could not find any workflows
+                # named X" (name lookup) or "HTTP 404: workflow X not
+                # found on the default branch" (file lookup).
+                msg = (proc.stderr or proc.stdout or "").lower()
+                if "could not find" in msg or "not found" in msg \
+                        or "404" in msg:
+                    queried += 1
+                continue
+            queried += 1
+            try:
+                runs = json.loads(proc.stdout)
+            except ValueError:
+                continue
+            for run in runs if isinstance(runs, list) else []:
+                if not isinstance(run, dict):
+                    continue
+                conclusion = str(run.get("conclusion") or "")
+                if not conclusion:  # queued / in_progress — not completed
+                    continue
+                ts = _parse_timestamp(run.get("createdAt"))
+                if ts is None:
+                    continue
+                if newest_completed is None or ts > newest_completed[0]:
+                    newest_completed = (ts, conclusion)
+                if conclusion == "success" and (
+                        newest_success is None or ts > newest_success):
+                    newest_success = ts
+        remote = _fmt_threshold(threshold_h)
+        if queried == 0:
+            rows.append(Row(product, "freshness", "—", remote,
+                            "unavailable", repo,
+                            "gh run list failed for all repos"))
+            continue
+        note = f"{queried} repo(s) queried for {workflow_file}"
+        rows.append(_fresh_row(
+            product, repo, threshold_h,
+            (newest_completed[0] if newest_completed else None, True, note),
+            now))
+        if newest_completed is not None and newest_completed[1] != "success":
+            if newest_success is None or newest_completed[0] > newest_success:
+                rows.append(Row(
+                    f"{product} (errors)", "freshness", "err streak",
+                    remote, "drift", repo,
+                    f"newest completed run conclusion={newest_completed[1]}"))
+    return rows
+
+
 def collect_freshness(roots: list[Path], owners: dict[str, str],
                       timeout: int = DEFAULT_TIMEOUT,
                       now: float | None = None) -> list[Row]:
-    """One freshness Row per silence-sensed component.
+    """Freshness rows for every silence-sensed component.
 
     ``owners`` maps repo name -> owner (same shape collect_ci_config takes);
-    it feeds the review-fallback workflow scan. ``now`` is injectable for
-    tests — epoch seconds.
+    it feeds the review-fallback scan and the workflow roll-up. Matrix
+    tools whose name collides with a bespoke probe keep the bespoke probe;
+    every other matrix entry is driven by the heartbeat ledger. ``now``
+    is injectable for tests — epoch seconds.
     """
     now = time.time() if now is None else now
+    matrix = _load_silence_matrix()
     probes = {
         "dispatcher": lambda: _probe_dispatcher(roots, timeout),
         "slack-output": _probe_slack_output,
@@ -1039,10 +1317,40 @@ def collect_freshness(roots: list[Path], owners: dict[str, str],
         "review-fallback": lambda: _probe_review_fallback(owners, timeout),
         "heartbeat": lambda: _probe_heartbeat(roots),
     }
-    return [
-        _fresh_row(product, repo, threshold_h, probes[product](), now)
-        for product, threshold_h, repo in _FRESHNESS_CHECKS
-    ]
+    heartbeats = _read_heartbeats(roots)
+    evidence = _install_evidence()
+    rows: list[Row] = []
+    for tool, cfg in matrix.items():
+        threshold_h = float(cfg["threshold_h"])
+        repo = str(cfg.get("repo") or SILENCE_REPO_PAS)
+        if tool in probes:
+            rows.append(_fresh_row(tool, repo, threshold_h,
+                                   probes[tool](), now))
+            continue
+        entry = heartbeats.get(tool)
+        if entry is None:
+            if _tool_is_installed(tool, roots, evidence):
+                probe = (None, True,
+                         "installed but never emitted to heartbeat ledger")
+            else:
+                probe = (None, False,
+                         "no heartbeat entries; not found installed")
+            rows.append(_fresh_row(tool, repo, threshold_h, probe, now))
+            continue
+        last_success = entry.get("last_success_at")
+        last_failure = entry.get("last_failure_at")
+        detail = str(entry.get("last_detail") or "")
+        note = "heartbeat ledger" + (f": {detail[:120]}" if detail else "")
+        rows.append(_fresh_row(tool, repo, threshold_h,
+                               (last_success, True, note), now))
+        if last_failure is not None and (
+                last_success is None or last_failure > last_success):
+            rows.append(Row(
+                f"{tool} (errors)", "freshness", "err streak",
+                _fmt_threshold(threshold_h), "drift", repo,
+                detail[:160] or "recent failures dominate"))
+    rows.extend(_workflow_freshness(owners, timeout, now=now))
+    return rows
 
 
 def build_rows(products: list[Product], extensions: list[VsCodeExt],
