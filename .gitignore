@@ -4,5 +4,9 @@ __pycache__/
 .venv/
 .devin/memory/
 
+# Packaged extension binaries go stale the moment they are committed —
+# CI builds them on demand (`vscode:package`).
+*.vsix
+
 # Generated reports live in the private runtime — never commit them here
 reports/
