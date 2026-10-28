@@ -2,8 +2,10 @@
 """Generate the golden parity corpus for the devin-redact TS port.
 
 NOTE: this is a parity spec, not a security spec — cases codify the
-current Python behaviour, including known upstream limitations
-(devin-state#66). A case passing means "same as Python", not "safe".
+current Python behaviour. A case passing means "same as Python", not
+"safe". Regenerate this corpus in the same change whenever the Python
+engine's semantics move — a corpus generated from buggy code freezes
+the bug as expected output (env_tag_tail encoded devin-state#66).
 
 Each line of the emitted JSONL is one case:
     {"name": ..., "input": ..., "redact_text": {"output": ..., "edits": [...]},
@@ -67,10 +69,32 @@ CASES = [
     ("overlap_two_keys",   "sk-A1b2C3d4E5f6G7h8I9j0K1l2 and sk-Z9y8X7w6V5u4T3s2R1q0P9o8"),
     ("adjacent",           "ghp_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6,ghp_Z9y8X7w6V5u4T3s2R1q0P9o8N7m6L5k4"),
     ("already_redacted",   "token <REDACTED:0123456789abcdef> stays"),
-    # Upstream parity (devin-redact engine.py skips any match containing a
-    # REDACTED tag): a second assignment inside that skipped match stays raw
-    # — identical exposure on both engines, fixed upstream not in the port.
+    # Tag-gap rescan (devin-state#66, fixed in devin-state#79): a match
+    # containing a closed <REDACTED:…> tag re-scans each tag-free fragment —
+    # only the tag's own span is off-limits.
     ("env_tag_tail",       "API_KEY=<REDACTED:abc123> OTHER_TOKEN=rawsecret99"),
+    # Non-key fragment head (devin-powerups#223, upstream devin-state#82):
+    # a fragment starting with a non-key word must still find each KEY=
+    # later in the fragment — the rescan uses a de-anchored variant.
+    ("env_tag_suffix_head", "API_KEY=<REDACTED:abc123>suffix OTHER_TOKEN=rawsecret99"),
+    ("env_tag_nested",     "OUTER_KEY=<REDACTED:x1> INNER_KEY=<REDACTED:y2> DEEP_SECRET=z9"),
+    ("env_tag_mid_value",  "FIRST_KEY=firstval1<REDACTED:mid99> SECOND_KEY=secondval2"),
+    ("env_tag_code_head",  "FIRST_KEY = frozenset({'x'}) <REDACTED:t0> REAL_TOKEN=tv9x"),
+    ("env_tag_between",    "A_KEY=<REDACTED:one> B_KEY=<REDACTED:two> C_TOKEN=tailsecret9"),
+    # Enclosure guard: fragments inside a container/quoted literal are
+    # dropped — re-matching there would eat the closing delimiters.
+    ("env_tag_container",  'TOKEN_KEY = ["<REDACTED:abc> API_KEY=innocent"]\n'),
+    ("env_tag_quoted",     "MY_API_KEY = 'abc<REDACTED:x9>def'\n"),
+    ("env_tag_esc_quote",  'TOKEN_KEY = "abc\\"<REDACTED:x1>tail"\n'),
+    # Comment trim: an unquoted `#` ends the rescan fragment — the value
+    # before the marker still redacts, comment content survives.
+    ("env_tag_in_comment", 'TOKEN_KEY = ("abc") # <REDACTED:x1>\n'),
+    ("env_tag_before_comment", "TOKEN_KEY=rawsecret99 # <REDACTED:x1>\n"),
+    # The code-assignment guard applies to fragment tails too.
+    ("env_tag_code_rhs",   "FIRST_KEY=<REDACTED:a> SECOND_SECRET = frozenset({'x'})\n"),
+    # An unclosed `<REDACTED:` is malformed, not a real tag — whole-match
+    # skip still applies, the tail stays raw.
+    ("env_tag_malformed",  "API_KEY=<REDACTED:abc OTHER_TOKEN=rawsecret99"),
     ("multiline_mixed",    "l1 sk-A1b2C3d4E5f6G7h8I9j0K1l2\nl2 plain\nl3 xoxb-1234567890-abcdefghijkl"),
     # --- negatives / boundaries ----------------------------------------
     ("empty",              ""),

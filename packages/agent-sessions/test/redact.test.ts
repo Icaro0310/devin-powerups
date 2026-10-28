@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { redactText, scanText, patternSurface } from '../src/redact.ts';
@@ -21,6 +22,28 @@ for (const c of cases) {
     assert.deepEqual(scanText(c.input, '<corpus>', 'corpus'), c.scan_text);
   });
 }
+
+test('tag-gap rescan finds KEY= after a non-key suffix', () => {
+  // devin-powerups#223 review: the fragment rescan inherits the env
+  // pattern's `^` anchor, so 'API_KEY=<tag>suffix OTHER_TOKEN=raw' left
+  // the tail raw — the fragment starts with a non-key word. The port
+  // scans env fragments de-anchored; upstream converged in
+  // devin-state#82 (shipped in devin-redact 0.2.5), so the case now
+  // also lives in the parity corpus as env_tag_suffix_head.
+  const input = 'API_KEY=<REDACTED:abc123>suffix OTHER_TOKEN=rawsecret99';
+  const fp = createHash('sha256')
+    .update(' OTHER_TOKEN=rawsecret99', 'utf8')
+    .digest('hex')
+    .slice(0, 16);
+  assert.deepEqual(redactText(input), {
+    output: `API_KEY=<REDACTED:abc123>suffix OTHER_TOKEN=<REDACTED:${fp}>`,
+    edits: [{ category: 'env_assignment', line: 1, fingerprint: fp }],
+  });
+  const findings = scanText(input, '<corpus>', 'corpus');
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].fingerprint, fp);
+  assert.equal(findings[0].preview, ' OTH...et99');
+});
 
 test('pattern surface matches the Python PATTERNS table', () => {
   assert.deepEqual([...patternSurface()].sort(), [

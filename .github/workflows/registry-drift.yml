@@ -111,3 +111,17 @@ jobs:
       - name: Holder 'Where this fits' sections match the registry
         working-directory: workspace/devin-ecosystem/devin-powerups
         run: python3 tools/update_eco_blocks.py --where --check --root "$(pwd)/.."
+
+      - name: Required check contexts have producers
+        working-directory: workspace/devin-ecosystem/devin-powerups
+        env:
+          # Every leg of check_required_checks.py reads PUBLIC repo data
+          # (branch-protection blocks on the branch endpoint, rulesets,
+          # check-runs), so GITHUB_TOKEN suffices even cross-repo. The
+          # one auth-gated call (can_approve_pull_request_reviews)
+          # degrades to a per-repo note, never a false orphan verdict.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 tools/check_required_checks.py --root "$(pwd)/.." \
+            --extra-repo Icaro0310:../Icaro0310 \
+            --extra-repo Icaro0310.github.io:../site

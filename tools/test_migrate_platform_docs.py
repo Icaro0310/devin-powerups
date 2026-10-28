@@ -190,3 +190,58 @@ def test_corporate_guide_uses_explicit_unsupported_reason():
 
     assert "not supported in Corporate Windows" in guide
     assert "requires an external model runtime" in guide
+
+
+def test_curated_platform_extras_survive_regeneration():
+    # The leaf-curated sections ported into _PLATFORM_EXTRAS and friends
+    # must render on every regeneration, positioned before Troubleshooting
+    # (post-runtime extras land earlier, before the Zscaler block).
+    corporate_meta = {"environments": {"corporate_windows": {"supported": True}}}
+    npm_tool = {"manager": "npm", "source": "npm", "package": "@icaro0310/devin-bridge", "requires_git": False}
+    uv_tool = {"manager": "uv", "source": "pypi", "package": "devin-qa-pack"}
+
+    bridge = migration.render_guide(
+        {"name": "devin-control", **corporate_meta}, npm_tool,
+        "windows", "corporate_windows",
+    )
+    assert "## Agent env" in bridge
+    assert "BRIDGE_AGENT_BIN" in bridge
+    assert bridge.index("## Agent env") < bridge.index("## Troubleshooting")
+
+    qa_pack = migration.render_guide(
+        {"name": "devin-assure", **corporate_meta}, uv_tool,
+        "windows", "corporate_windows",
+    )
+    for section in (
+        "## Read-only operation",
+        "## What cannot be delegated from a restricted machine",
+        "## Reporting false positives without uploading session content",
+    ):
+        assert section in qa_pack
+        assert qa_pack.index(section) < qa_pack.index("## Troubleshooting")
+
+    internals = migration.render_guide({"name": "devin-internals-spec"}, None, "windows")
+    assert ".devin-ecosystem" in internals
+    assert "## Troubleshooting" in internals
+
+    brain = migration.render_guide(
+        {"name": "devin-brain"},
+        {"manager": "uv", "source": "pypi", "package": "devin-memory"},
+        "windows",
+    )
+    assert "devin-memory-mcp` exits" in brain
+    assert brain.index("## Troubleshooting") < brain.index("devin-memory-mcp` exits")
+
+    devkit = migration.render_guide({"name": "devin-devkit"}, None, "windows")
+    assert "## Adapters (MCP / Devin skill / plugin)" in devkit
+    assert "install`/`update` still reach PyPI" in devkit
+    assert devkit.index("## Adapters") < devkit.index("## Troubleshooting")
+
+    doctor = migration.render_guide(
+        {"name": "devin-explore"},
+        {"manager": "uv", "source": "pypi", "package": "devin-doctor"},
+        "windows",
+    )
+    assert "Toolchain check" in doctor
+    assert "DEVIN_DOCTOR_STATE_DIR" in doctor
+    assert "### MCP host configs" in doctor

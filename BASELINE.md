@@ -29,8 +29,10 @@ python3 tools/fork_visibility.py --json snapshots/forks-<date>.json --md
 
 Cadence is automated: `.github/workflows/baseline-snapshot.yml` runs
 **every Monday 08:15 UTC** (plus `workflow_dispatch`), commits the dated
-JSONs to `snapshots/`, and opens an issue if collection fails — a missed
-window cannot be recovered retroactively.
+JSONs to `snapshots/` on the append-only **`snapshots` data branch**
+(`git checkout snapshots` to read the series — main is protected/PR-only),
+and opens an issue if collection fails — a missed window cannot be
+recovered retroactively.
 
 `n/a` means the source has not indexed the package yet (normal for fresh
 publications). A genuine collection failure is listed separately under

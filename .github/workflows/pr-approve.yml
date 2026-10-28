@@ -1,5 +1,24 @@
 name: pr-approve
 
+# Version: v1.9 (D-2026-10-26: self-cancellation fix — the APPROVED
+# review our own approve step posts triggers pull_request_review, and
+# the resulting run used to land on the same PR-keyed concurrency
+# group, cancelling the approving run 14ms after the post and
+# rendering as a failed check on the rollup. Non-Devin review runs now
+# key to their run_id so they can never cancel the gate; cancel-
+# in-progress stays true for real stale-head supersede. Belt for the
+# residual race: a run whose head already moved short-circuits before
+# the wait, the approve step re-verifies the live head per PR, and an
+# already-APPROVED head skips the duplicate review).
+#
+# v1.8 (D-2026-10-24): false-success fix — Devin "skipped for
+# credits" posts state=success too, so status adoption now requires the
+# completed-analysis description; Review Coverage status from
+# ai-review-fallback.yml counts as review evidence; fallback reviewers'
+# CHANGES_REQUESTED reviews count as blocking.
+# Callers pin @v<minor> tags; the owner moves the tag on merge, caller
+# pins roll forward after that.
+
 # Approves pull requests from trusted automation authors, but only after
 # Devin Review (devin-ai-integration[bot]) has submitted a review on the
 # current head commit with no unresolved blocking findings (kind: bug or
@@ -15,6 +34,9 @@ name: pr-approve
 #   pull_request_review[submitted]   — a late Devin Review re-runs the gate;
 #     thread resolutions ride along: Devin resolves findings inside its
 #     re-review, which submits a review and fires this event
+#   pull_request_review_comment[created] — a reply on a finding thread
+#     re-runs the gate so a late "Fixed in <sha>" reply is re-evaluated
+#     by the fallback (v1.4: replies do not fire pull_request_review)
 #   status                           — a Devin Review status success on the
 #     head re-runs the gate even when no PR review is submitted (clean
 #     analyses post no review object); only statuses whose avatar is the
@@ -43,6 +65,62 @@ name: pr-approve
 #     (unresolved or resolved by someone other than the Devin bot) — a PR
 #     author resolving threads by hand does not clear the gate, and threads
 #     marked outdated by a push don't hold it either.
+#   - Gate fallback (v1.4): a blocking thread ALSO clears when a reply
+#     from the PR author or a repo collaborator cites a commit sha that
+#     is an ancestor of the head (compare status ahead/identical) AND
+#     postdates the commit the finding was left on (citing the flagged
+#     commit or an older one proves no fix) AND the "Devin Review"
+#     commit status on the head is success — i.e. the
+#     fix itself was re-reviewed clean but the bot never self-resolved
+#     (seen: devin-explore#104, devin-state#74 held forever after
+#     verified fixes, admin merges required). The thread stays
+#     UNRESOLVED — only the veto lifts; the run logs
+#     `fallback-resolved:` lines, emits a `fallback_resolutions` map,
+#     and the approval posts a `gate-resolved-via: fallback` comment
+#     naming thread + anchor. Fallback never fires on reply-less
+#     threads, on shas that are not ancestors of the head (quoting an
+#     unrelated commit stays blocking), on replies by non-collaborator
+#     accounts, or without a success status on the head. Bot-resolved
+#     remains the primary path — the fallback is strictly additive.
+#     Cross-repo anchors (v1.5 — canary assure#89: the finding on a
+#     caller's `auto-approve.yml` can only be fixed by a commit in THIS
+#     repo, so no in-repo sha can be an ancestor): a qualified reply
+#     may instead cite `owner/repo@<sha>`, a
+#     `github.com/owner/repo/commit/<sha>` URL or a
+#     `github.com/owner/repo/pull/<n>` URL where `owner` is the PR
+#     repo's own owner (org-scoped — any other owner is rejected).
+#     Commit anchors verify the fix LANDED upstream: the sha must be
+#     an ancestor of the upstream repo's default branch
+#     (`compare {sha}...{default_branch}` ahead/identical — a commit on
+#     an unmerged branch exists but never landed); pull anchors verify
+#     the PR MERGED (`merged_at` non-null — an open PR is not a landed
+#     fix). Cross-repo anchors share no ancestry with the head, so the
+#     ancestor+postdate rule does not apply — landedness replaces it.
+#     Anchors naming the PR's own repo (`o/r` == `REPO`) still take the
+#     same-repo ancestor+postdate path; existence alone would reopen
+#     the cite-head exploit. A same-repo pull anchor additionally
+#     requires its merge commit to be an ancestor of the head AND to
+#     postdate the finding — a fix that merged to main but is not in
+#     this head, or landed before the finding existed, is not a fix
+#     here. The audit comment is idempotent (v1.5 — repeated triggers
+#     used to stack duplicates): the posted body records its resolved
+#     set (thread|anchor pairs + `head:<sha>`) on a
+#     `gate-fallback-pairs:` line; a prior github-actions[bot] comment
+#     carrying the same set suppresses a duplicate, while a different
+#     set — a NEW thread resolved or a NEW head — posts fresh.
+#
+#   - Manual blocking=0 (v1.6 — observed personal-agent-system#37,
+#     COMMENTED + 0 blocking, approve delivery denied): when the
+#     evaluation is clean but `gh pr review --approve` fails with the
+#     EXACT GitHub restriction "not permitted to approve pull requests",
+#     the approval cannot be delivered at all — that is an infra fact,
+#     not a finding. The check still reflects the clean evaluation:
+#     the job posts a `gate-resolved-via: manual-blocking0` audit
+#     comment (fatal if undeliverable — the trail IS the mechanism),
+#     writes a step-summary line, and continues. Any OTHER approve
+#     error still fails the job. The green check then records a clean
+#     gate evaluation, never a formal approving review — this is the
+#     documented second path, not a silent convention.
 #
 # Trusted authors are the owner's own PRs, dependabot, and workflows
 # (open-pr-bot opens PRs as github-actions[bot]; dispatch needs write
@@ -54,11 +132,27 @@ name: pr-approve
 # disabled or slow), the run ends without approval instead of approving
 # unreviewed code — merge then needs a manual review.
 
+# Concurrency (v1.5, review-hardened; v1.9 self-cancel fix): a status
+# event, a review submission and a reply on the same PR/head can
+# launch overlapping runs — two runs racing an audit-comment or
+# approve dedupe GET->POST would both post. Same-key triggers cancel
+# mid-flight losers; a status run (keyed by head sha) still can't see
+# a PR-numbered run, so the residual race is a narrow cross-event
+# overlap on the same change — the dedupe check still dedupes
+# sequential reruns. One key is carved out: pull_request_review runs
+# not authored by the Devin app (above all the github-actions[bot]
+# review posted by our own approve step) land on a unique
+# nondevin-review-<run_id> key. They only ever skip on the job `if:`,
+# so cancelling the gate with them was pure loss — and a cancelled
+# run renders as a failed check on the PR rollup even after a
+# successful approve.
 on:
   pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review]
   pull_request_review:
     types: [submitted]
+  pull_request_review_comment:
+    types: [created]
   status: {}
   workflow_call:
     inputs:
@@ -67,6 +161,43 @@ on:
         required: false
         type: number
         default: 12
+
+concurrency:
+  # Only events that can actually launch the approval job share the
+  # serialization key. PR events key by number, a QUALIFYING status
+  # (Devin Review success posted by the devin app) keys by head sha,
+  # and every other trigger falls through to a unique run_id group so
+  # it can never cancel a gate run mid-approval — a random CI
+  # `build: pending` status on the same sha would otherwise kill the
+  # waiting Devin-status run while its own job skips on `if:` (PR #217
+  # review finding). Cross-key overlap (a PR-numbered run vs a
+  # sha-keyed status run on the same logical PR) stays a documented,
+  # cosmetic-only residual: the dedupe check still prevents sequential
+  # duplicates.
+  group: >-
+    pr-approve-${{ github.repository }}-${{
+      (github.event_name == 'pull_request_review'
+        && github.event.review.user.login != 'devin-ai-integration[bot]'
+        && format('nondevin-review-{0}', github.run_id))
+      || github.event.pull_request.number
+      || (github.event_name == 'status'
+          && github.event.state == 'success'
+          && (github.event.context == 'Review Coverage'
+              || (github.event.context == 'Devin Review'
+                  && contains(github.event.avatar_url || '', '/in/811515')))
+          && github.event.sha)
+      || github.run_id }}
+  # cancel-in-progress stays on for stale-head supersede (a push during
+  # the wait must kill the old-head run instantly). What changed is the
+  # group key above: a run that can only skip on `if:` — every
+  # pull_request_review not authored by the Devin app, most notably the
+  # github-actions[bot] review that OUR OWN approve posts — lands on a
+  # unique key instead of the PR key. Before v1.9 it cancelled the very
+  # run that had just approved the PR, which rendered as a failed check
+  # on the rollup even though the review posted (the "approved + fail"
+  # artifact). Real supersede runs (synchronize, Devin review, reply)
+  # keep the PR key and keep cancelling mid-flight losers.
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -80,6 +211,9 @@ jobs:
        github.event.context == 'Devin Review' &&
        github.event.state == 'success' &&
        contains(github.event.avatar_url || '', '/in/811515')) ||
+      (github.event_name == 'status' &&
+       github.event.context == 'Review Coverage' &&
+       github.event.state == 'success') ||
       (github.event_name != 'status' &&
        contains(fromJSON('["Icaro0310","dependabot[bot]","github-actions[bot]"]'),
        github.event.pull_request.user.login) &&
@@ -96,6 +230,45 @@ jobs:
           WAIT_MINUTES: ${{ inputs.wait_minutes || 12 }}
         run: |
           set -euo pipefail
+          # Transient 403s (secondary rate limits on the Actions token)
+          # used to crash unguarded calls mid-step — retry the expensive
+          # fetches with backoff; a persistent failure still exits
+          # nonzero and the job fails closed. gh api prints the error
+          # response body to STDOUT even on failure, so a bare retry
+          # still feeds jq N concatenated error objects — output is only
+          # emitted after a verified success, keeping "no results" and
+          # "query failed" distinguishable downstream.
+          _gh() {
+            local try out
+            for try in 1 2 3; do
+              out=$(gh api "$@") && { printf '%s\n' "$out"; return 0; }
+              sleep $((try * 15))
+            done
+            return 1
+          }
+          # Superseded-head short-circuit (v1.9): queued runs now wake
+          # one after another — a run dispatched for a head that has
+          # already moved must not evaluate it, because a fresh run owns
+          # the new head. Skip fast and report nothing pending; the
+          # approve-time recheck below is the belt for staleness picked
+          # up inside the run itself. Fail-open on the lookup: a failed
+          # fetch falls through to the normal (fail-closed) evaluation.
+          if [ -n "${PR_NUMBER:-}" ]; then
+            live_head=$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq .head.sha 2>/dev/null || true)
+            if [ -n "$live_head" ] && [ "$live_head" != "$HEAD_SHA" ]; then
+              echo "head moved to ${live_head:0:12} since this run queued — superseded, nothing to gate"
+              {
+                echo "verdict=superseded"
+                echo "pr_numbers="
+                echo "verdict_map={}"
+                echo "any_reviewed=false"
+                echo "any_approvable=false"
+                echo "any_no_review=false"
+                echo "head_sha=$HEAD_SHA"
+              } >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
           pr_numbers="$PR_NUMBER"
           if [ "$GITHUB_EVENT_NAME" = "status" ]; then
             # Status events carry the commit, not the PR — find every open
@@ -104,7 +277,7 @@ jobs:
             # cannot see the PR author on status payloads. Case brackets are
             # escaped: unescaped [bot] is a one-char class that also matches
             # lookalike accounts like "dependabotb".
-            prs=$(gh api "repos/$REPO/commits/$HEAD_SHA/pulls" \
+            prs=$({ _gh "repos/$REPO/commits/$HEAD_SHA/pulls" || true; } \
               | jq --arg sha "$HEAD_SHA" \
                 '[.[] | select(.state == "open" and .head.sha == $sha)]')
             pr_numbers=""
@@ -135,8 +308,9 @@ jobs:
             pending=0
             for pr in $pr_numbers; do
               [ -n "${verdicts[$pr]+set}" ] && continue
-              reviews=$(gh api "repos/$REPO/pulls/$pr/reviews?per_page=100" --paginate \
-                | jq -s '[add[] | select(.user.login == "devin-ai-integration[bot]")]')
+              reviews=$({ _gh "repos/$REPO/pulls/$pr/reviews?per_page=100" \
+                --paginate || true; } \
+                | jq -s '[(add // [])[] | select(.user.login == "devin-ai-integration[bot]")]')
               rsha=$(echo "$reviews" | jq -r --arg sha "$HEAD_SHA" \
                 '[.[] | select(.commit_id == $sha)] | last | .commit_id // empty')
               if [ -z "$rsha" ]; then
@@ -147,8 +321,9 @@ jobs:
                 # reviews can't slip in.
                 for c in $(echo "$reviews" | jq -r 'sort_by(.submitted_at) | reverse | .[].commit_id'); do
                   [ "$c" = "$HEAD_SHA" ] && continue
-                  cmp=$(gh api "repos/$REPO/compare/$c...$HEAD_SHA")
-                  [ "$(echo "$cmp" | jq .behind_by)" = "0" ] \
+                  cmp=$({ _gh "repos/$REPO/compare/$c...$HEAD_SHA" || true; })
+                  [ -n "$cmp" ] \
+                    && [ "$(echo "$cmp" | jq .behind_by)" = "0" ] \
                     && [ "$(echo "$cmp" | jq '.files | length')" = "0" ] \
                     && { rsha="$c"; break; }
                 done
@@ -162,16 +337,47 @@ jobs:
                 # posted right after the status can't race past the gate,
                 # and only for a sole PR on the head — a clean status can't
                 # be attributed to one PR's diff when heads are shared.
-                st=$(gh api "repos/$REPO/commits/$HEAD_SHA/status" \
+                # state=success alone is NOT evidence (v1.8): a
+                # credit-exhausted skip also posts success — only a
+                # description proving a completed analysis counts.
+                st=$({ _gh "repos/$REPO/commits/$HEAD_SHA/status" || true; } \
                   | jq -r '[.statuses[] | select(.context == "Devin Review"
                       and ((.avatar_url // "") | contains("/in/811515")))]
-                    | .[0].state // empty')
-                if [ "$st" = "success" ] && [ "$status_seen" = "success" ]; then
-                  verdicts[$pr]="STATUS_CLEAN"
-                  echo "Devin Review status success on $HEAD_SHA with no review object for PR #$pr — clean analysis, adopting."
-                  continue
+                    | .[0] | "\(.state)|\(.description // "")"')
+                if [ "${st%%|*}" = "success" ] \
+                    && [[ "${st#*|}" == *ompleted\ analysis* ]]; then
+                  if [ "$status_seen" = "EXECUTED" ]; then
+                    verdicts[$pr]="STATUS_CLEAN"
+                    echo "Devin Review status success on $HEAD_SHA with no review object for PR #$pr — clean analysis, adopting."
+                    continue
+                  fi
+                  status_seen="EXECUTED"
                 else
-                  status_seen="$st"
+                  status_seen="${st%%|*}"
+                fi
+                # Fallback evidence (v1.9): when Devin skipped, failed or
+                # never ran, ai-review-fallback.yml posts a
+                # "Review Coverage" CHECK RUN after both reviewers finish
+                # — findings already posted, so no double-sighting. The
+                # check run is the source of truth: conclusion=success
+                # adopts as evidence, findings=blocking in the summary
+                # holds, action_required/failure/absent is not evidence.
+                # The mirrored commit status is never read here — a
+                # green mirror cannot upgrade degraded coverage.
+                cov=$({ _gh "repos/$REPO/commits/$HEAD_SHA/check-runs?check_name=Review%20Coverage&per_page=50" || true; } \
+                  | jq -r '[(.check_runs // [])[] | select(.status == "completed")]
+                    | sort_by(.completed_at) | last
+                    | "\(.conclusion // "")|\(.output.summary // "")"')
+                if [ "${cov%%|*}" = "success" ]; then
+                  case "${cov#*|}" in
+                    *findings=blocking*|*DEGRADED*)
+                      verdicts[$pr]="CHANGES_REQUESTED"
+                      echo "Review Coverage on $HEAD_SHA reports blocking findings for PR #$pr — reviewed, held." ;;
+                    *)
+                      verdicts[$pr]="FALLBACK_COVERED"
+                      echo "Review Coverage success on $HEAD_SHA — fallback reviewers covered PR #$pr, adopting as review evidence." ;;
+                  esac
+                  [ -n "${verdicts[$pr]+set}" ] && continue
                 fi
               fi
               if [ -n "$rsha" ]; then
@@ -194,7 +400,7 @@ jobs:
             v="${verdicts[$pr]:-no-review}"
             case "$v" in
               APPROVED) any_approvable=true ;;
-              COMMENTED|STATUS_CLEAN) any_reviewed=true; any_approvable=true ;;
+              COMMENTED|STATUS_CLEAN|FALLBACK_COVERED) any_reviewed=true; any_approvable=true ;;
               CHANGES_REQUESTED) ;;
               *)
                 any_no_review=true
@@ -219,25 +425,86 @@ jobs:
           HEAD_SHA: ${{ steps.review.outputs.head_sha }}
         run: |
           set -euo pipefail
+          # Transient 403s (secondary rate limits) crashed the thread
+          # fetch and jq then died on null — retry with backoff; a
+          # persistent failure exits nonzero and stays fail-closed.
+          # gh api writes the error body to stdout on failure, so output
+          # is emitted only after a verified success — an exhausted call
+          # yields genuinely empty stdout, not error JSON for jq to
+          # iterate.
+          _gh() {
+            local try out
+            for try in 1 2 3; do
+              out=$(gh api "$@") && { printf '%s\n' "$out"; return 0; }
+              sleep $((try * 15))
+            done
+            return 1
+          }
           # A status run can cover several PRs sharing one head — count
           # blocking findings per PR, not just the first one.
           blocking_map="{}"
+          fallback_map="{}"
+          fallback_threads="{}"
           blocking=0
+          devin_state=""
+          # same_repo_ok <sha> <finding-base>: the v1.4 in-head proof —
+          # the cited commit exists in this repo AND is an ancestor of
+          # the reviewed head (compare ahead/identical — a reply quoting
+          # an unrelated or rewritten-by-rebase sha never clears) AND
+          # strictly postdates the commit the finding was left on
+          # (citing the flagged commit itself, an older one, or the head
+          # without a later push -> identical, proves no fix).
+          same_repo_ok() {
+            local csha="$1" fbase="$2" st
+            gh api "repos/$REPO/commits/$csha" >/dev/null 2>&1 || return 1
+            st=$(gh api "repos/$REPO/compare/${csha}...${HEAD_SHA}" --jq .status 2>/dev/null || true)
+            [ "$st" = "ahead" ] || [ "$st" = "identical" ] || return 1
+            [ -n "$fbase" ] || return 1
+            st=$(gh api "repos/$REPO/compare/${fbase}...${csha}" --jq .status 2>/dev/null || true)
+            [ "$st" = "ahead" ]
+          }
+          # Org scope for cross-repo anchors (v1.5): the anchor's owner
+          # must equal the PR repo's owner — a fix is only verifiable
+          # inside the same org trust boundary. Anchors are already
+          # lowercased by the extractor; lowercase REPO once to match.
+          repo_lc="${REPO,,}"
+          owner_lc="${repo_lc%%/*}"
+          # default-branch lookup cache for cross-repo anchors — one
+          # repos/{o}/{r} call per cited repo, not per anchor.
+          declare -A def_branch=()
           for pr in $PR_NUMBERS; do
-            count=$(gh api graphql --paginate \
+            # Fetch the finding (first comment — always the Devin note)
+            # and the LAST 50 comments separately: fix replies are the
+            # newest, so a deep thread still yields them (first:50 alone
+            # would silently drop a reply past the 50th). pullRequest
+            # .author is the reply-author check's PR-author leg.
+            threads=$({ _gh graphql --paginate \
               -f owner="${REPO%%/*}" -f name="${REPO##*/}" -F pr="$pr" -f query='
                 query($owner: String!, $name: String!, $pr: Int!, $endCursor: String) {
                   repository(owner: $owner, name: $name) {
                     pullRequest(number: $pr) {
+                      author { login }
                       reviewThreads(first: 100, after: $endCursor) {
                         pageInfo { hasNextPage endCursor }
                         nodes {
+                          id
                           isResolved
                           isOutdated
                           resolvedBy { login }
                           comments(first: 1) {
                             nodes {
+                              id
                               author { login }
+                              authorAssociation
+                              originalCommit { oid }
+                              body
+                            }
+                          }
+                          replies: comments(last: 50) {
+                            nodes {
+                              id
+                              author { login }
+                              authorAssociation
                               originalCommit { oid }
                               body
                             }
@@ -246,29 +513,218 @@ jobs:
                       }
                     }
                   }
-                }' \
-              | jq -s --arg sha "$HEAD_SHA" '
-                  [ .[].data.repository.pullRequest.reviewThreads.nodes[]
-                    # Still blocking when unresolved, or when resolved by anyone
-                    # other than the Devin bot — a PR author resolving a finding
-                    # by hand must not clear the gate. Exact login match: a
-                    # devin-ai-integration-* prefixed account is not the bot.
-                    # Outdated threads do not block: the push that moved the
-                    # code already answered them (the re-review re-flags if
-                    # needed).
-                    | select(.isOutdated == false)
-                    | select(.isResolved == false
-                        or ([(.resolvedBy.login // "")] | inside(["devin-ai-integration", "devin-ai-integration[bot]"]) | not))
-                    | .comments.nodes[0]
-                    | select(([.author.login // ""] | inside(["devin-ai-integration", "devin-ai-integration[bot]"]))
-                        and (.body | test("\"kind\": \"(bug|security)\"")))
-                  ] | length')
-            echo "unresolved blocking findings on $HEAD_SHA for PR #$pr: $count"
+                }' || true; })
+            # Empty after retries: the fetch itself failed (transient
+            # 403s die as unverifiable, never as zero findings — the
+            # gate must not approve what it could not count).
+            if [ -z "$threads" ]; then
+              echo "::error::reviewThreads fetch failed after retries — findings unverifiable, approval held"
+              exit 1
+            fi
+            pr_author=$(echo "$threads" | jq -rs \
+              '.[0].data.repository.pullRequest.author.login // ""')
+            # Blocking candidates = same predicate as before: not
+            # outdated AND (unresolved or resolved by non-bot) AND first
+            # comment is a devin bug|security note. The fallback pass
+            # below can only REMOVE threads from this set — resolvedBy:
+            # bot stays the primary clear and never reaches the loop.
+            candidates=$(echo "$threads" | jq -s --arg pra "$pr_author" '
+                [ .[].data.repository.pullRequest.reviewThreads.nodes[]
+                  | select(.isOutdated == false)
+                  | select(.isResolved == false
+                      or ([(.resolvedBy.login // "")] | inside(["devin-ai-integration", "devin-ai-integration[bot]"]) | not))
+                  | .comments.nodes[0] as $f
+                  | select(([($f.author.login // "")] | inside(["devin-ai-integration", "devin-ai-integration[bot]"]))
+                      and ($f.body | test("\"kind\": \"(bug|security)\"")))
+                  # Fallback material: fix anchors from qualified
+                  # replies (any comment after the first by the PR
+                  # author or a repo-collaborator account — OWNER,
+                  # MEMBER, COLLABORATOR associations). Replies by
+                  # anyone else never feed the anchor list, so a random
+                  # commenter cannot quote a commit into the gate. The
+                  # finding itself is excluded by id (it rides inside
+                  # replies(last:50) when the thread is short). `base`
+                  # pins the commit the finding was left on, for the
+                  # postdate check in the loop. Anchor shapes emitted,
+                  # all lowercased for canonical compare/dedupe:
+                  #   sha:HEX                  — bare commit token
+                  #   commit:OWNER/REPO@HEX    — repo@sha or a
+                  #     github.com/o/r/commit/sha URL (v1.5)
+                  #   pull:OWNER/REPO#N        — github.com/o/r/pull/N
+                  #     URL (v1.5)
+                  | { id: .id,
+                      base: ($f.originalCommit.oid // ""),
+                      refs: ([ .replies.nodes[]
+                               | select(.id != $f.id)
+                               | select(([.authorAssociation // ""] | inside(["OWNER", "MEMBER", "COLLABORATOR"]))
+                                   or ((.author.login // "") == $pra))
+                               | .body as $b
+                               | ([ $b | scan("\\b[0-9a-fA-F]{7,40}\\b")
+                                    | "sha:" + ascii_downcase ]
+                                  + [ $b | scan("\\b([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)@([0-9a-fA-F]{7,40})\\b")
+                                      | "commit:" + (.[0] + "@" + .[1] | ascii_downcase) ]
+                                  + [ $b | scan("(?i)https?://github\\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/commit/([0-9a-fA-F]{7,40})\\b")
+                                      | "commit:" + (.[0] + "@" + .[1] | ascii_downcase) ]
+                                  + [ $b | scan("(?i)https?://github\\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/pull/([0-9]+)\\b")
+                                      | "pull:" + (.[0] + "#" + .[1] | ascii_downcase) ])
+                             ] | flatten | unique) }
+                ]')
+            count=0
+            fb_count=0
+            fb_pairs=()
+            while IFS=$'\t' read -r tid ref_list fbase; do
+              resolved=""
+              # A thread with no qualified replies yields an empty ref
+              # list and stays blocking — zero-reply safety rail.
+              for ref in ${ref_list//,/ }; do
+                [ -n "$ref" ] || continue
+                kind="${ref%%:*}"
+                anchor="${ref#*:}"
+                verified=""
+                case "$kind" in
+                  sha)
+                    same_repo_ok "$anchor" "$fbase" \
+                      && verified="commit:$anchor" ;;
+                  commit)
+                    cref="${anchor%@*}"
+                    csha="${anchor##*@}"
+                    [ "${cref%%/*}" = "$owner_lc" ] || continue
+                    if [ "$cref" = "$repo_lc" ]; then
+                      # Own repo spelled as an anchor: the fix must be
+                      # IN this head — existence alone would reopen the
+                      # cite-head exploit the postdate check closed.
+                      same_repo_ok "$csha" "$fbase" \
+                        && verified="commit:$anchor"
+                    else
+                      # Cross-repo fix (canary assure#89): no shared
+                      # ancestry with the head — verify LANDEDNESS
+                      # instead: the commit must sit on the upstream
+                      # repo's default branch (compare ahead/identical
+                      # vs that branch). A sha that merely EXISTS on an
+                      # unmerged branch or fork never landed and does
+                      # not fix callers (review SEC finding).
+                      dbr="${def_branch[$cref]:-}"
+                      if [ -z "$dbr" ]; then
+                        dbr=$(gh api "repos/$cref" --jq '.default_branch // empty' 2>/dev/null || true)
+                        def_branch[$cref]="$dbr"
+                      fi
+                      [ -n "$dbr" ] || continue
+                      st=$(gh api "repos/$cref/compare/${csha}...${dbr}" --jq .status 2>/dev/null || true)
+                      [ "$st" = "ahead" ] || [ "$st" = "identical" ] \
+                        || continue
+                      verified="commit:$anchor"
+                    fi ;;
+                  pull)
+                    pref="${anchor%#*}"
+                    pnum="${anchor##*#}"
+                    [ "${pref%%/*}" = "$owner_lc" ] || continue
+                    # A PR anchor verifies by MERGEDNESS — an open PR is
+                    # not a landed fix (merged_at non-null proves it).
+                    prj=$(gh api "repos/$pref/pulls/$pnum" 2>/dev/null || true)
+                    [ -n "$(echo "$prj" | jq -r '.merged_at // empty')" ] \
+                      || continue
+                    if [ "$pref" = "$repo_lc" ]; then
+                      # Same repo: the merged fix must also be IN this
+                      # head — a merge to main that never entered the PR
+                      # leaves the flagged code untouched — AND it must
+                      # POSTDATE the finding: an old merge already in
+                      # the head predates the finding and cannot be its
+                      # fix (review SEC finding).
+                      mcs=$(echo "$prj" | jq -r '.merge_commit_sha // empty')
+                      [ -n "$mcs" ] || continue
+                      st=$(gh api "repos/$REPO/compare/${mcs}...${HEAD_SHA}" --jq .status 2>/dev/null || true)
+                      [ "$st" = "ahead" ] || [ "$st" = "identical" ] \
+                        || continue
+                      [ -n "$fbase" ] || continue
+                      st=$(gh api "repos/$REPO/compare/${fbase}...${mcs}" --jq .status 2>/dev/null || true)
+                      [ "$st" = "ahead" ] || continue
+                    fi
+                    verified="pull:$anchor" ;;
+                esac
+                [ -n "$verified" ] || continue
+                # Clean re-verification on the head: the "Devin Review"
+                # status must be success — the fix commit was itself
+                # re-reviewed clean (the "2 re-review passes" proxy).
+                # Per-head signal, lazily fetched once per run. Since
+                # v1.8 a bare success no longer suffices: a skipped-for-
+                # credits status is green too, so the description must
+                # carry the completed-analysis marker. A "Review
+                # Coverage" check-run success also satisfies
+                # re-verification — the fallback reviewers re-ran on
+                # this head.
+                if [ -z "$devin_state" ]; then
+                  devin_state=$({ _gh "repos/$REPO/commits/$HEAD_SHA/status" || true; } \
+                    | jq -r '[.statuses[] | select(.context == "Devin Review"
+                        and ((.avatar_url // "") | contains("/in/811515")))]
+                      | .[0] | if .state != "success" then (.state // "none")
+                          elif (.description // "" | test("completed analysis"; "i"))
+                          then "EXECUTED" else "unproven" end')
+                  if [ "$devin_state" = "EXECUTED" ]; then
+                    devin_state="success"
+                  else
+                    # A "Review Coverage" CHECK RUN with conclusion
+                    # success also satisfies re-verification — the
+                    # fallback reviewers re-ran on this head. The
+                    # mirrored status is never read: action_required
+                    # (degraded) can never be mistaken for success here.
+                    cov=$({ _gh "repos/$REPO/commits/$HEAD_SHA/check-runs?check_name=Review%20Coverage&per_page=50" || true; } \
+                      | jq -r '[(.check_runs // [])[] | select(.status == "completed"
+                          and .conclusion == "success"
+                          and ((.output.summary // "")
+                               | test("DEGRADED|findings=blocking") | not))]
+                        | length')
+                    [ "${cov:-0}" -gt 0 ] && devin_state="success"
+                  fi
+                fi
+                # Not success -> no anchor can rescue this thread.
+                [ "$devin_state" = "success" ] || break
+                resolved="$verified"
+                break
+              done
+              if [ -n "$resolved" ]; then
+                echo "fallback-resolved: PR #$pr thread $tid via ${resolved/:/ }"
+                fb_count=$((fb_count + 1))
+                fb_pairs+=("$tid|$resolved")
+              else
+                count=$((count + 1))
+              fi
+            done < <(echo "$candidates" | jq -r '.[] | .id + "\t" + (.refs | join(",")) + "\t" + .base')
+            # Fallback reviewers (v1.8): reviewer B publishes blocking
+            # findings as a native CHANGES_REQUESTED review from
+            # github-actions[bot] on the head — count those as blocking
+            # alongside the Devin threads. Commit pinning to the head
+            # keeps stale fallback reviews from an older sha out.
+            # "could not run" notices are excluded: a reviewer that could
+            # not produce an analysis is unavailability (held via missing
+            # coverage evidence), not a fabricated code defect.
+            fb_reviews_raw=$({ _gh "repos/$REPO/pulls/$pr/reviews?per_page=100" \
+              --paginate || true; })
+            if [ -z "$fb_reviews_raw" ]; then
+              echo "::error::reviews fetch failed after retries — fallback blocking findings unverifiable, approval held"
+              exit 1
+            fi
+            fb_reviews=$(echo "$fb_reviews_raw" \
+              | jq -s --arg sha "$HEAD_SHA" '[add[] | select(
+                  .user.login == "github-actions[bot]"
+                  and .state == "CHANGES_REQUESTED"
+                  and .commit_id == $sha
+                  and ((.body // "")
+                       | test("could not run|not a substantive review"; "i")
+                       | not))] | length')
+            [ "${fb_reviews:-0}" != "0" ] \
+              && echo "fallback blocking reviews on $HEAD_SHA for PR #$pr: $fb_reviews"
+            count=$((count + fb_reviews))
+            echo "unresolved blocking findings on $HEAD_SHA for PR #$pr: $count${fb_count:+ ($fb_count cleared by fallback)}"
             blocking_map=$(echo "$blocking_map" | jq -c --arg p "$pr" --argjson c "$count" '. + {($p): $c}')
+            fallback_map=$(echo "$fallback_map" | jq -c --arg p "$pr" --argjson c "$fb_count" '. + {($p): $c}')
+            pairs_json=$(printf '%s\n' "${fb_pairs[@]:-}" | jq -R . | jq -cs 'map(select(length > 0))')
+            fallback_threads=$(echo "$fallback_threads" | jq -c --arg p "$pr" --argjson t "$pairs_json" '. + {($p): $t}')
             blocking=$((blocking + count))
           done
           echo "blocking=$blocking" >> "$GITHUB_OUTPUT"
           echo "blocking_map=$blocking_map" >> "$GITHUB_OUTPUT"
+          echo "fallback_resolutions=$fallback_map" >> "$GITHUB_OUTPUT"
+          echo "fallback_threads=$fallback_threads" >> "$GITHUB_OUTPUT"
 
       - name: Approve PRs with no blocking findings
         if: steps.review.outputs.any_approvable == 'true'
@@ -278,6 +734,9 @@ jobs:
           PR_NUMBERS: ${{ steps.review.outputs.pr_numbers }}
           VERDICT_MAP: ${{ steps.review.outputs.verdict_map }}
           BLOCKING_MAP: ${{ steps.findings.outputs.blocking_map }}
+          FALLBACK_MAP: ${{ steps.findings.outputs.fallback_resolutions }}
+          FALLBACK_THREADS: ${{ steps.findings.outputs.fallback_threads }}
+          HEAD_SHA: ${{ steps.review.outputs.head_sha }}
         run: |
           set -euo pipefail
           # Each PR is judged by its own verdict and findings: APPROVED
@@ -289,14 +748,122 @@ jobs:
           [ -z "$vmap" ] && vmap='{}'
           bmap="${BLOCKING_MAP:-}"
           [ -z "$bmap" ] && bmap='{}'
+          fmap="${FALLBACK_MAP:-}"
+          [ -z "$fmap" ] && fmap='{}'
+          fthreads="${FALLBACK_THREADS:-}"
+          [ -z "$fthreads" ] && fthreads='{}'
           for pr in $PR_NUMBERS; do
             v=$(echo "$vmap" | jq -r --arg p "$pr" '.[$p] // "no-review"')
             count=$(echo "$bmap" | jq -r --arg p "$pr" '.[$p] // 0')
             case "$v" in
-              APPROVED|STATUS_CLEAN|COMMENTED)
+              APPROVED|STATUS_CLEAN|COMMENTED|FALLBACK_COVERED)
                 if [ "$v" = "APPROVED" ] || [ "$count" = "0" ]; then
-                  gh pr review --approve "https://github.com/$REPO/pull/$pr"
-                  echo "approved PR #$pr ($v${count:+ with $count blocking})"
+                  # v1.9: freshness + dedup before posting. Runs
+                  # serialize now — a queued run can be stale by the
+                  # time it reaches here, and same-head retriggers
+                  # (reply, review, status) would each post another
+                  # APPROVED. Re-verify the live head per PR and skip
+                  # when this head already carries our review. Both
+                  # lookups fail open into the approve attempt — a
+                  # broken guard must not hold a clean PR.
+                  live_head=$(gh api "repos/$REPO/pulls/$pr" --jq .head.sha 2>/dev/null || true)
+                  if [ -n "$live_head" ] && [ "$live_head" != "$HEAD_SHA" ]; then
+                    echo "PR #$pr head moved to ${live_head:0:12} since evaluation — skipping approve; a fresh run owns the new head"
+                    continue
+                  fi
+                  approve_err=""
+                  if gh api "repos/$REPO/pulls/$pr/reviews?per_page=100" --paginate 2>/dev/null \
+                      | jq -se --arg sha "$HEAD_SHA" \
+                        '(add // []) | map(select(.state == "APPROVED"
+                          and .commit_id == $sha
+                          and .user.login == "github-actions[bot]")) | length > 0' \
+                      >/dev/null; then
+                    echo "PR #$pr already approved on ${HEAD_SHA:0:12} — skipping duplicate review"
+                  elif approve_err=$(gh pr review --approve "https://github.com/$REPO/pull/$pr" 2>&1); then
+                    echo "approved PR #$pr ($v${count:+ with $count blocking})"
+                  elif echo "$approve_err" | grep -qF "not permitted to approve pull requests"; then
+                    # manual-blocking0 (v1.6): clean evaluation, but the
+                    # APPROVE review is undeliverable — GitHub Actions may
+                    # not approve pull requests at all on this repo. The
+                    # exact upstream message is matched (a broad substring
+                    # could mask a different restriction and launder a
+                    # real failure). The audit comment is the mechanism:
+                    # if it cannot post the job fails — no silent green.
+                    echo "::warning::PR #$pr evaluated clean ($v, blocking=$count) but the APPROVE review is undeliverable: GitHub Actions is not permitted to approve pull requests. Taking the documented manual-blocking0 path."
+                    # Idempotent like the fallback audit: a prior
+                    # manual-blocking0 comment for THIS head suppresses
+                    # a duplicate; a new head posts fresh evidence. A
+                    # failed dedupe lookup falls through to posting —
+                    # a possible duplicate beats a missing audit trail.
+                    manual_seen=$(gh api "repos/$REPO/issues/$pr/comments" --paginate 2>/dev/null \
+                      | jq -sr --arg h "head:$HEAD_SHA" 'add // [] | .[]
+                          | select((.user.login // "") == "github-actions[bot]")
+                          | (.body // "")
+                          | select(contains("gate-resolved-via: manual-blocking0") and contains($h))
+                          | "seen"' | head -1 || true)
+                    if [ "$manual_seen" = "seen" ]; then
+                      echo "gate-resolved-via: manual-blocking0 audit already on PR #$pr for head $HEAD_SHA — skipping duplicate comment"
+                    else
+                      audit="gate-resolved-via: manual-blocking0 — PR #$pr evaluated clean (verdict $v, unresolved blocking findings: $count) on ${HEAD_SHA}, but the APPROVE review cannot be delivered: GitHub Actions is not permitted to approve pull requests on this repository. The green required check records the clean gate evaluation, not a formal approving review — merge proceeds on this audit trail."$'\n'"gate-fallback-pairs: manual-blocking0 head:$HEAD_SHA"
+                      gh api -X POST "repos/$REPO/issues/$pr/comments" \
+                        -f body="$audit" >/dev/null
+                      echo "posted gate-resolved-via: manual-blocking0 audit comment on PR #$pr"
+                    fi
+                    {
+                      echo "### gate-resolved-via: manual-blocking0 — PR #$pr"
+                      echo "Clean evaluation on \`${HEAD_SHA}\` (verdict \`$v\`, blocking \`$count\`); the APPROVE review is undeliverable under the GitHub Actions approval restriction. Audit comment posted on the PR."
+                    } >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
+                  else
+                    echo "::error::PR #$pr approve failed: $approve_err"
+                    exit 1
+                  fi
+                  # Approving via fallback: the veto lifted on threads
+                  # the bot never self-resolved — say so publicly, naming
+                  # thread + anchor, and leave the threads unresolved so
+                  # the findings stay visible for audit. Idempotent
+                  # (v1.5): every retrigger (status, late review, reply)
+                  # re-approves and would stack identical comments, so
+                  # the body records its resolved set on a
+                  # `gate-fallback-pairs:` line — a prior bot comment
+                  # carrying the same set suppresses the duplicate,
+                  # while a different set (a NEW thread got
+                  # fallback-resolved) posts fresh.
+                  fb=$(echo "$fmap" | jq -r --arg p "$pr" '.[$p] // 0')
+                  if [ "$fb" != "0" ]; then
+                    list=""
+                    pairs=()
+                    for pair in $(echo "$fthreads" | jq -r --arg p "$pr" '.[$p][]?'); do
+                      via="${pair##*|}"
+                      list="$list"$'\n'"- thread ${pair%%|*} via ${via/:/ }"
+                      pairs+=("$pair")
+                    done
+                    # The head is part of the dedupe key: the same
+                    # threads resolving on a NEW head is fresh evidence
+                    # (clean re-review of a different sha) and must
+                    # post, otherwise the stale comment still names the
+                    # old head.
+                    pairs+=("head:$HEAD_SHA")
+                    pairline=$(printf '%s\n' "${pairs[@]:-}" | sed '/^$/d' \
+                      | LC_ALL=C sort -u | tr '\n' ' ' | sed 's/ *$//')
+                    prior=$(gh api "repos/$REPO/issues/$pr/comments" --paginate 2>/dev/null \
+                      | jq -sr 'add // [] | .[]
+                          | select((.user.login // "") == "github-actions[bot]")
+                          | (.body // "")
+                          | (try (capture("gate-fallback-pairs: (?<p>[^\\n]*)") | .p) // empty)' || true)
+                    dup=0
+                    while IFS= read -r prev; do
+                      prev_n=$(echo "$prev" | tr ' ' '\n' | sed '/^$/d' \
+                        | LC_ALL=C sort -u | tr '\n' ' ' | sed 's/ *$//')
+                      if [ "$prev_n" = "$pairline" ]; then dup=1; break; fi
+                    done <<< "$prior"
+                    if [ "$dup" = "1" ]; then
+                      echo "gate-resolved-via: fallback audit for this resolved set already on PR #$pr — skipping duplicate comment"
+                    else
+                      gh api -X POST "repos/$REPO/issues/$pr/comments" \
+                        -f body="gate-resolved-via: fallback — $fb blocking thread(s) cleared by replies citing verified fix commits, with the Devin Review status on ${HEAD_SHA} re-verified clean:$list"$'\n\n'"Threads left unresolved — the findings stay visible."$'\n'"gate-fallback-pairs: $pairline" >/dev/null
+                      echo "posted gate-resolved-via: fallback comment on PR #$pr ($fb thread(s))"
+                    fi
+                  fi
                 else
                   echo "::warning::PR #$pr held ($v) with $count unresolved blocking finding(s) — fix, reply to the threads and push"
                 fi ;;
@@ -316,4 +883,4 @@ jobs:
           BLOCKING: ${{ steps.findings.outputs.blocking }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.sha }}
         run: |
-          echo "::warning::Auto-approve held on $HEAD_SHA: verdicts $VERDICT_MAP${BLOCKING:+ with $BLOCKING unresolved blocking finding(s) total}. Fix, reply to the finding threads and push — Devin's re-review resolves them and re-runs this job."
+          echo "::warning::Auto-approve held on $HEAD_SHA: verdicts $VERDICT_MAP${BLOCKING:+ with $BLOCKING unresolved blocking finding(s) total}. Fix, reply to the finding threads citing the fix commit and push — Devin's re-review resolves them and re-runs this job (a reply citing a fix commit inside a clean-re-reviewed head — or a landed same-owner upstream fix via owner/repo@sha, /commit/sha or merged /pull/n anchors — also clears via the gate fallback)."

@@ -142,3 +142,29 @@ muitos ficheiros, superficies geradas, ou merges sob guardrails.
   subprocess/E2E (server real sem extra -> exit 1 + `error:` no stderr)
   e o unico que apanha essa deriva. Os dois niveis ficam: unit para a
   branch, E2E para o contrato. Aplicado nos 5 PRs mcp-extra-guard.
+- (2026-10-20) Medicao de divergencia vale so no instante em que e
+  tirada — estado em movimento exige re-medicao no momento do desenho
+  E antes de executar. Caso: feat/scout-linux-tasks medida a "52 ahead
+  / 18 behind, 20 conflitos" no desenho; na execucao o delta real ja
+  era outro porque a linha viva continuou a produzir (4 merges — #35
+  sensor isolado, #36 union semantica, #37/#38 stragglers journal).
+  O report anterior parecia contradizer o novo, mas eram dois
+  instantes diferentes de um alvo em movimento. Regra: medir, executar
+  rapido, re-medir antes de declarar — e reportar o timestamp da
+  medicao junto do valor.
+- (2026-10-21) Contagem de N declara o filtro antes do numero — tres
+  instancias do mesmo ciclo: "devin-learning delivered" (repo nem
+  existe — eixo visibility), "3 tags missing" (tags existiam, eram os
+  releases — eixo tag vs release), "25 callers a repinar" (eram 11
+  activos + 12 archived — eixo mutable vs frozen). A correccao veio da
+  medicao fina, nao do plano. Regra: qualquer "N itens" num
+  report/plan carry o eixo explicito — "25 callers" vira "11 callers
+  writeable (12 archived, fora de escopo)" — porque o numero sem
+  filtro muda de significado consoante quem mede.
+- (2026-10-21) inventario por listagem pode esgotar silenciosamente:
+  `gh api users/<u>/repos` serviu ~23 repos mas a frota real de
+  callers era 14 activos — o repo de coordenação, awesome-devin e
+  devin-dashboard ficaram fora da pagina. Quando o inventario alimenta
+  um sweep, cruzar com uma segunda fonte (o report da sessao paralela,
+  search API, ou lista manual conhecida) antes de declarar o universo
+  completo.
