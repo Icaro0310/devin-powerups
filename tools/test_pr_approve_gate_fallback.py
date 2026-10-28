@@ -205,7 +205,9 @@ def status_fixture(state="success",
     }]}
 
 
-def coverage_fixtures(summary="devin=SKIPPED_CREDITS a=EXECUTED b=EXECUTED",
+def coverage_fixtures(summary="covered — judge approved; lane A also "
+                             "executed — devin=SKIPPED_CREDITS "
+                             "a=EXECUTED b=EXECUTED",
                       conclusion="success", mirror_state="success"):
     """v1.9: coverage is a Checks-API run (source of truth) plus a commit
     status mirror. Returns BOTH fixture files: `status.json` carries the
@@ -409,16 +411,16 @@ class GateFallback(unittest.TestCase):
         self.assertEqual(out["blocking"], "0")
         self.assertIn("fallback-resolved", proc.stdout)
 
-    def test_v18_degraded_coverage_does_not_clear_anchor(self):
-        # check-run conclusion action_required (degraded) is not review
-        # evidence — the anchor cannot verify.
+    def test_v18_no_judge_verdict_does_not_clear_anchor(self):
+        # check-run conclusion action_required (no judge verdict) is not
+        # review evidence — the anchor cannot verify.
         threads = [thread("T1", replies=[
             (PR_AUTHOR, "OWNER", f"Fixed in {FIX_SHA}"),
         ])]
         fx = self.base_fixtures(threads, compares=self.ok_compares())
         fx.update(coverage_fixtures(
-            "DEGRADED a-only — devin=SKIPPED_CREDITS a=EXECUTED b=FAILED "
-            "— partial coverage, requires human review",
+            "ACTION_REQUIRED — no judge verdict — devin=SKIPPED_CREDITS "
+            "a=EXECUTED b=UNAVAILABLE — lane A alone cannot clear a PR",
             conclusion="action_required", mirror_state="pending"))
         proc, out, _ = self.run_block(self.findings, fx)
         self.assertEqual(proc.returncode, 0, proc.stderr)
@@ -444,7 +446,8 @@ class GateFallback(unittest.TestCase):
         ])]
         fx = self.base_fixtures(threads, compares=self.ok_compares())
         fx.update(coverage_fixtures(
-            "no review executed — devin=SKIPPED_CREDITS a=UNAVAILABLE b=UNAVAILABLE",
+            "judge rejected the PR — devin=SKIPPED_CREDITS "
+            "a=UNAVAILABLE b=REJECTED",
             conclusion="failure", mirror_state="failure"))
         proc, out, _ = self.run_block(self.findings, fx)
         self.assertEqual(proc.returncode, 0, proc.stderr)
