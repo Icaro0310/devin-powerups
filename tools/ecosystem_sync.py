@@ -1348,6 +1348,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--no-silence-alerts", action="store_true",
                         help="with --issue: skip silence-alert issues and the "
                              "slack notify for stale freshness sensors")
+    parser.add_argument("--freshness", action="store_true",
+                        help="silence-sensor sweep only: skip version/channel "
+                             "probes, run freshness rows + health + alerts "
+                             "(cheap enough for hourly cron)")
     parser.add_argument("--json", action="store_true", help="machine-readable output")
     parser.add_argument("--state-md", metavar="PATH",
                         help="write a markdown state snapshot (agent push-memory)")
@@ -1370,22 +1374,24 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     repo_names = {_repo_basename(e["url"])[1] for e in entries}
-    products = resolve_products(entries, roots)
-    extensions = scan_vscode_extensions(roots, repo_names)
+    products = [] if args.freshness else resolve_products(entries, roots)
+    extensions = [] if args.freshness else scan_vscode_extensions(roots, repo_names)
 
     website_html: str | None = None
-    if not args.offline:
+    if not args.offline and not args.freshness:
         try:
             website_html = fetch_website(args.timeout)
         except (urllib.error.URLError, OSError, ValueError) as exc:
             print(f"::warning::website fetch failed: {exc}", file=sys.stderr)
 
-    rows = build_rows(products, extensions, website_html,
-                      timeout=args.timeout, offline=args.offline)
+    rows = [] if args.freshness else build_rows(
+        products, extensions, website_html,
+        timeout=args.timeout, offline=args.offline)
     owners = {name: owner for owner, name in
               (_repo_basename(e["url"]) for e in entries)}
     if not args.offline:
-        rows += collect_ci_config({**owners, **EXTRA_REPOS}, args.timeout)
+        if not args.freshness:
+            rows += collect_ci_config({**owners, **EXTRA_REPOS}, args.timeout)
         rows += collect_freshness(roots, {**owners, **EXTRA_REPOS},
                                   args.timeout)
     health = [] if args.offline else collect_health(roots, args.timeout)
