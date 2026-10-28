@@ -356,7 +356,9 @@ never real credentials.
 community ecosystem. It holds the machine-readable `registry.json` source of
 truth, catalog and DevKit manifest exporters, the OS-guide migration utility,
 the project template, the `new-repo.py` scaffolder, the weekly report
-generator, and the reusable `pypi-publish.yml` workflow.
+generator, the reusable `pypi-publish.yml` workflow, and the baseline
+snapshots lane — append-only `snapshots` data branch, documented in
+[`BASELINE.md`](BASELINE.md).
 
 **Do I need this repo to use the ecosystem tools?** No. Install a tool from
 its own repository or use the separate `devin-devkit` profiles. The DevKit
