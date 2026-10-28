@@ -33,7 +33,8 @@ distribution; this hub is not needed at runtime.
 |---|---|
 | `registry.json` | Catalog of public projects plus clearly marked maintainer-only records. `kind` records the repository's structural role, while `artifact`, `interfaces`, `audiences`, `platforms` and `environments` classify what each public artifact is, who it serves and which runtime guarantees it supports. `track`, `role`, `nature`, `mode`, `maturity` and `official_overlap` carry the editorial classification (see [Classification](#classification)). The weekly public report filters to `kind=project` and `visibility=public`. |
 | `template/` | Starter repository with a shared README, Windows/Linux guides, a planned macOS guide, and CI. |
-| `tools/new-repo.py` | Creates a new `devin-<name>` sibling checkout from the template, initializes Git and registers the repo in `registry.json` (schema-validated before writing). `--dry-run` previews without side effects. It does not create a GitHub repository or push. |
+| `tools/new-repo.py` | Creates a new `devin-<name>` sibling checkout from the template, initializes Git and registers the repo in `registry.json` (schema-validated before writing). `--dry-run` previews without side effects. It does not create a GitHub repository or push unless the opt-in `--github` flag is passed. |
+| `tools/repo-seo-audit.py` | Read-only discoverability audit of the owner's public GitHub repos via `gh repo list`: flags missing description, topics or homepage (the `--json` output carries the per-field findings). Port of the PAS `repo_seo_audit.py` script. |
 | `tools/weekly_repo_report.py` | Reads public GitHub commit metadata from the registry and writes a standalone HTML report. Email delivery is optional. |
 | `tools/validate_registry.py` | Validates `registry.json` against `registry.schema.json` and the cross-entry rules (dependency-free). Exits 1 on violations and 2 when the schema uses a keyword the validator cannot enforce. |
 | `tools/reconcile_registry.py` | Reconciles the registry against the GitHub account and local clones: missing entries, missing repos, stale version/tag fields. Read-only. |
@@ -96,8 +97,12 @@ without touching anything; `--no-register` scaffolds only. `--kind`,
 supports all three environments; use `--unsupported-environment ENV=reason`,
 `--requires-delegation`, `--requires-devin-vm` or
 `--requires-external-integration NAME` when the new artifact has different
-runtime guarantees. It does not create a GitHub remote. Review the
-generated files and choose the remote/visibility yourself.
+runtime guarantees. It does not create a GitHub remote unless you pass the
+opt-in `--github` flag, which runs a `gh auth status` pre-flight, commits the
+scaffolded files and executes `gh repo create <owner>/devin-<name>
+--public|--private --source=. --push` (visibility mirrors `--visibility`).
+Without `--github`, review the generated files and choose the remote/visibility
+yourself — the printed `next:` line is the exact command `--github` would run.
 
 `weekly_repo_report.py` uses the GitHub public commits API. `GITHUB_TOKEN` is
 optional and can increase rate limits. Its options are:
@@ -275,7 +280,11 @@ standalone. What runs locally with zero external services:
   `GITHUB_TOKEN`; without them it still reports local-only findings.
 - `tools/new-repo.py` — scaffolds a local checkout and registers it in
   `registry.json` (`git init` only, no GitHub calls; creating a remote is a
-  separate, explicit step). `--dry-run` is side-effect free.
+  separate, explicit step unless you pass the opt-in `--github` flag).
+  `--dry-run` is side-effect free.
+- `tools/repo-seo-audit.py` — read-only audit of the owner's public repos:
+  missing description, topics or homepage. It shells out to `gh repo list`,
+  so it needs `gh auth`.
 - `tools/weekly_repo_report.py --out report.html` — writes a standalone HTML
   report. It reads the public GitHub commits API, so it needs unauthenticated
   network access to `github.com` (`GITHUB_TOKEN` only raises rate limits).
@@ -293,7 +302,8 @@ Windows is explicit and local-only: no VM, QwenPaw, external compute,
 workload delegation or required external integrations.
 
 The Python maintainer scripts work on Windows and Linux. `new-repo.py` invokes
-Git; creating a GitHub remote is a separate, explicit action. The template's
+Git; creating a GitHub remote is a separate, explicit action (`--github` is
+opt-in). The template's
 CI tests Python projects on Windows and Ubuntu; `devin-control` tests Node on
 both platforms.
 

@@ -11,7 +11,7 @@ devin-powerups solves the maintenance side of running a multi-repo ecosystem: ke
 
 ## Key commands
 
-- `python3 tools/new-repo.py history "Export and audit Devin session history"`: scaffold a sibling `devin-<name>` checkout from `template/` and `git init -b main` (no GitHub remote created)
+- `python3 tools/new-repo.py history "Export and audit Devin session history"`: scaffold a sibling `devin-<name>` checkout from `template/` and `git init -b main` (no GitHub remote created unless the opt-in `--github` flag is passed)
 - `python3 tools/weekly_repo_report.py --days 7 --out report/weekly-repo-report.html`: generate the standalone HTML report from the registry via the public GitHub commits API (`GITHUB_TOKEN` optional)
 - `python3 tools/weekly_repo_report.py --send report.html --to ADDR --from "Name <verified-address>"`: optional email delivery (requires SMTP secrets + `REPORT_SENDER`)
 - `uses: Icaro0310/devin-powerups/.github/workflows/pypi-publish.yml@main` with `secrets: PYPI_API_TOKEN`: reusable PyPI publish workflow for every Python repo in the ecosystem
