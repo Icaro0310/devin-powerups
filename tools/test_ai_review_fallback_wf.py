@@ -55,13 +55,13 @@ def test_fallback_jobs_gate_on_classifier():
         assert "EXECUTED" in block
 
 
-def test_review_b_serializes_after_review_a():
-    """The shared tailnet Ollama serves one request at a time (-np 1).
-    Parallel A+B queued the loser into its client timeout; B must wait
-    for A, and always() keeps B's own outcome honest when A failed."""
+def test_review_b_runs_parallel_to_review_a():
+    """Lane B is deterministic static analysis on the runner — no shared
+    Ollama slot exists anymore, so it must NOT serialize behind A;
+    always() keeps its own outcome honest when classify flaked."""
     block = _job_block("review-b")
     needs_line = next(l for l in block.splitlines() if "needs:" in l)
-    assert "review-a" in needs_line, needs_line
+    assert "review-a" not in needs_line, needs_line
     assert "always()" in block
 
 
@@ -83,8 +83,9 @@ def test_pr_approve_reads_coverage_check_run_not_status_mirror():
 
 
 def test_tailscale_jobs_have_id_token_write_only_where_needed():
-    for name in ("review-a", "review-b"):
-        assert "id-token: write" in _job_block(name)
+    # Lane B is static analysis on the runner — no tailnet, no id-token.
+    assert "id-token: write" in _job_block("review-a")
+    assert "id-token" not in _job_block("review-b")
     assert "id-token" not in _job_block("coverage")
 
 
