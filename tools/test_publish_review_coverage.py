@@ -36,9 +36,12 @@ def test_a_only_is_degraded():
     assert "requires human review" in desc
 
 
-def test_b_only_is_degraded():
+def test_b_only_is_covered():
+    # Lane B alone (direct Ollama, always posts a real review) covers the
+    # PR — b-only=success is the documented acceptance rule. Reviewer A
+    # flaking must not hold the gate hostage to infra outside the review.
     conclusion, desc, verdict = mod.compute_verdict("UNVERIFIED", "FAILED", "EXECUTED")
-    assert conclusion == "action_required" and verdict == "DEGRADED"
+    assert conclusion == "success" and verdict == "COVERED"
     assert "b-only" in desc
 
 
