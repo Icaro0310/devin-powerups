@@ -36,9 +36,12 @@ def test_a_only_is_degraded():
     assert "requires human review" in desc
 
 
-def test_b_only_is_degraded():
+def test_b_only_is_covered():
+    """Lane B alone covers the gate: it posts a real review + verdict;
+    lane A (third-party action) flakes on payload races, so a-only stays
+    DEGRADED but b-only is success — policy shipped in fb137c3."""
     conclusion, desc, verdict = mod.compute_verdict("UNVERIFIED", "FAILED", "EXECUTED")
-    assert conclusion == "action_required" and verdict == "DEGRADED"
+    assert conclusion == "success" and verdict == "COVERED"
     assert "b-only" in desc
 
 
