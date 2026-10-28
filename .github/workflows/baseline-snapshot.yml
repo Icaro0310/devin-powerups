@@ -13,11 +13,13 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  issues: write
+  contents: read
 
 jobs:
   snapshot:
+    permissions:
+      contents: write   # push the snapshots data branch
+      issues: write     # open an issue on collection failure
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
