@@ -1210,14 +1210,27 @@ def _tool_is_installed(tool: str, roots: list[Path], evidence: str) -> bool:
 # "ecosystem" -> devin-powerups, "ops" -> personal-agent-system.
 WORKFLOW_CHECKS = (
     ("ai-review-fallback.yml", 7, "ecosystem"),
-    ("python-test.yml", 14, "ecosystem"),
-    ("test.yml", 14, "ecosystem"),
+    ("ci.yml", 14, "ecosystem"),
+    ("pypi-publish.yml", 30, "ecosystem"),
     ("release.yml", 30, "ecosystem"),
 )
 WORKFLOW_KIND_REPOS = {
     "ecosystem": SILENCE_REPO_HUB,
     "ops": SILENCE_REPO_PAS,
 }
+# Conclusions that count toward an err streak or break it; cancelled /
+# skipped / neutral are neither failure nor success for this purpose.
+_WORKFLOW_SIG_CONCLUSIONS = {
+    "success", "failure", "timed_out", "startup_failure", "action_required",
+}
+
+
+def _this_host() -> str:
+    """Which silence-sensor host are we? The VM owns its own tool set."""
+    if os.environ.get("DEVIN_HOST"):
+        return os.environ["DEVIN_HOST"]
+    return "vm" if str(Path.home()) == "/root" or Path(
+        "/root/qwenpaw-queue").exists() else "laptop"
 
 
 def _workflow_freshness(owners: dict[str, str], timeout: int,
@@ -1238,6 +1251,7 @@ def _workflow_freshness(owners: dict[str, str], timeout: int,
         product = Path(workflow_file).stem
         newest_completed: tuple[float, str] | None = None
         newest_success: float | None = None
+        significant: list[tuple[float, str]] = []
         queried = 0
         for name, owner in sorted(owners.items()):
             try:
@@ -1277,6 +1291,8 @@ def _workflow_freshness(owners: dict[str, str], timeout: int,
                 if conclusion == "success" and (
                         newest_success is None or ts > newest_success):
                     newest_success = ts
+                if conclusion in _WORKFLOW_SIG_CONCLUSIONS:
+                    significant.append((ts, conclusion))
         remote = _fmt_threshold(threshold_h)
         if queried == 0:
             rows.append(Row(product, "freshness", "—", remote,
@@ -1288,12 +1304,17 @@ def _workflow_freshness(owners: dict[str, str], timeout: int,
             product, repo, threshold_h,
             (newest_completed[0] if newest_completed else None, True, note),
             now))
-        if newest_completed is not None and newest_completed[1] != "success":
-            if newest_success is None or newest_completed[0] > newest_success:
-                rows.append(Row(
-                    f"{product} (errors)", "freshness", "err streak",
-                    remote, "drift", repo,
-                    f"newest completed run conclusion={newest_completed[1]}"))
+        # err streak: the newest 3 *significant* runs all failed — a single
+        # red PR run or a cancelled duplicate is not pipeline death.
+        significant.sort(reverse=True)
+        streak = significant[:3]
+        if len(streak) == 3 and all(
+                c != "success" for _, c in streak):
+            rows.append(Row(
+                f"{product} (errors)", "freshness", "err streak",
+                remote, "drift", repo,
+                f"3 consecutive non-success conclusions "
+                f"(newest={streak[0][1]})"))
     return rows
 
 
@@ -1323,6 +1344,9 @@ def collect_freshness(roots: list[Path], owners: dict[str, str],
     for tool, cfg in matrix.items():
         threshold_h = float(cfg["threshold_h"])
         repo = str(cfg.get("repo") or SILENCE_REPO_PAS)
+        host = cfg.get("host")
+        if host and host != _this_host():
+            continue  # foreign-host tool: not this machine's silence to sense
         if tool in probes:
             rows.append(_fresh_row(tool, repo, threshold_h,
                                    probes[tool](), now))

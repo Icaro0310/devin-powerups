@@ -488,9 +488,9 @@ class WorkflowFreshnessTests(unittest.TestCase):
 
     def test_aggregates_across_repos(self):
         runs = {
-            ("o/repo-a", "python-test.yml"): [
+            ("o/repo-a", "ci.yml"): [
                 {"createdAt": self._iso(NOW - 3600), "conclusion": "success"}],
-            ("o/repo-b", "python-test.yml"): [
+            ("o/repo-b", "ci.yml"): [
                 {"createdAt": self._iso(NOW - 2 * 3600),
                  "conclusion": "success"}],
         }
@@ -498,10 +498,10 @@ class WorkflowFreshnessTests(unittest.TestCase):
                                side_effect=self._gh(runs)):
             rows = {r.product: r for r in
                     es._workflow_freshness(self.OWNERS, 5, now=NOW)}
-        self.assertEqual((rows["python-test"].state,
-                          rows["python-test"].local), ("ok", "1h"))
+        self.assertEqual((rows["ci"].state,
+                          rows["ci"].local), ("ok", "1h"))
         # every other workflow: queried ok (could-not-find) but no runs
-        for name in ("ai-review-fallback", "test", "release"):
+        for name in ("ai-review-fallback", "pypi-publish", "release"):
             self.assertEqual((rows[name].state, rows[name].local),
                              ("drift", "never"), name)
 
@@ -511,6 +511,10 @@ class WorkflowFreshnessTests(unittest.TestCase):
                 {"createdAt": self._iso(NOW - 1800),
                  "conclusion": "failure"},
                 {"createdAt": self._iso(NOW - 2 * 3600),
+                 "conclusion": "failure"},
+                {"createdAt": self._iso(NOW - 3 * 3600),
+                 "conclusion": "failure"},
+                {"createdAt": self._iso(NOW - 4 * 3600),
                  "conclusion": "success"},
             ],
         }
@@ -523,7 +527,26 @@ class WorkflowFreshnessTests(unittest.TestCase):
         errors = rows["release (errors)"]
         self.assertEqual((errors.state, errors.local),
                          ("drift", "err streak"))
-        self.assertIn("conclusion=failure", errors.note)
+        self.assertIn("non-success", errors.note)
+
+    def test_single_failure_is_not_a_streak(self):
+        # cancelled duplicates and isolated red PR runs are not pipeline
+        # death — fewer than 3 consecutive significant non-success runs
+        runs = {
+            ("o/repo-a", "release.yml"): [
+                {"createdAt": self._iso(NOW - 1800),
+                 "conclusion": "failure"},
+                {"createdAt": self._iso(NOW - 2 * 3600),
+                 "conclusion": "cancelled"},
+                {"createdAt": self._iso(NOW - 3 * 3600),
+                 "conclusion": "success"},
+            ],
+        }
+        with mock.patch.object(es.subprocess, "run",
+                               side_effect=self._gh(runs)):
+            rows = {r.product: r for r in
+                    es._workflow_freshness(self.OWNERS, 5, now=NOW)}
+        self.assertNotIn("release (errors)", rows)
 
     def test_newer_success_clears_streak(self):
         runs = {
