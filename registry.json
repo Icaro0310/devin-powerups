@@ -309,10 +309,11 @@
       "devin-judge": {
         "manager": "uv",
         "source": "pypi",
-        "package": "poordjaevin",
+        "package": "devin-judge",
         "version": "0.1.3",
         "commands": [
-          "poordjaevin"
+          "poordjaevin",
+          "devin-judge"
         ],
         "runtime": "python>=3.10",
         "platforms": [
@@ -2039,11 +2040,12 @@
       "product_id": "devin-judge",
       "package": {
         "ecosystem": "pypi",
-        "name": "poordjaevin",
+        "name": "devin-judge",
         "path": "."
       },
       "entrypoints": [
-        "poordjaevin"
+        "poordjaevin",
+        "devin-judge"
       ],
       "legacy": {
         "repo": "poordjaevin",

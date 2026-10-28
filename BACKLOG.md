@@ -1,9 +1,9 @@
 # Backlog
 
-Parked work with priority and unblock conditions. The P5 window
-(→ 2026-12-03) is a measurement period, not a freeze — items below are
-unblocked unless they touch measured structure (merges, new repos,
-taxonomy, renames — see `GOVERNANCE.md`).
+Parked work with priority and unblock conditions. The P5 window was
+revoked early on 2026-10-28 (D-2026-10-28) — structure changes (merges,
+new repos, taxonomy, renames) are allowed again when justified, pending
+CI gates and a `registry.json` landing (see `GOVERNANCE.md`).
 
 Tasks from the V4 report are tracked as GitHub issues in the owning
 repo (all prefixed `[V4]`); this file is the index.
@@ -79,14 +79,21 @@ this table is the executable queue.
 | Spec-order divergence pin (devin-devkit#36) — review comment on the update-environment-gate PR flags a case the parity matrix must carry; the window is while the PR lives. If it merges without the case in `test_gate_parity.py`, this becomes a named gap, not a closed item | medium | watch: verify at merge |
 | GHCR version-tag exists-check — `docker-publish.yml` in devin-state / devin-assure / devin-judge repushes `:<version>` without checking the tag already exists; release-driven triggers make a repush rare, but a manual dispatch on an old ref would overwrite the pin silently. Add a manifest-exists check that fails or skips before build | low | not filed; flagged by review 2026-10-11 |
 
-## Gated until the window ends (2026-12-03)
+## Previously gated by the P5 window — unblocked 2026-10-28
 
-Anything that would invalidate the measured series: physical merges,
-new or deleted repositories, registry taxonomy changes, renames, and
-reinterpreting the baseline itself. These stay gated until the window
-ends on 2026-12-03 — or until a governance trigger ends it early, in
-which case the triggering evidence is itself the review that decides
-what unblocks.
+The freeze was revoked early (D-2026-10-28). Physical merges, new or
+deleted repositories, registry taxonomy changes and renames are allowed
+when justified; each still needs its own review, CI green and a
+`registry.json` landing. The 2026-12-03 baseline cut stays marked — do
+not splice pre/post series in future adoption reports.
+
+Deferred P4 items from the 2026-10-25 scout triage
+(`personal-agent-system/reports/scout-2026-10-25-triage.md`) that were
+held *because of* the freeze are released: `new-repo.py --github`,
+`repo-seo-audit.py` port, and the five new-project INTEGRATE ideas
+(recall→brain, gateway→judge, radar→scout/dashboard, voice→skill-catalog,
+fleet→orchestrator). Items deferred for design reasons (specs, safety
+contracts, owner evidence) keep their original blockers.
 
 ## Watchdogs (running)
 
