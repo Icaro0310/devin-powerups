@@ -1,8 +1,10 @@
 name: baseline-snapshot (weekly)
 
-# P5 baseline collection: commits a dated snapshot to snapshots/ every
-# Monday and opens an issue if collection fails — a missed snapshot cannot
-# be recovered retroactively. Window: 2026-10-08 → 2026-12-03.
+# P5 baseline collection: commits a dated snapshot to snapshots/ on the
+# append-only `snapshots` data branch every Monday (main is protected —
+# pushes must go through PRs) and opens an issue if collection fails —
+# a missed snapshot cannot be recovered retroactively.
+# Window: 2026-10-08 → 2026-12-03.
 
 on:
   schedule:
@@ -35,6 +37,30 @@ jobs:
             echo "active=true" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Restore snapshot series from the data branch
+        if: steps.window.outputs.active == 'true'
+        run: |
+          # previous_snapshot() diffs against the newest dated JSON in
+          # snapshots/, which lives on the data branch — main only keeps
+          # the day-1 files. Materialize the series first so the recorded
+          # structural diff is week-over-week, not day-1-over-week. A
+          # confirmed-absent branch means first run; an unreachable origin
+          # must stop the run or a stale day-1 diff gets published.
+          if git ls-remote --exit-code --heads origin snapshots >/dev/null 2>&1; then
+            git fetch -q origin "+refs/heads/snapshots:refs/remotes/origin/snapshots"
+            for f in $(git ls-tree --name-only origin/snapshots snapshots/); do
+              git show "origin/snapshots:$f" > "$f"
+            done
+          else
+            rc=$?
+            if [ "$rc" -eq 2 ]; then
+              echo "no snapshots branch yet — first run: day-1 is the only baseline"
+            else
+              echo "cannot reach origin for the snapshots branch (rc=$rc) — failing so a stale day-1 diff is not published"
+              exit 1
+            fi
+          fi
+
       - name: Collect baseline + fork visibility
         if: steps.window.outputs.active == 'true'
         env:
@@ -52,9 +78,29 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Snapshots commit to the append-only `snapshots` data branch —
+          # main is protected (PR-only) so a direct push fails GH006. The
+          # restore step already fetched the branch ref (a transient extra
+          # fetch just leaves the ref as-is); fresh JSONs are parked in
+          # tmp so -fB may safely clobber untracked collisions — on a
+          # same-day rerun today's collection wins over the earlier
+          # commit instead of being silently discarded.
+          tmpdir="$(mktemp -d)"
+          cp "snapshots/$(date +%F).json" "snapshots/forks-$(date +%F).json" "$tmpdir/"
+          git fetch -q origin "+refs/heads/snapshots:refs/remotes/origin/snapshots" 2>/dev/null || true
+          if git rev-parse --verify --quiet origin/snapshots >/dev/null; then
+            git checkout -fB snapshots origin/snapshots
+          else
+            git checkout -b snapshots
+          fi
+          cp "$tmpdir/$(date +%F).json" "$tmpdir/forks-$(date +%F).json" snapshots/
           git add "snapshots/$(date +%F).json" "snapshots/forks-$(date +%F).json"
+          if git diff --cached --quiet; then
+            echo "snapshots branch already has today's data"
+            exit 0
+          fi
           git commit -m "chore: weekly baseline snapshot $(date +%F)"
-          git push
+          git push -u origin snapshots
 
       - name: Fail if collectors recorded errors
         if: steps.window.outputs.active == 'true'

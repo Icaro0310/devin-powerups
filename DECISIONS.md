@@ -4,6 +4,134 @@ Structural decisions about the ecosystem, newest first. Format per
 `GOVERNANCE.md`: Decision / Date / Reason / Evidence / Expected outcome /
 Result. Records are not eternal — revisit when new evidence arrives.
 
+## D-2026-10-20b — Gate fallback v1.5: cross-repo fix anchors + idempotent audit comment
+
+- **Decision:** `pr-approve.yml` v1.5 extends the v1.4 fallback (D-2026-10-20)
+  with two canary-driven fixes, both discovered running callers on v1.4.
+- **Cross-repo anchors (canary assure#89):** the v1.4 model assumed the
+  fix commit lives in the PR's own repo — a finding on a caller's
+  `auto-approve.yml` (`uses: .../pr-approve.yml@v1.4`) can only be fixed
+  by a commit in devin-powerups, so no sha in the caller repo can ever
+  be an ancestor of its head. A qualified reply may now also cite:
+  `owner/repo@<sha>`, `github.com/owner/repo/commit/<sha>` or
+  `github.com/owner/repo/pull/<n>` — strictly org-scoped (the anchor's
+  owner must equal the PR repo's owner; anything else is rejected
+  before any API call). Verification is LANDEDNESS, not ancestry:
+  commit anchors require the sha to be an ancestor of the upstream
+  repo's default branch (`compare {sha}...{default_branch}`
+  ahead/identical — a commit that merely exists on an unmerged branch
+  or fork never landed, hardened per PR #217 review); pull anchors
+  require `pulls/{n}` `merged_at` non-null (an open PR is not a landed
+  fix). The `originalCommit` postdate rule is unchanged for same-repo
+  shas and skipped for cross-repo anchors (no shared ancestry). Two
+  rails stay strict when the anchor names the PR's OWN repo: a commit
+  anchor takes the full same-repo ancestor+postdate path (existence
+  alone would reopen the cite-head exploit closed in D-2026-10-20), and
+  a pull anchor requires its `merge_commit_sha` to be an ancestor of
+  the head AND to postdate the finding (a merge to main that never
+  entered the PR — or that landed before the finding existed — leaves
+  the flagged code untouched; hardened per PR #217 review). Reply
+  author must still be PR author/collaborator, the `Devin Review`
+  status on head must still be `success`, threads stay unresolved.
+- **Audit-comment dedup (canary finding 1, deferred from assure#89):**
+  every approval pass with a nonzero fallback count used to post
+  `gate-resolved-via: fallback`, so repeated triggers stacked
+  duplicates. The comment now records its resolved thread|anchor set on
+  a `gate-fallback-pairs:` line; before posting, the step lists the
+  PR's issue comments and skips when an existing `github-actions[bot]`
+  comment carries the identical sorted set — humans and other bots
+  cannot forge the marker to silence the audit trail (hardened per
+  PR #217 review). A different set posts fresh with the full current
+  set; the head sha is part of the recorded set, so the same threads
+  resolving on a NEW head is fresh evidence and re-posts (a suppressed
+  re-post would leave the audit naming a stale head — PR #217 analysis
+  finding). A `concurrency` group (`pr-approve-<repo>-<pr#|head-sha>`,
+  cancel-in-progress) serializes same-key triggers, closing most of
+  the concurrent GET->POST duplicate window (PR #217 bug finding); a
+  cross-event overlap (status run keyed by sha vs PR run keyed by
+  number) remains a known residual — cosmetic only, worst case one
+  duplicated audit comment.
+- **Wire format:** anchors flow through the pipeline as typed tokens
+  (`sha:HEX`, `commit:O/R@HEX`, `pull:O/R#N`, all lowercased by the jq
+  extractor); `fallback_threads` pairs are `tid|kind:anchor` (was
+  `tid@sha` — `@` collides with the `repo@sha` shape).
+- **Tests:** `tools/test_pr_approve_gate_fallback.py` grows to 34 —
+  cross-repo `repo@sha`/commit-URL/merged-pull resolution, landedness
+  (sha on an unmerged upstream branch stays blocking), unmerged pull,
+  foreign-owner and nonexistent anchors staying blocking, own-repo
+  alias rails incl. merges predating the finding, and the dedupe
+  (identical set + same head skips, extended set or new head posts,
+  human/foreign-bot marker ignored).
+- **Expected outcome:** the gate now clears caller-side findings fixed
+  upstream without admin merges, and repeated triggers no longer stack
+  audit comments. The owner cuts the `v1.5` tag on the merge commit.
+
+## D-2026-10-20 — Gate fallback: verified fix-commit replies clear blocking threads (option A, in-workflow)
+
+- **Decision:** `pr-approve.yml` v1.4 gains a fallback inside the
+  existing findings step (option A — additive, where the veto lives)
+  over option B (a separate checker workflow + label). A blocking
+  review thread stops counting when ALL hold: (1) it is unresolved or
+  resolved by a non-bot (same predicate as before — `resolvedBy: bot`
+  stays the primary path); (2) a reply after the finding comment by the
+  PR author or a repo-collaborator account (`OWNER`/`MEMBER`/
+  `COLLABORATOR` association, or the PR author's own login) cites a hex
+  7-40 commit token that exists in the repo AND is an ancestor of the
+  reviewed head (`compare {sha}...{head}` status `ahead`/`identical`)
+  AND strictly postdates the commit the finding was left on
+  (`compare {base}...{sha}` = `ahead` — citing the flagged commit, an
+  older one, or an unpushed-since head proves no fix; hardened in
+  review, see below); (3) the head carries a `Devin Review` commit
+  status `success` — the fix commit was itself re-reviewed clean (the
+  "2 re-review passes" proxy). Cleared threads stay UNRESOLVED — only
+  the veto lifts; the run logs `fallback-resolved:` lines, emits
+  `fallback_resolutions` (pr→count) + `fallback_threads` outputs, and
+  the approval posts a public `gate-resolved-via: fallback` PR comment
+  naming thread+sha.
+- **Why A over B:** the mechanism lives where the veto lives — no
+  second workflow to drift out of sync with the blocking predicate, no
+  label plumbing across ~26 caller repos, and the merge-time comment
+  exposes every fallback use publicly instead of hiding it in a label.
+- **Trigger:** devin-explore PR #104 and devin-state PR #74 — both
+  STATUS_CLEAN across 2+ re-review passes with every finding fixed and
+  replies citing fix commits, but the bot never self-resolved the
+  threads (known gap per the D-2026-10-14 lesson set), so the gate held
+  forever and both needed admin merges (count 6/5).
+- **Kill-switch verification (pre-implementation):** #74 reproduces
+  exactly — unresolved bug thread, author reply cites `55ded04`,
+  compare status `ahead` of head `3eeaf7f`, head status `success`; the
+  fallback would have cleared it. #104 does NOT satisfy the strict
+  criterion — its cited sha `b0cf8e3` was rewritten by a pre-merge
+  rebase (compare `diverged`; same patch as head `5a2077d`). Accepted
+  limit: sha-rewriting rebases need patch-id equivalence, deferred —
+  replies should cite the post-rebase sha. The mechanism is confirmed
+  non-speculative by #74, and the safety rail that rejects #104's
+  diverged sha is the same one that rejects unrelated-commit quotes.
+- **Safety rails:** never fires on reply-less threads, non-ancestor or
+  nonexistent shas, shas not postdating the finding commit, replies by
+  non-collaborator accounts, or a missing/non-success head status;
+  strictly additive to the old predicate (it can only remove threads
+  from the blocking set).
+- **Hardened in Devin Review (PR #214):** (a) `comments(first:50)`
+  alone dropped fix replies past the 50th — now `comments(first:1)`
+  for the finding + `comments(last:50)` for replies (fix replies are
+  always the newest); (b) replies fired no re-run — added
+  `pull_request_review_comment[created]` so a late "Fixed in <sha>"
+  re-evaluates the gate (callers need the same trigger in their
+  `auto-approve.yml` at pin-bump time — the reusable's `on:` only
+  governs this repo); (c) the cite-`HEAD_SHA` exploit — a bare
+  `ahead|identical` check let an author quote the flagged commit or
+  the head itself with zero pushed work; the postdate compare closes
+  it (a head cite now requires at least one post-finding push, which
+  itself went through re-review).
+- **Tests:** `tools/test_pr_approve_gate_fallback.py` executes the
+  workflow's real `run:` blocks against a stubbed `gh` — 18 tests
+  covering the four spec fixtures plus the rails and the three
+  review-flagged edges.
+- **Expected outcome:** repeat failure class closed — verified-fix PRs
+  no longer need admin merges when the bot leaves threads open; every
+  fallback use is auditable in the run log and on the PR itself.
+
 ## D-2026-10-15 — Path A activated incrementally: multi-source corpus for all tools (partial reversal of D-2026-10-14)
 
 - **Decision:** the "empty for non-Devin users" state of the six `devin-*`
@@ -1502,3 +1630,51 @@ Closure of the MÉDIO-3/4 + skill-audit flagged list. Two were factual and fixed
 - **Result:** sensor green on the hub + template; flags 13–15 floats on
   real sibling checkouts (dep-groups, ruff-action, publish installs),
   confirming it catches the class, not just the fixtures.
+
+## D-2026-10-25 — Personal-paths diff gate rides secrets-scan; literal-owner match only
+
+- **Context:** a `git add -A` swept a machine-state snapshot —
+  absolute home paths, username, cron schedules — into a public repo.
+  Neither existing sensor covers the class: secrets-scan greps the
+  tree for token shapes (a path is not a token) and adapters-check
+  only scans adapter roots (`adapters/`, `packages/*/adapters/`,
+  `.devin/skills/`), not arbitrary state files at the repo root.
+- **Decision:** `scripts/check-internal-paths.py` blocks the class at
+  the boundary where it enters — the diff, not the tree. Staged mode
+  (`git diff --cached`, index blob) is the local pre-commit gate;
+  `--pr-base <ref>` diffs `<ref>...HEAD` in CI; `--all` covers the
+  no-merge-base fallback. Both diff modes scan only the lines the diff
+  adds — a pre-existing doc example of a banned shape is context, not
+  the diff's leak, and must not block unrelated edits — and findings
+  report `file:line: rule` without the matched line, which would
+  re-leak the path into CI logs and annotations. Banned shapes: the
+  owner's literal home dir
+  (`/home/<owner>` — deliberately NOT `/home/*`, runners live in
+  /home/runner and docs legitimately show /home/user), macOS /Users/
+  paths, and Windows `<drive>:\Users\<name>` profiles — the last two
+  generalize safely because they never appear on Linux CI or in
+  legitimate ecosystem code. Scope is the incident's text-file class
+  (.json .yaml .yml .txt .md .env .cfg .ini .toml .csv .log). No
+  allowlist — unlike known-fake secrets fixtures, a personal path is
+  never legitimate; the fix is sanitize or gitignore.
+- **Wiring:** a step inside `secrets-scan.yml`, not a new reusable —
+  every `ci.yml` caller already invokes that gate, so one `v1` retag
+  propagates the sensor to the whole ecosystem with zero caller PRs
+  (same model as the publish-auth meta-check, D-2026-10-11b). The
+  scanner is fetched from `v1` into `.powerups-sensor` when the caller
+  does not ship it — script and workflow versions move together
+  (D-2026-10-13i). A checkout copy is trusted only for heads a writer
+  could produce (same-repo PRs, pushes — that is how this PR exercises
+  the new code on itself); fork PR heads run the pinned fetch instead,
+  because a contributor-controlled scanner inside the required gate
+  could exit 0 and approve itself.
+- **Evidence:** `--selftest` covers the unit matrix (owner home,
+  macOS, both Windows slash forms, runner/other-user negatives) and
+  all three git modes, including staged-blob-vs-worktree and the
+  dotfile edge (`.env` has no `Path.suffix`).
+- **Expected outcome:** the next `git add -A` carrying a machine path
+  fails the PR at the reusable gate in every consumer repo after
+  retag; locally the same script works as a staged-file gate before
+  the commit exists.
+- **Result:** sensor green on the hub's own diff (this PR); per-repo
+  activation lands with the next `v1` retag.
