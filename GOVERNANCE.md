@@ -50,36 +50,21 @@ now?"
    working — that is by design, and the correct remediation is to
    reissue the token with `workflow` scope, not to weaken protection.
 
-## P5 measurement window (2026-10-08 → 2026-12-03)
+## P5 measurement window — REVOKED 2026-10-28 (D-2026-10-28)
 
-The baseline measures adoption signals: views, clones, package
-downloads, installs, stars, forks, issues, external PRs. It is a
-measurement window, not a work freeze.
+The consolidation phase ended early: CI/CD, auto-audit, freshness
+sensors and push-memory are all live, so the freeze was revoked ahead
+of its scheduled 2026-12-03 end. Decision recorded in
+`personal-agent-system/DECISIONS.md` (D-2026-10-28).
 
-**Still prohibited during the window** — because they would invalidate
-the measured series itself:
+The window's prohibitions are **lifted**: new repositories (when
+justified), physical merges, taxonomy reclassification, and
+tool/package renames are allowed — provided they pass CI gates and
+regression tests, and every structural change still lands in
+`registry.json` (the semantic source of truth) per *Lifecycle* below.
 
-- physical repository merges or new/deleted repositories (changes what
-  is counted),
-- registry taxonomy reclassification or public/private flips (changes
-  what is "public"),
-- renaming tools or repos (breaks links and historical series).
-
-**Explicitly allowed** — this work does not contaminate the baseline;
-it is what the baseline exists to measure the impact of:
-
-- UX and discoverability: README/profile improvements, site
-  reorganization, GitHub topics, rewriting `awesome-devin` as an
-  intent map;
-- backlog items that do not touch measured structure (D05/D07/D09
-  graders, `devin-evals` PyPI publication, …);
-- bug fixes, documentation, tooling.
-
-Interpreting the data before 2026-12-03 remains out of scope — collect,
-don't conclude. The window ends on **2026-12-03** (issue #14 tracks it)
-or earlier only if a governance rule is triggered by new evidence — e.g.
-a distribution break, a security incident, or adoption data that makes a
-standing decision clearly wrong.
+The baseline dataset remains useful history: do not splice pre- and
+post-revocation series in future adoption reports — mark the cut.
 
 ## Lifecycle
 
