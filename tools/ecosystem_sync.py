@@ -346,6 +346,37 @@ def open_vsx_version(ext_name: str, timeout: int, opener=urllib.request.urlopen)
     return version
 
 
+VSCODE_MARKETPLACE_API = (
+    "https://marketplace.visualstudio.com/_apis/public/gallery/"
+    "extensionquery?api-version=7.2-preview.1"
+)
+
+
+def marketplace_version(ext_name: str, timeout: int) -> str | None:
+    """VS Code Marketplace public gallery API — no credential needed.
+
+    Returns "" when the extension is not published there, None on
+    transport/API failure."""
+    body = json.dumps({
+        "filters": [{"criteria": [
+            {"filterType": 7, "value": f"{VSCODE_PUBLISHER}.{ext_name}"}]}],
+        "flags": 914,
+    }).encode()
+    req = urllib.request.Request(
+        VSCODE_MARKETPLACE_API, data=body, method="POST",
+        headers={"Content-Type": "application/json",
+                 "Accept": "application/json;api-version=7.2-preview.1"})
+    try:
+        data = json.load(urllib.request.urlopen(req, timeout=timeout))
+    except (OSError, ValueError):
+        return None
+    exts = (data.get("results") or [{}])[0].get("extensions") or []
+    if not exts:
+        return ""
+    versions = exts[0].get("versions") or []
+    return versions[0].get("version", "") if versions else ""
+
+
 def _semver_key(tag: str) -> tuple[int, int, int] | None:
     match = _SEMVER_RE.match(tag.strip())
     if not match:
@@ -596,8 +627,12 @@ def build_rows(products: list[Product], extensions: list[VsCodeExt],
             except RuntimeError:
                 remote = None
             rows.append(_compare(ext.name, "open-vsx", ext.version, remote, repo))
-            rows.append(Row(ext.name, "vscode-marketplace", ext.version or "—",
-                            "—", "unavailable", repo, "Entra credential pending"))
+            try:
+                remote = marketplace_version(ext.name, timeout)
+            except RuntimeError:
+                remote = None
+            rows.append(_compare(ext.name, "vscode-marketplace", ext.version,
+                                 remote, repo))
             rows.append(website_row(ext.name, repo))
 
         for vsix in sorted(ext.manifest.parent.glob("*.vsix")):
