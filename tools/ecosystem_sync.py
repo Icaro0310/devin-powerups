@@ -478,13 +478,35 @@ def systemd_unit_state(unit: str, timeout: int = DAEMON_TIMEOUT) -> str:
     return state or "unknown"
 
 
+def check_ollama_via_vm(timeout: int = 10) -> str | None:
+    """Probe Ollama through the VM SSH alias — the honest path.
+
+    The tailnet endpoint (100.102.159.65:11435) is ACL-scoped to tagged
+    GH runners, so a laptop probe reports DAEMON-DOWN falsely even when
+    the pipeline is healthy. SSH'ing to the VM and hitting the local
+    rewriter (:11436 -> ollama:11434) tests the chain the lanes use."""
+    try:
+        proc = subprocess.run(
+            ["ssh", "-o", "BatchMode=yes", "-o", f"ConnectTimeout={timeout}",
+             "devin-vm",
+             "curl -s -m 8 -o /dev/null -w '%{http_code}' "
+             "localhost:11436/api/tags"],
+            capture_output=True, text=True, timeout=timeout + 5,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return f"ssh probe error: {type(exc).__name__}"
+    if proc.returncode != 0:
+        return f"ssh to devin-vm failed rc={proc.returncode}"
+    return None if "200" in proc.stdout else f"ollama http={proc.stdout.strip()}"
+
+
 def collect_health() -> list[tuple[str, str]]:
     """Daemon probes -> [(name, status)]; failures read DAEMON-DOWN."""
     checks: list[tuple[str, str]] = []
     failure = check_daemon(HEALTHZ_URL)
     checks.append(("mcp-hub/office healthz", "ok" if failure is None else f"DAEMON-DOWN {failure}"))
-    failure = check_daemon(OLLAMA_TAGS_URL)
-    checks.append(("ollama tailnet", "ok" if failure is None else f"DAEMON-DOWN {failure}"))
+    failure = check_ollama_via_vm()
+    checks.append(("ollama (via devin-vm)", "ok" if failure is None else f"DAEMON-DOWN {failure}"))
     for unit in SYSTEMD_USER_UNITS:
         state = systemd_unit_state(unit)
         if state == "skip":
