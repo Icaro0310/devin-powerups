@@ -1085,9 +1085,12 @@ def _load_silence_matrix(path: Path | None = None) -> dict[str, dict]:
                 continue
             if threshold_h <= 0:
                 continue
+            host = cfg.get("host")
             matrix[tool.strip()] = {
                 "threshold_h": threshold_h,
                 "repo": str(cfg.get("repo") or SILENCE_REPO_PAS),
+                **({"host": str(host)} if isinstance(host, str)
+                    and host.strip() else {}),
             }
     if not matrix:
         matrix = {tool: {"threshold_h": float(h), "repo": repo}
