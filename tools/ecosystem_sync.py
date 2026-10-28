@@ -23,11 +23,18 @@ A health section probes the local daemons (mcp-hub /devin-office healthz,
 Ollama on the tailnet, known systemd --user units). Daemon failures print
 ``DAEMON-DOWN`` lines but never crash the report.
 
+A freshness section watches silent components (dispatcher queue, Slack
+notify ledger, weekly scout, review-fallback runs, heartbeat): a component
+that produces nothing within its expected interval is reported as ``drift``
+in the ``freshness`` channel so it feeds --state-md and, with --issue,
+opens ``silence-alert`` issues plus a Slack notify (``--no-silence-alerts``
+disables those side effects).
+
 Usage:
     python tools/ecosystem_sync.py [--registry registry.json]
                                    [--ecosystem-root ~/devin/devin-ecosystem]
                                    [--timeout 10] [--offline] [--json]
-                                   [--issue]
+                                   [--issue] [--no-silence-alerts]
 
 Without --issue the report is printed and the exit code is 1 when any drift
 is found (0 otherwise). With --issue, one GitHub Issue labeled ``drift`` is
@@ -41,8 +48,10 @@ import argparse
 import json
 import os
 import re
+import sqlite3
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -691,6 +700,351 @@ def collect_ci_config(repos: dict[str, str], timeout: int) -> list[Row]:
     return out
 
 
+# ---------------------------------------------------------------------------
+# Freshness / silence sensors
+#
+# A component that is alive but produces nothing within its expected interval
+# is a failure ("sensor works, channel dead" incident class). Each probe
+# resolves the newest output timestamp it can prove; silence past the
+# component's threshold lands in DRIFT_STATES so --issue and --state-md flag
+# it, while an undeterminable timestamp is "unavailable" — honest, not noisy.
+#
+# Probe result convention: (epoch_or_None, determined, note)
+#   determined=True  + epoch   -> last output at epoch (age decides ok/drift)
+#   determined=True  + None    -> source exists but produced nothing ("never")
+#   determined=False           -> cannot prove freshness ("unavailable")
+
+SILENCE_LABEL = "silence-alert"
+SILENCE_REPO_PAS = "Icaro0310/personal-agent-system"
+SILENCE_REPO_HUB = "Icaro0310/devin-powerups"
+
+# (product, threshold_hours, repo that owns silence issues)
+_FRESHNESS_CHECKS = (
+    ("dispatcher", 48, SILENCE_REPO_PAS),
+    ("slack-output", 72, SILENCE_REPO_PAS),
+    ("scout", 96, SILENCE_REPO_PAS),
+    ("review-fallback", 168, SILENCE_REPO_HUB),
+    ("heartbeat", 1, SILENCE_REPO_PAS),
+)
+
+# Plausible epoch window: 2000-01-01 .. 2100-01-01 — keeps counters like
+# "trends": 40 from being read as timestamps.
+_EPOCH_MIN = 946_684_800.0
+_EPOCH_MAX = 4_102_444_800.0
+
+
+def _parse_timestamp(value: object) -> float | None:
+    """Epoch seconds for a number / numeric string / ISO datetime, else None."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        epoch = float(value)
+    elif isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        try:
+            epoch = float(text)
+        except ValueError:
+            iso = text[:-1] + "+00:00" if text.endswith(("Z", "z")) else text
+            match = re.search(r"([+-]\d{2})(\d{2})$", iso)
+            if match:  # '+0100' -> '+01:00' (fromisoformat wants the colon)
+                iso = f"{iso[:match.start()]}{match.group(1)}:{match.group(2)}"
+            try:
+                parsed = datetime.fromisoformat(iso)
+            except ValueError:
+                return None
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            epoch = parsed.timestamp()
+    else:
+        return None
+    if epoch > 1e12:  # milliseconds epoch
+        epoch /= 1000.0
+    if not _EPOCH_MIN <= epoch <= _EPOCH_MAX:
+        return None
+    return epoch
+
+
+def _timestamps_in_json(obj: object) -> list[float]:
+    """Every parseable timestamp found anywhere in a decoded JSON value."""
+    found: list[float] = []
+    stack: list[object] = [obj]
+    while stack:
+        current = stack.pop()
+        if isinstance(current, dict):
+            stack.extend(current.values())
+        elif isinstance(current, (list, tuple)):
+            stack.extend(current)
+        else:
+            epoch = _parse_timestamp(current)
+            if epoch is not None:
+                found.append(epoch)
+    return found
+
+
+def _fmt_age(seconds: float) -> str:
+    seconds = max(0.0, seconds)
+    if seconds < 3600:
+        return f"{int(seconds // 60)}m"
+    return f"{int(round(seconds / 3600.0))}h"
+
+
+def _fmt_threshold(hours: int) -> str:
+    if hours >= 24 and hours % 24 == 0:
+        return f"<={hours // 24}d"
+    return f"<={hours}h"
+
+
+def _fresh_row(product: str, repo: str, threshold_h: int,
+               probe: tuple[float | None, bool, str], now: float) -> Row:
+    """Map one probe result to a freshness Row (ok | drift | unavailable)."""
+    remote = _fmt_threshold(threshold_h)
+    epoch, determined, note = probe
+    if not determined:
+        return Row(product, "freshness", "—", remote, "unavailable", repo, note)
+    if epoch is None:
+        return Row(product, "freshness", "never", remote, "drift", repo, note)
+    age = max(0.0, now - epoch)
+    state = "ok" if age <= threshold_h * 3600 else "drift"
+    return Row(product, "freshness", _fmt_age(age), remote, state, repo, note)
+
+
+def _probe_dispatcher(roots: list[Path],
+                      timeout: int) -> tuple[float | None, bool, str]:
+    """qwenpaw-queue last finished task: sqlite MAX(finished_at), else qdispatch."""
+    candidates: list[Path] = []
+    for root in roots:
+        candidates.append(root / "qwenpaw-queue" / "qwenpaw-queue.db")
+        candidates.extend(sorted(root.glob("*/qwenpaw-queue/qwenpaw-queue.db")))
+    for db in dict.fromkeys(candidates):
+        if not db.is_file():
+            continue
+        try:
+            conn = sqlite3.connect(db.resolve().as_uri() + "?mode=ro", uri=True)
+        except (OSError, sqlite3.Error):
+            continue
+        try:
+            for column in ("finished_at", "completed_at"):
+                try:
+                    row = conn.execute(
+                        f"SELECT MAX({column}) FROM tasks").fetchone()
+                except sqlite3.Error:
+                    continue  # schema variant — try the other column
+                if row is None or row[0] is None:
+                    return None, True, f"{db}: no finished task yet"
+                epoch = _parse_timestamp(row[0])
+                if epoch is not None:
+                    return epoch, True, f"{db.name} tasks.{column}"
+                return None, False, f"{db}: unparsable tasks.{column}"
+        finally:
+            conn.close()
+    qdispatch_scripts: list[Path] = []
+    for root in roots:
+        qdispatch_scripts.append(root / "scripts" / "qdispatch.py")
+        qdispatch_scripts.extend(sorted(root.glob("*/scripts/qdispatch.py")))
+    for script in dict.fromkeys(qdispatch_scripts):
+        if not script.is_file():
+            continue
+        try:
+            proc = subprocess.run(
+                [sys.executable, str(script), "stats"],
+                capture_output=True, text=True, timeout=timeout + 5)
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+        if proc.returncode != 0:
+            continue
+        try:
+            data = json.loads(proc.stdout)
+        except ValueError:
+            continue
+        if not isinstance(data, dict):
+            continue
+        last_done = data.get("last_done")
+        if last_done is None:
+            return None, True, "qdispatch stats: no last_done task"
+        if isinstance(last_done, dict):
+            for key in ("finished_at", "completed_at", "ts", "time"):
+                epoch = _parse_timestamp(last_done.get(key))
+                if epoch is not None:
+                    return epoch, True, f"qdispatch last_done.{key}"
+            return None, False, "qdispatch last_done has no timestamp"
+        epoch = _parse_timestamp(last_done)
+        if epoch is not None:
+            return epoch, True, "qdispatch last_done"
+    return None, False, "no qwenpaw-queue.db or qdispatch.py under roots"
+
+
+def _probe_slack_output() -> tuple[float | None, bool, str]:
+    """Last successful Slack send from the slack-notify ledger."""
+    xdg = os.environ.get("XDG_STATE_HOME")
+    bases = [Path(xdg)] if xdg else []
+    bases.append(Path.home() / ".local" / "state")
+    candidates: list[Path] = []
+    for base in bases:
+        candidates.append(base / "devin" / "slack-notify" / "last-sent.json")
+        candidates.append(base / "devin" / "slack-notify" / "last-sent.jsonl")
+    for path in dict.fromkeys(candidates):
+        if not path.is_file():
+            continue
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+            if path.suffix == ".jsonl":
+                line = next(
+                    (ln for ln in reversed(text.splitlines()) if ln.strip()), "")
+                data = json.loads(line) if line else None
+            else:
+                data = json.loads(text)
+        except (OSError, ValueError):
+            return None, False, f"{path}: unreadable send ledger"
+        if not isinstance(data, dict):
+            return None, False, f"{path}: unreadable send ledger"
+        for key in ("ts", "time", "timestamp", "date", "sent_at"):
+            epoch = _parse_timestamp(data.get(key))
+            if epoch is not None:
+                return epoch, True, f"{path.name} {key}"
+        found = _timestamps_in_json(data)
+        if found:
+            return max(found), True, path.name
+        return None, False, f"{path}: no timestamp field"
+    return None, False, "no send ledger yet"
+
+
+def _probe_scout(roots: list[Path]) -> tuple[float | None, bool, str]:
+    """Newest weekly-scout.jsonl entry timestamp."""
+    rel = Path(".config") / "devin" / "repo-maintenance" / "weekly-scout.jsonl"
+    candidates: list[Path] = [Path.home() / rel]
+    candidates.extend(sorted(Path.home().glob(f"*/{rel.as_posix()}")))
+    for root in roots:
+        candidates.append(root / rel)
+        candidates.extend(sorted(root.glob(f"*/{rel.as_posix()}")))
+    for path in dict.fromkeys(candidates):
+        if not path.is_file():
+            continue
+        try:
+            lines = [ln for ln in
+                     path.read_text(encoding="utf-8", errors="replace").splitlines()
+                     if ln.strip()]
+        except OSError:
+            continue
+        for line in reversed(lines):
+            try:
+                entry = json.loads(line)
+            except ValueError:
+                continue
+            if not isinstance(entry, dict):
+                continue
+            for key in ("ts", "time", "timestamp", "date", "run_id",
+                        "created_at"):
+                epoch = _parse_timestamp(entry.get(key))
+                if epoch is not None:
+                    return epoch, True, f"{path.name} {key}"
+            found = _timestamps_in_json(entry)
+            if found:
+                return max(found), True, path.name
+        return None, False, f"{path}: entries without timestamps"
+    return None, False, "weekly-scout.jsonl not found"
+
+
+def _probe_review_fallback(owners: dict[str, str],
+                           timeout: int) -> tuple[float | None, bool, str]:
+    """Newest completed review-fallback workflow run across the fleet."""
+    best: float | None = None
+    any_success = False
+    for name, owner in sorted(owners.items()):
+        try:
+            proc = subprocess.run(
+                ["gh", "run", "list", "--repo", f"{owner}/{name}",
+                 "--workflow", "review-fallback", "--status", "completed",
+                 "--limit", "1", "--json", "createdAt"],
+                capture_output=True, text=True, timeout=timeout + 5)
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+        if proc.returncode != 0:
+            # "could not find any workflows named X" is a definitive answer —
+            # the repo has no review-fallback, so it contributes no runs.
+            if "could not find" in (proc.stderr or proc.stdout or ""):
+                any_success = True
+            continue
+        any_success = True
+        try:
+            runs = json.loads(proc.stdout)
+        except ValueError:
+            continue
+        for run in runs if isinstance(runs, list) else []:
+            epoch = _parse_timestamp(
+                run.get("createdAt") if isinstance(run, dict) else None)
+            if epoch is not None and (best is None or epoch > best):
+                best = epoch
+    if not any_success:
+        return None, False, "gh run list failed for all repos"
+    if best is None:
+        return None, True, "no completed review-fallback run found"
+    return best, True, "newest completed review-fallback run"
+
+
+def _probe_heartbeat(roots: list[Path]) -> tuple[float | None, bool, str]:
+    """Newest timestamp in heartbeat/state.json (hourly cron)."""
+    candidates: list[Path] = []
+    for root in roots:
+        candidates.append(
+            root / "personal-agent-system" / "heartbeat" / "state.json")
+        candidates.extend(sorted(root.glob("*/heartbeat/state.json")))
+        candidates.append(root / "heartbeat" / "state.json")
+    for path in dict.fromkeys(candidates):
+        if not path.is_file():
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None, False, f"{path}: unreadable"
+        if not isinstance(data, dict):
+            return None, False, f"{path}: unreadable"
+        values: list[object] = []
+        for key in ("last_cycle_at", "last_run", "ts", "time", "date"):
+            value = data.get(key)
+            if value is not None:
+                values.append(value)
+        for key in ("last_notified", "last_sent"):
+            value = data.get(key)
+            if isinstance(value, dict):
+                values.extend(value.values())
+        merge_gates = data.get("merge_gates")
+        if isinstance(merge_gates, dict):
+            values.extend(merge_gates.values())
+        found = [ts for ts in (_parse_timestamp(v) for v in values)
+                 if ts is not None]
+        if not found:
+            found = _timestamps_in_json(data)
+        if found:
+            return max(found), True, path.name
+        return None, False, f"{path}: no timestamp fields"
+    return None, False, "heartbeat state.json not found"
+
+
+def collect_freshness(roots: list[Path], owners: dict[str, str],
+                      timeout: int = DEFAULT_TIMEOUT,
+                      now: float | None = None) -> list[Row]:
+    """One freshness Row per silence-sensed component.
+
+    ``owners`` maps repo name -> owner (same shape collect_ci_config takes);
+    it feeds the review-fallback workflow scan. ``now`` is injectable for
+    tests — epoch seconds.
+    """
+    now = time.time() if now is None else now
+    probes = {
+        "dispatcher": lambda: _probe_dispatcher(roots, timeout),
+        "slack-output": _probe_slack_output,
+        "scout": lambda: _probe_scout(roots),
+        "review-fallback": lambda: _probe_review_fallback(owners, timeout),
+        "heartbeat": lambda: _probe_heartbeat(roots),
+    }
+    return [
+        _fresh_row(product, repo, threshold_h, probes[product](), now)
+        for product, threshold_h, repo in _FRESHNESS_CHECKS
+    ]
+
+
 def build_rows(products: list[Product], extensions: list[VsCodeExt],
                website_html: str | None, timeout: int, offline: bool,
                opener=urllib.request.urlopen) -> list[Row]:
@@ -873,6 +1227,106 @@ def open_drift_issues(rows: list[Row], timeout: int) -> list[str]:
     return messages
 
 
+def open_silence_issues(rows: list[Row], timeout: int) -> list[str]:
+    """One `silence-alert` issue per silent component, deduped by product name.
+
+    ``rows`` should already be filtered to freshness rows in DRIFT_STATES.
+    An open issue whose title already names the component suppresses a new
+    one — repeated alerts for the same silence are noise."""
+    messages: list[str] = []
+    for row in rows:
+        repo = row.repo or SILENCE_REPO_PAS
+        try:
+            proc = subprocess.run(
+                ["gh", "issue", "list", "--repo", repo, "--label",
+                 SILENCE_LABEL, "--state", "open", "--json", "number,title",
+                 "--limit", "50"],
+                capture_output=True, text=True, timeout=timeout + 10,
+            )
+            open_issues = json.loads(proc.stdout) if proc.returncode == 0 else []
+        except (OSError, ValueError, subprocess.TimeoutExpired):
+            open_issues = []
+        existing = next(
+            (i for i in open_issues
+             if row.product.lower() in str(i.get("title", "")).lower()),
+            None,
+        )
+        if existing:
+            messages.append(
+                f"{repo}: skipped, open silence issue #{existing['number']} "
+                f"covers {row.product}")
+            continue
+        subprocess.run(
+            ["gh", "label", "create", SILENCE_LABEL, "--repo", repo,
+             "--description", "Component produced no output within its "
+                              "expected interval (ecosystem_sync.py)",
+             "--color", "b60205", "--force"],
+            capture_output=True, text=True, timeout=timeout + 10,
+        )
+        title = f"[silence] {row.product}: {row.local} without output"
+        body_lines = [
+            "`tools/ecosystem_sync.py` freshness sensor: this component is",
+            "reachable but has produced no output within its expected",
+            "interval — the sensor works, the channel looks dead.",
+            "",
+            "| component | channel | silent for | threshold | state |",
+            "|---|---|---|---|---|",
+            f"| {row.product} | {row.channel} | {row.local} | {row.remote} "
+            f"| {row.state} |",
+            "",
+            f"Detected {datetime.now(timezone.utc):%Y-%m-%dT%H:%M:%SZ}."
+            + (f" Probe: {row.note}." if row.note else ""),
+        ]
+        proc = subprocess.run(
+            ["gh", "issue", "create", "--repo", repo, "--label",
+             SILENCE_LABEL, "--title", title, "--body",
+             "\n".join(body_lines)],
+            capture_output=True, text=True, timeout=timeout + 10,
+        )
+        if proc.returncode == 0:
+            messages.append(f"{repo}: opened {proc.stdout.strip()}")
+        else:
+            messages.append(f"{repo}: silence issue create failed: "
+                            f"{(proc.stderr or proc.stdout).strip()[:160]}")
+    return messages
+
+
+def notify_silence_slack(rows: list[Row], roots: list[Path]) -> bool:
+    """Best-effort Slack alert for silent components via the PAS notifier.
+
+    Failure is logged to stderr only — a failed notify itself corroborates
+    the silence and must never mask the report."""
+    notifier: Path | None = None
+    for root in roots:
+        direct = root / "gateways" / "src" / "slack-notify.js"
+        for candidate in [direct, *sorted(root.glob("*/gateways/src/slack-notify.js"))]:
+            if candidate.is_file():
+                notifier = candidate
+                break
+        if notifier is not None:
+            break
+    detail = ", ".join(f"{r.product} silent {r.local}" for r in rows)
+    message = f"ecosystem_sync silence-alert: {detail}"
+    if notifier is None:
+        print("::warning::silence slack notify skipped: no "
+              "gateways/src/slack-notify.js under roots", file=sys.stderr)
+        return False
+    try:
+        proc = subprocess.run(
+            ["node", str(notifier), message],
+            capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        print(f"::warning::silence slack notify failed: "
+              f"{type(exc).__name__}: {exc}", file=sys.stderr)
+        return False
+    if proc.returncode != 0:
+        print(f"::warning::silence slack notify rc={proc.returncode}: "
+              f"{(proc.stderr or proc.stdout).strip()[:160]}",
+              file=sys.stderr)
+        return False
+    return True
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--registry", default=str(HUB / "registry.json"))
@@ -891,6 +1345,9 @@ def main(argv: list[str] | None = None) -> int:
                         help="local scan only; external channels are marked skip")
     parser.add_argument("--issue", action="store_true",
                         help="open a deduplicated 'drift' GitHub issue per affected repo")
+    parser.add_argument("--no-silence-alerts", action="store_true",
+                        help="with --issue: skip silence-alert issues and the "
+                             "slack notify for stale freshness sensors")
     parser.add_argument("--json", action="store_true", help="machine-readable output")
     parser.add_argument("--state-md", metavar="PATH",
                         help="write a markdown state snapshot (agent push-memory)")
@@ -929,6 +1386,8 @@ def main(argv: list[str] | None = None) -> int:
               (_repo_basename(e["url"]) for e in entries)}
     if not args.offline:
         rows += collect_ci_config({**owners, **EXTRA_REPOS}, args.timeout)
+        rows += collect_freshness(roots, {**owners, **EXTRA_REPOS},
+                                  args.timeout)
     health = [] if args.offline else collect_health(roots, args.timeout)
 
     if args.json:
@@ -950,8 +1409,14 @@ def main(argv: list[str] | None = None) -> int:
 
     drift_rows = [r for r in rows if r.state in DRIFT_STATES]
     if args.issue:
-        for message in open_drift_issues(drift_rows, args.timeout):
+        version_drift = [r for r in drift_rows if r.channel != "freshness"]
+        for message in open_drift_issues(version_drift, args.timeout):
             print(f"issue: {message}")
+        silence_rows = [r for r in drift_rows if r.channel == "freshness"]
+        if silence_rows and not args.no_silence_alerts:
+            for message in open_silence_issues(silence_rows, args.timeout):
+                print(f"silence: {message}")
+            notify_silence_slack(silence_rows, roots)
     return 1 if drift_rows else 0
 
 
