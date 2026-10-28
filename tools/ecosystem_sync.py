@@ -647,6 +647,50 @@ def write_state_md(path: Path, rows: list[Row],
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
+# Non-product repos that still host PRs and must carry the review fallback.
+EXTRA_REPOS = {
+    "personal-agent-system": "Icaro0310",
+    "devin-dashboard": "Icaro0310",
+    "Icaro0310.github.io": "Icaro0310",
+}
+
+
+def collect_ci_config(repos: dict[str, str], timeout: int) -> list[Row]:
+    """Half-configured review-fallback detection -> one Row per physical repo.
+
+    Every registry repo must have BOTH the ``TS_AUTHKEY`` secret AND a
+    ``*fallback*.yml`` caller workflow; secrets provisioned without the
+    workflow (or vice-versa) mean the review gate waits on evidence that
+    can never arrive — exactly the 2026-10-28 incident."""
+    out: list[Row] = []
+    for name, owner in sorted(repos.items()):
+        try:
+            secrets = _gh_api(owner, name, "/actions/secrets", timeout)
+            names = {s.get("name") for s in secrets.get("secrets", [])}
+        except RuntimeError as exc:
+            out.append(Row(name, "ci-review-fallback", "—", "—",
+                           "unavailable", f"{owner}/{name}", str(exc)[:120]))
+            continue
+        try:
+            wf = _gh_api(owner, name, "/contents/.github/workflows", timeout)
+            files = {f.get("name", "") for f in wf if isinstance(f, dict)}
+        except RuntimeError:
+            files = set()
+        has_secret = "TS_AUTHKEY" in names
+        has_workflow = any("fallback" in f or "ai-review" in f for f in files)
+        if has_secret and has_workflow:
+            state, local = "ok", "workflow+secret"
+        elif has_secret or has_workflow:
+            state = "drift"
+            local = "secret only" if has_secret else "workflow only"
+        else:
+            state, local = "drift", "neither"
+        note = "" if state == "ok" else "review gate cannot produce evidence"
+        out.append(Row(name, "ci-review-fallback", local, "workflow+secret",
+                       state, f"{owner}/{name}", note))
+    return out
+
+
 def build_rows(products: list[Product], extensions: list[VsCodeExt],
                website_html: str | None, timeout: int, offline: bool,
                opener=urllib.request.urlopen) -> list[Row]:
@@ -881,6 +925,10 @@ def main(argv: list[str] | None = None) -> int:
 
     rows = build_rows(products, extensions, website_html,
                       timeout=args.timeout, offline=args.offline)
+    owners = {name: owner for owner, name in
+              (_repo_basename(e["url"]) for e in entries)}
+    if not args.offline:
+        rows += collect_ci_config({**owners, **EXTRA_REPOS}, args.timeout)
     health = [] if args.offline else collect_health(roots, args.timeout)
 
     if args.json:
@@ -897,8 +945,6 @@ def main(argv: list[str] | None = None) -> int:
 
     generated = datetime.now(timezone.utc)
     if args.state_md:
-        owners = {name: owner for owner, name in
-                  (_repo_basename(e["url"]) for e in entries)}
         prs = collect_open_prs(owners, args.timeout)
         write_state_md(Path(args.state_md), rows, health, prs, generated)
 

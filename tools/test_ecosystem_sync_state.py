@@ -70,3 +70,26 @@ class CollectOpenPrsTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CollectCiConfigTests(unittest.TestCase):
+    def _gh(self, owner, repo, path, timeout):
+        if path == "/actions/secrets":
+            if repo in ("no-secret", "bare"):
+                return {"secrets": []}
+            return {"secrets": [{"name": "TS_AUTHKEY"}]}
+        if repo == "no-secret":
+            return [{"name": "review-fallback.yml"}]
+        if repo in ("no-wf", "bare"):
+            return [{"name": "test.yml"}]
+        return [{"name": "review-fallback.yml"}, {"name": "test.yml"}]
+
+    def test_states(self):
+        repos = {"ok-r": "o", "no-wf": "o", "no-secret": "o", "bare": "o"}
+        with mock.patch.object(es, "_gh_api", side_effect=self._gh):
+            rows = {r.product: r for r in es.collect_ci_config(repos, 10)}
+        self.assertEqual(rows["ok-r"].state, "ok")
+        self.assertEqual(rows["no-wf"].state, "drift")
+        self.assertEqual(rows["no-wf"].local, "secret only")
+        self.assertEqual(rows["no-secret"].local, "workflow only")
+        self.assertEqual(rows["bare"].local, "neither")
