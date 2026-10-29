@@ -70,6 +70,10 @@
   "threshold_h": 0.5,
   "repo": "Icaro0310/personal-agent-system"
  },
+ "judge-watch": {
+  "threshold_h": 0.5,
+  "repo": "Icaro0310/personal-agent-system"
+ },
  "office-freshness": {
   "threshold_h": 0.5,
   "repo": "Icaro0310/personal-agent-system"
