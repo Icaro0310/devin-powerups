@@ -1,6 +1,16 @@
 name: pr-approve
 
-# Version: v1.9 (D-2026-10-26: self-cancellation fix — the APPROVED
+# Version: v1.12 (D-2026-10-29: judge gate — the devin-judge/review
+# commit status must be success on the live head before any approve.
+# failure/pending/missing posts a deduped "merge automático bloqueado"
+# comment and holds. Private repos have no required-check enforcement
+# (GitHub Pro paywall), so this bot IS the gate there; on public repos
+# it is defence-in-depth behind the required check. The judge-status
+# event re-triggers the gate, so a late approve is picked up without
+# human re-dispatch. Automation still never merges — no gh pr merge
+# and no --admin anywhere in this file.)
+#
+# v1.9 (D-2026-10-26: self-cancellation fix — the APPROVED
 # review our own approve step posts triggers pull_request_review, and
 # the resulting run used to land on the same PR-keyed concurrency
 # group, cancelling the approving run 14ms after the post and
@@ -188,6 +198,7 @@ concurrency:
       || (github.event_name == 'status'
           && github.event.state == 'success'
           && (github.event.context == 'Review Coverage'
+              || github.event.context == 'devin-judge/review'
               || (github.event.context == 'Devin Review'
                   && contains(github.event.avatar_url || '', '/in/811515')))
           && github.event.sha)
@@ -218,6 +229,9 @@ jobs:
        contains(github.event.avatar_url || '', '/in/811515')) ||
       (github.event_name == 'status' &&
        github.event.context == 'Review Coverage' &&
+       github.event.state == 'success') ||
+      (github.event_name == 'status' &&
+       github.event.context == 'devin-judge/review' &&
        github.event.state == 'success') ||
       (github.event_name != 'status' &&
        contains(fromJSON('["Icaro0310","dependabot[bot]","github-actions[bot]"]'),
@@ -776,6 +790,45 @@ jobs:
                     echo "PR #$pr head moved to ${live_head:0:12} since evaluation — skipping approve; a fresh run owns the new head"
                     continue
                   fi
+                  # Judge gate (v1.12): the devin-judge/review commit
+                  # status must be success on the head being approved.
+                  # Read here — at the last possible moment — so a
+                  # verdict posted mid-run is honoured. Only "success"
+                  # passes: failure, pending, error, missing or an
+                  # unreadable status endpoint all hold. On private
+                  # repos without required checks this bot is the only
+                  # server-side gate; on public repos it is defence in
+                  # depth behind the required check. A blocked approve
+                  # posts ONE deduped comment per head (marker line
+                  # `judge-blocked head:<sha>`); when the judge later
+                  # posts success, the status event re-triggers this
+                  # job and the approve proceeds — the hold is a
+                  # delay, not a dead end.
+                  judge_head="${live_head:-$HEAD_SHA}"
+                  jstate=$(gh api "repos/$REPO/commits/$judge_head/status" \
+                    --jq '[.statuses[] | select(.context == "devin-judge/review")] | .[0].state // "missing"' \
+                    2>/dev/null || echo "unknown")
+                  if [ "$jstate" != "success" ]; then
+                    echo "::warning::PR #$pr judge gate held — devin-judge/review is '$jstate' on ${judge_head:0:12} (approve requires success)"
+                    jseen=$(gh api "repos/$REPO/issues/$pr/comments" --paginate 2>/dev/null \
+                      | jq -sr --arg h "judge-blocked head:$judge_head" 'add // [] | .[]
+                          | select((.user.login // "") == "github-actions[bot]")
+                          | (.body // "")
+                          | select(contains($h)) | "seen"' | head -1 || true)
+                    if [ "$jseen" = "seen" ]; then
+                      echo "judge-blocked audit already on PR #$pr for head ${judge_head:0:12} — skipping duplicate comment"
+                    else
+                      gh api -X POST "repos/$REPO/issues/$pr/comments" \
+                        -f body="Merge automático bloqueado: o Judge não aprovou esta alteração. Requer revisão humana."$'\n\n'"devin-judge/review on ${judge_head}: **${jstate}** (approve requires \`success\`). Quando o Judge aprovar, este gate re-corre sozinho e libera a aprovação. Um humano pode sobrepor na UI do GitHub assumindo a responsabilidade."$'\n'"judge-blocked head:$judge_head" >/dev/null
+                      echo "posted judge-blocked comment on PR #$pr"
+                    fi
+                    {
+                      echo "### judge-blocked — PR #$pr"
+                      echo "devin-judge/review = \`${jstate}\` on \`${judge_head}\`; approve held. The judge-status event re-runs this gate when the verdict lands."
+                    } >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
+                    continue
+                  fi
+                  echo "judge gate: devin-judge/review success on ${judge_head:0:12} for PR #$pr"
                   approve_err=""
                   if gh api "repos/$REPO/pulls/$pr/reviews?per_page=100" --paginate 2>/dev/null \
                       | jq -se --arg sha "$HEAD_SHA" \
