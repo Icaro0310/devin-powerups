@@ -1,256 +1,260 @@
 {
- "//": "Universal silence matrix for tools/ecosystem_sync.py --freshness.",
- "//2": "tool -> threshold_h (hours, fractional ok) + repo that owns silence-alert issues.",
- "//3": "The first five keep bespoke probes; the rest are driven by the",
- "//4": "shared heartbeat ledger ($XDG_STATE_HOME/devin/heartbeats.jsonl).",
- "//5": "\"host\" scopes a tool to one machine; foreign-host rows are skipped.",
- "//6": "Thresholds ~3x the expected cadence; on-demand CLIs are excluded",
- "//7": "(silence detection is meaningless without a schedule).",
- "dispatcher": {
-  "threshold_h": 48,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "slack-output": {
-  "threshold_h": 72,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "scout": {
-  "threshold_h": 96,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "review-fallback": {
-  "threshold_h": 168,
-  "repo": "Icaro0310/devin-powerups"
- },
- "heartbeat": {
-  "threshold_h": 1,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "vault-compressor": {
-  "threshold_h": 2,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "session-sweep": {
-  "threshold_h": 9,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "session-janitor": {
-  "threshold_h": 30,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "weekly-testgen": {
-  "threshold_h": 192,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "djaevin-quiz": {
-  "threshold_h": 30,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "djaevin-calibration": {
-  "threshold_h": 192,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "cleanup-slack-sessions": {
-  "threshold_h": 30,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "devin-backup": {
-  "threshold_h": 30,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "devin-backup-rotate": {
-  "threshold_h": 192,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "heartbeat-trigger": {
-  "threshold_h": 1.5,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "session-db-maint": {
-  "threshold_h": 0.5,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "judge-watch": {
-  "threshold_h": 0.5,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "office-freshness": {
-  "threshold_h": 0.5,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "laptop-reporter": {
-  "threshold_h": 0.5,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "obsidian-watchdog": {
-  "threshold_h": 0.5,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "answer-runner": {
-  "threshold_h": 1.5,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "mailbox-wake-watch": {
-  "threshold_h": 1,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "gh-notif-silence": {
-  "threshold_h": 1,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "kill-stale-orphans": {
-  "threshold_h": 1,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "ecosystem-health": {
-  "threshold_h": 1,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "ecosystem-traffic": {
-  "threshold_h": 30,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "qa-weekly-digest": {
-  "threshold_h": 192,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "weekly-extract": {
-  "threshold_h": 192,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "gsc-report": {
-  "threshold_h": 192,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "fork-janitor": {
-  "threshold_h": 30,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "space-report": {
-  "threshold_h": 30,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "skills-audit": {
-  "threshold_h": 30,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "vm-uptime-check": {
-  "threshold_h": 30,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "vm-keepalive": {
-  "threshold_h": 1,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "vm-backup": {
-  "threshold_h": 30,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "laptop-probes": {
-  "threshold_h": 1,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "vm-forward": {
-  "threshold_h": 1,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "vm-freshness-watch": {
-  "threshold_h": 2,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "slack-poll": {
-  "threshold_h": 1,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "mcp-hub": {
-  "threshold_h": 1,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "cron-daemon": {
-  "threshold_h": 1,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "slack-bridge": {
-  "threshold_h": 1,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "obsidian-mcp": {
-  "threshold_h": 1,
-  "repo": "Icaro0310/personal-agent-system"
- },
- "vm-scout": {
-  "threshold_h": 120,
-  "repo": "Icaro0310/personal-agent-system",
-  "host": "vm"
- },
- "vm-sync": {
-  "threshold_h": 192,
-  "repo": "Icaro0310/personal-agent-system",
-  "host": "vm"
- },
- "vm-freshness": {
-  "threshold_h": 3,
-  "repo": "Icaro0310/personal-agent-system",
-  "host": "vm"
- },
- "autodeploy": {
-  "threshold_h": 0.5,
-  "repo": "Icaro0310/personal-agent-system",
-  "host": "vm"
- },
- "vm-probes": {
-  "threshold_h": 1,
-  "repo": "Icaro0310/personal-agent-system",
-  "host": "vm"
- },
- "queue-api": {
-  "threshold_h": 0.25,
-  "repo": "Icaro0310/personal-agent-system",
-  "host": "vm"
- },
- "queue-worker": {
-  "threshold_h": 0.25,
-  "repo": "Icaro0310/personal-agent-system",
-  "host": "vm"
- },
- "office": {
-  "threshold_h": 0.25,
-  "repo": "Icaro0310/personal-agent-system",
-  "host": "vm"
- },
- "dashboard": {
-  "threshold_h": 0.25,
-  "repo": "Icaro0310/personal-agent-system",
-  "host": "vm"
- },
- "ollama": {
-  "threshold_h": 0.5,
-  "repo": "Icaro0310/personal-agent-system",
-  "host": "vm"
- },
- "browser-mcp": {
-  "threshold_h": 0.5,
-  "repo": "Icaro0310/personal-agent-system",
-  "host": "vm"
- },
- "earlyoom": {
-  "threshold_h": 0.5,
-  "repo": "Icaro0310/personal-agent-system",
-  "host": "vm"
- },
- "keepalive": {
-  "threshold_h": 0.5,
-  "repo": "Icaro0310/personal-agent-system",
-  "host": "vm"
- },
- "office-watchdog": {
-  "threshold_h": 0.5,
-  "repo": "Icaro0310/personal-agent-system",
-  "host": "vm"
- },
- "vm-cron": {
-  "threshold_h": 1,
-  "repo": "Icaro0310/personal-agent-system",
-  "host": "vm"
- }
+  "//": "Universal silence matrix for tools/ecosystem_sync.py --freshness.",
+  "//2": "tool -> threshold_h (hours, fractional ok) + repo that owns silence-alert issues.",
+  "//3": "The first five keep bespoke probes; the rest are driven by the",
+  "//4": "shared heartbeat ledger ($XDG_STATE_HOME/devin/heartbeats.jsonl).",
+  "//5": "\"host\" scopes a tool to one machine; foreign-host rows are skipped.",
+  "//6": "Thresholds ~3x the expected cadence; on-demand CLIs are excluded",
+  "//7": "(silence detection is meaningless without a schedule).",
+  "dispatcher": {
+    "threshold_h": 48,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "slack-output": {
+    "threshold_h": 72,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "scout": {
+    "threshold_h": 96,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "review-fallback": {
+    "threshold_h": 168,
+    "repo": "Icaro0310/devin-powerups"
+  },
+  "heartbeat": {
+    "threshold_h": 1,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "vault-compressor": {
+    "threshold_h": 2,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "session-sweep": {
+    "threshold_h": 9,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "session-janitor": {
+    "threshold_h": 30,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "weekly-testgen": {
+    "threshold_h": 192,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "djaevin-quiz": {
+    "threshold_h": 30,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "djaevin-calibration": {
+    "threshold_h": 192,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "cleanup-slack-sessions": {
+    "threshold_h": 30,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "devin-backup": {
+    "threshold_h": 30,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "devin-backup-rotate": {
+    "threshold_h": 192,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "heartbeat-trigger": {
+    "threshold_h": 1.5,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "session-db-maint": {
+    "threshold_h": 0.5,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "judge-watch": {
+    "threshold_h": 0.5,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "office-freshness": {
+    "threshold_h": 0.5,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "laptop-reporter": {
+    "threshold_h": 0.5,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "obsidian-watchdog": {
+    "threshold_h": 0.5,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "answer-runner": {
+    "threshold_h": 1.5,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "mailbox-wake-watch": {
+    "threshold_h": 1,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "gh-notif-silence": {
+    "threshold_h": 1,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "kill-stale-orphans": {
+    "threshold_h": 1,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "ecosystem-health": {
+    "threshold_h": 1,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "ecosystem-traffic": {
+    "threshold_h": 30,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "qa-weekly-digest": {
+    "threshold_h": 192,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "weekly-extract": {
+    "threshold_h": 192,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "gsc-report": {
+    "threshold_h": 192,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "fork-janitor": {
+    "threshold_h": 30,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "space-report": {
+    "threshold_h": 30,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "skills-audit": {
+    "threshold_h": 30,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "vm-uptime-check": {
+    "threshold_h": 30,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "vm-keepalive": {
+    "threshold_h": 1,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "vm-backup": {
+    "threshold_h": 30,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "laptop-probes": {
+    "threshold_h": 1,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "vm-forward": {
+    "threshold_h": 1,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "vm-freshness-watch": {
+    "threshold_h": 2,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "slack-poll": {
+    "threshold_h": 1,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "mcp-hub": {
+    "threshold_h": 1,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "cron-daemon": {
+    "threshold_h": 1,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "slack-bridge": {
+    "threshold_h": 1,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "obsidian-mcp": {
+    "threshold_h": 1,
+    "repo": "Icaro0310/personal-agent-system"
+  },
+  "vm-scout": {
+    "threshold_h": 120,
+    "repo": "Icaro0310/personal-agent-system",
+    "host": "vm"
+  },
+  "vm-sync": {
+    "threshold_h": 192,
+    "repo": "Icaro0310/personal-agent-system",
+    "host": "vm"
+  },
+  "vm-freshness": {
+    "threshold_h": 3,
+    "repo": "Icaro0310/personal-agent-system",
+    "host": "vm"
+  },
+  "autodeploy": {
+    "threshold_h": 0.5,
+    "repo": "Icaro0310/personal-agent-system",
+    "host": "vm"
+  },
+  "vm-probes": {
+    "threshold_h": 1,
+    "repo": "Icaro0310/personal-agent-system",
+    "host": "vm"
+  },
+  "queue-api": {
+    "threshold_h": 0.25,
+    "repo": "Icaro0310/personal-agent-system",
+    "host": "vm"
+  },
+  "queue-worker": {
+    "threshold_h": 0.25,
+    "repo": "Icaro0310/personal-agent-system",
+    "host": "vm"
+  },
+  "office": {
+    "threshold_h": 0.25,
+    "repo": "Icaro0310/personal-agent-system",
+    "host": "vm"
+  },
+  "dashboard": {
+    "threshold_h": 0.25,
+    "repo": "Icaro0310/personal-agent-system",
+    "host": "vm"
+  },
+  "ollama": {
+    "threshold_h": 0.5,
+    "repo": "Icaro0310/personal-agent-system",
+    "host": "vm"
+  },
+  "browser-mcp": {
+    "threshold_h": 0.5,
+    "repo": "Icaro0310/personal-agent-system",
+    "host": "vm"
+  },
+  "earlyoom": {
+    "threshold_h": 0.5,
+    "repo": "Icaro0310/personal-agent-system",
+    "host": "vm"
+  },
+  "keepalive": {
+    "threshold_h": 0.5,
+    "repo": "Icaro0310/personal-agent-system",
+    "host": "vm"
+  },
+  "office-watchdog": {
+    "threshold_h": 0.5,
+    "repo": "Icaro0310/personal-agent-system",
+    "host": "vm"
+  },
+  "vm-cron": {
+    "threshold_h": 1,
+    "repo": "Icaro0310/personal-agent-system",
+    "host": "vm"
+  },
+  "remediate-runner": {
+    "threshold_h": 2,
+    "repo": "Icaro0310/personal-agent-system"
+  }
 }
