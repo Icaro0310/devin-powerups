@@ -50,6 +50,7 @@ issues first.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import re
@@ -1675,6 +1676,163 @@ def notify_silence_slack(rows: list[Row], roots: list[Path]) -> bool:
     return True
 
 
+# ---------------------------------------------------------------- remediate
+# --remediate: the sensor's first responder is the agent, not the Owner.
+# Drift rows become auto_remediate tasks in the qwenpaw queue; the worker's
+# handler bridges them to an ACP session which investigates and fixes.
+# Slack/issues stay as the audit trail, not the primary signal.
+
+_REMEDIATE_TTL_S = 24 * 3600
+
+
+def _remediate_state_path() -> Path:
+    xdg = os.environ.get("XDG_STATE_HOME")
+    base = Path(xdg) if xdg else Path.home() / ".local" / "state"
+    return base / "devin" / "remediate-sent.json"
+
+
+def _load_qdispatch(roots: list[Path]):
+    """Import scripts/qdispatch.py from a checkout under roots, if any."""
+    for root in roots:
+        direct = root / "scripts" / "qdispatch.py"
+        for script in [direct,
+                       *sorted(root.glob("*/scripts/qdispatch.py"))]:
+            if not script.is_file():
+                continue
+            spec = importlib.util.spec_from_file_location(
+                "qdispatch", script)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            return module
+    return None
+
+
+def _load_orchestrator_queue(roots: list[Path]):
+    """Import devin_orchestrator.queue_db from a devin-control checkout
+    under roots — the laptop-side task-queue.db the remediate-runner
+    claims from. Absent on the VM (no devin-control there)."""
+    pattern = "packages/orchestrator/src/devin_orchestrator/queue_db.py"
+    for root in roots:
+        direct = root / "devin-control" / pattern
+        for script in [direct, *sorted(root.glob(f"*/{pattern}"))]:
+            if not script.is_file():
+                continue
+            sys.path.insert(0, str(script.parent.parent))
+            try:
+                import devin_orchestrator.queue_db as queue_db
+            except ImportError:
+                sys.path.pop(0)
+                continue
+            return queue_db
+    return None
+
+
+def _failure_class(row: "Row") -> str:
+    if row.local == "err streak":
+        return "ci_errors"
+    if row.channel == "freshness":
+        return "silence"
+    return "version_drift"
+
+
+def enqueue_remediations(rows: list["Row"], roots: list[Path],
+                         now: float | None = None) -> list[str]:
+    """One auto_remediate task per drift row with a repo, deduped 24h.
+
+    Preferred sink is the laptop task-queue.db (devin-orchestrator) —
+    native dedup via ``idempotency_key = auto_remediate:<repo>:<class>:
+    <yyyymmdd>``. When the orchestrator is absent (the freshness cron
+    runs on the VM), falls back to the qwenpaw queue: that handler
+    relays to the same laptop db over ssh.
+
+    The sensor keeps reporting drift while a fix is in flight — dedup
+    prevents re-paging the agent on the same (repo, failure_class) on
+    the same day. A submit failure never masks the row; it is logged
+    and the next run retries."""
+    messages: list[str] = []
+    candidates = [r for r in rows if r.state in DRIFT_STATES and r.repo]
+    if not candidates:
+        return messages
+    now = time.time() if now is None else now
+    day = datetime.now(timezone.utc).strftime("%Y%m%d")
+    queue_db = _load_orchestrator_queue(roots)
+    state_path = _remediate_state_path()
+    sent: dict[str, float] = {}
+    qdispatch = None
+    if queue_db is None:
+        qdispatch = _load_qdispatch(roots)
+        if qdispatch is None:
+            return ["remediate: neither task-queue.db (orchestrator) "
+                    "nor qdispatch.py reachable — nothing enqueued"]
+        try:
+            if state_path.is_file():
+                sent = json.loads(state_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            sent = {}
+    changed = False
+    for row in candidates:
+        failure_class = _failure_class(row)
+        payload = {
+            "repo": row.repo,
+            "failure_class": failure_class,
+            "product": row.product,
+            "channel": row.channel,
+            "local": row.local,
+            "remote": row.remote,
+            "state": row.state,
+            "detail": row.note,
+            "detected_at": datetime.now(timezone.utc).isoformat(),
+            "source": "ecosystem_sync",
+        }
+        if queue_db is not None:
+            key = f"auto_remediate:{row.repo}:{failure_class}:{day}"
+            try:
+                con = queue_db.connect(queue_db.default_queue_path())
+                try:
+                    out = queue_db.submit(
+                        con, payload, kind="auto_remediate",
+                        repo=row.repo, batch=f"sync-{day}",
+                        idempotency_key=key, max_attempts=2)
+                finally:
+                    con.close()
+            except Exception as exc:
+                messages.append(
+                    f"remediate: {row.repo} queue submit failed: "
+                    f"{type(exc).__name__}")
+                continue
+            if out.get("deduplicated"):
+                messages.append(
+                    f"remediate: {row.repo} {failure_class} already "
+                    f"queued today — dedup")
+                continue
+            messages.append(
+                f"remediate: {row.repo} {failure_class} -> task "
+                f"{out.get('id')}")
+            continue
+        key = f"{row.product}|{row.channel}|{row.repo}"
+        last = sent.get(key)
+        if isinstance(last, (int, float)) and now - last < _REMEDIATE_TTL_S:
+            messages.append(
+                f"remediate: {key} enqueued {int(now - last)}s ago — skip")
+            continue
+        try:
+            task_id = qdispatch.submit_task("auto_remediate", payload)
+        except Exception as exc:  # queue down — report, retry next run
+            messages.append(
+                f"remediate: {key} submit failed: {type(exc).__name__}")
+            continue
+        sent[key] = now
+        changed = True
+        messages.append(f"remediate: {key} -> task {task_id}")
+    if changed:
+        try:
+            state_path.parent.mkdir(parents=True, exist_ok=True)
+            state_path.write_text(json.dumps(sent), encoding="utf-8")
+        except OSError:
+            pass
+    return messages
+
+
 def main(argv: list[str] | None = None) -> int:
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
@@ -1706,6 +1864,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json", action="store_true", help="machine-readable output")
     parser.add_argument("--state-md", metavar="PATH",
                         help="write a markdown state snapshot (agent push-memory)")
+    parser.add_argument("--remediate", action="store_true",
+                        help="enqueue an auto_remediate task per drift row "
+                             "(agent is first responder; deduped 24h)")
     args = parser.parse_args(argv)
 
     if args.timeout <= 0:
@@ -1774,6 +1935,9 @@ def main(argv: list[str] | None = None) -> int:
             for message in open_silence_issues(silence_rows, args.timeout):
                 print(f"silence: {message}")
             notify_silence_slack(silence_rows, roots)
+    if args.remediate:
+        for message in enqueue_remediations(drift_rows, roots):
+            print(message)
     return 1 if drift_rows else 0
 
 
