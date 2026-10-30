@@ -196,13 +196,28 @@ def graphql_fixture(threads, author=PR_AUTHOR):
 
 
 def status_fixture(state="success",
-                   description="Completed analysis in 26s"):
-    return {"statuses": [{
+                   description="Completed analysis in 26s",
+                   judge_state="success"):
+    """Head statuses: the Devin Review plus the v1.12 judge verdict.
+
+    ``judge_state`` defaults to ``success`` because the approve step
+    requires ``devin-judge/review == success`` before it even looks at
+    fallback threads — tests exercising the approve path assume an
+    approved verdict. Pass ``judge_state=None`` to drop the status
+    (judge-missing = blocked) or another state for a rejected verdict."""
+    statuses = [{
         "context": "Devin Review",
         "state": state,
         "description": description,
         "avatar_url": "https://avatars.githubusercontent.com/in/811515?v=4",
-    }]}
+    }]
+    if judge_state is not None:
+        statuses.append({
+            "context": "devin-judge/review",
+            "state": judge_state,
+            "description": "devin-judge: approve (ACP gate)",
+        })
+    return {"statuses": statuses}
 
 
 def coverage_fixtures(summary="covered — judge approved; lane A also "
@@ -902,6 +917,30 @@ class GateFallback(unittest.TestCase):
         self.assertNotIn("pr review --approve", log)
         self.assertNotIn("-X POST", log)
         self.assertNotIn("issues/5/comments", log)
+
+    def test_approve_missing_judge_verdict_blocks(self):
+        # v1.12: no devin-judge/review status on the head -> the gate
+        # posts the blocked comment and never approves, regardless of
+        # resolved fallback threads (judge gate precedes everything).
+        fx = {"compares.json": {}, "commits.json": [],
+              "status.json": status_fixture(judge_state=None)}
+        proc, _, log = self.run_block(
+            self.approve, fx, extra_env=self.approve_env())
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertNotIn("pr review --approve", log)
+        self.assertIn("issues/5/comments", log)
+        self.assertIn("judge-blocked", log)
+
+    def test_approve_rejected_judge_verdict_blocks(self):
+        # A rejected verdict blocks the same way — pending threads are
+        # for the human, not for the bot.
+        fx = {"compares.json": {}, "commits.json": [],
+              "status.json": status_fixture(judge_state="failure")}
+        proc, _, log = self.run_block(
+            self.approve, fx, extra_env=self.approve_env())
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertNotIn("pr review --approve", log)
+        self.assertIn("judge-blocked", log)
 
     # --- v1.5: audit comment idempotency (canary finding, assure#89) ---
 
