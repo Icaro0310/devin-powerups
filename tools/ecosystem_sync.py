@@ -53,6 +53,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import sqlite3
 import subprocess
 import sys
@@ -507,7 +508,12 @@ def check_daemon(url: str, timeout: int = DAEMON_TIMEOUT,
 
 
 def systemd_unit_state(unit: str, timeout: int = DAEMON_TIMEOUT) -> str:
-    """systemctl --user is-active <unit>; 'skip' when the unit is absent."""
+    """systemctl --user is-active <unit>; 'skip' when the unit is absent.
+
+    Returns 'n/a' when systemctl itself is absent — on Windows the binary
+    never exists, so reporting DAEMON-DOWN would be a false negative."""
+    if shutil.which("systemctl") is None:
+        return "n/a"
     try:
         proc = subprocess.run(
             ["systemctl", "--user", "is-active", unit],
@@ -530,6 +536,8 @@ def check_ollama_via_vm(timeout: int = 10) -> str | None:
     GH runners, so a laptop probe reports DAEMON-DOWN falsely even when
     the pipeline is healthy. SSH'ing to the VM and hitting the local
     rewriter (:11436 -> ollama:11434) tests the chain the lanes use."""
+    if shutil.which("ssh") is None:
+        return "n/a (no ssh client on this host)"
     try:
         proc = subprocess.run(
             ["ssh", "-o", "BatchMode=yes", "-o", f"ConnectTimeout={timeout}",
@@ -586,13 +594,16 @@ def collect_health(roots: list[Path] | None = None,
     failure = check_daemon(HEALTHZ_URL)
     checks.append(("mcp-hub/office healthz", "ok" if failure is None else f"DAEMON-DOWN {failure}"))
     failure = check_ollama_via_vm()
-    checks.append(("ollama (via devin-vm)", "ok" if failure is None else f"DAEMON-DOWN {failure}"))
+    checks.append(("ollama (via devin-vm)", "ok" if failure is None else
+                   failure if failure.startswith("n/a") else f"DAEMON-DOWN {failure}"))
     failure = check_slack_auth(roots or [], timeout)
     checks.append(("slack auth.test", "ok" if failure is None else f"DAEMON-DOWN {failure}"))
     for unit in SYSTEMD_USER_UNITS:
         state = systemd_unit_state(unit)
         if state == "skip":
             checks.append((unit, "skip (unit absent)"))
+        elif state == "n/a":
+            checks.append((unit, "n/a (no systemctl on this platform)"))
         elif state == "active":
             checks.append((unit, "ok"))
         else:
@@ -1182,6 +1193,8 @@ def _install_evidence(timeout: int = 5) -> str:
     chunks: list[str] = []
     for cmd in (["crontab", "-l"],
                 ["systemctl", "--user", "list-unit-files", "--no-legend"]):
+        if shutil.which(cmd[0]) is None:
+            continue
         try:
             proc = subprocess.run(
                 cmd, capture_output=True, text=True, timeout=timeout)
@@ -1663,6 +1676,9 @@ def notify_silence_slack(rows: list[Row], roots: list[Path]) -> bool:
 
 
 def main(argv: list[str] | None = None) -> int:
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--registry", default=str(HUB / "registry.json"))
     parser.add_argument(
@@ -1746,7 +1762,7 @@ def main(argv: list[str] | None = None) -> int:
     generated = datetime.now(timezone.utc)
     if args.state_md:
         prs = collect_open_prs(owners, args.timeout)
-        write_state_md(Path(args.state_md), rows, health, prs, generated)
+        write_state_md(Path(args.state_md).expanduser(), rows, health, prs, generated)
 
     drift_rows = [r for r in rows if r.state in DRIFT_STATES]
     if args.issue:
