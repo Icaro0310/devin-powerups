@@ -1678,3 +1678,23 @@ Closure of the MÉDIO-3/4 + skill-audit flagged list. Two were factual and fixed
   the commit exists.
 - **Result:** sensor green on the hub's own diff (this PR); per-repo
   activation lands with the next `v1` retag.
+
+## D-2026-10-30 — Freeze de governança: fecho formal
+
+- **Decision:** confirmado formalmente o que D-2026-10-28 (registado em
+  `personal-agent-system/DECISIONS.md` e refletido no `## P5
+  measurement window — REVOKED` do GOVERNANCE.md) já estabeleceu — "o
+  freeze de governança é oficialmente revogado; a consolidação está
+  concluída; o foco passa a ser a manutenção evolutiva e a expansão
+  controlada."
+- **Reason:** a verificação de 2026-10-30 confirmou que nenhum ficheiro
+  de governança mantém o freeze ativo — as menções restantes a
+  `2026-12-03` são a data de corte da *janela de medição* P5
+  (BASELINE/snapshots), não proibições. Nenhum código
+  (`ecosystem_sync.py`, tools) lê ou enforce o freeze.
+- **Expected outcome:** evoluções permitidas (novos pacotes, renames,
+  merges físicos, taxonomia) desde que passem nos gates: CI verde,
+  `devin-judge/review` = success onde aplicável, e landing no
+  `registry.json`.
+- **Result:** o ecossistema está aberto a evolução — sem vestígio de
+  freeze ativo em repositório algum.
