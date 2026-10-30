@@ -696,6 +696,57 @@ EXTRA_REPOS = {
 }
 
 
+def collect_repo_settings(repos: dict[str, str], timeout: int) -> list[Row]:
+    """Repo settings that gate the remediation agent -> one Row per repo.
+
+    ``allow_auto_merge=false`` means a PR the agent opens stays open
+    forever — a silent failure no sensor catches. Reported as ``warn``:
+    visible in the report/STATE.md table but deliberately NOT in
+    DRIFT_STATES, because the fix is a governance decision (enable the
+    setting), not a code defect the agent should patch on its own.
+
+    Exception: PRIVATE repos on the free tier cannot use branch
+    protection or repo auto-merge at all — their gate merges
+    in-workflow (pr-approve@v1.12 / review-fallback `merge:` job).
+    A repo whose workflows carry such a caller is `ok` with
+    ``in-workflow merge``; ``off`` with no merge path is the real warn."""
+    out: list[Row] = []
+    for name, owner in sorted(repos.items()):
+        try:
+            repo = _gh_api(owner, name, "", timeout)
+        except RuntimeError as exc:
+            out.append(Row(name, "repo-settings", "—", "on",
+                           "unavailable", f"{owner}/{name}",
+                           str(exc)[:120]))
+            continue
+        if repo.get("allow_auto_merge") is True:
+            out.append(Row(name, "repo-settings", "auto-merge on", "on",
+                           "ok", f"{owner}/{name}", ""))
+            continue
+        merge_path = False
+        try:
+            wf = _gh_api(owner, name, "/contents/.github/workflows",
+                         timeout)
+            names = {str(f.get("name", "")) for f in wf
+                     if isinstance(f, dict)}
+            merge_path = any(
+                ("auto-approve" in n) or ("review-fallback" in n) or
+                ("auto-merge" in n) or ("merge" in n and n.endswith(".yml"))
+                for n in names)
+        except RuntimeError:
+            pass
+        if merge_path:
+            out.append(Row(name, "repo-settings", "in-workflow merge",
+                           "on", "ok", f"{owner}/{name}",
+                           "free-tier private: gate merges in-job"))
+        else:
+            out.append(Row(name, "repo-settings", "no merge path", "on",
+                           "warn", f"{owner}/{name}",
+                           "agent-opened PRs hang — enable auto-merge or "
+                           "wire the in-workflow merge gate"))
+    return out
+
+
 def collect_ci_config(repos: dict[str, str], timeout: int) -> list[Row]:
     """Half-configured review-fallback detection -> one Row per physical repo.
 
@@ -1792,7 +1843,7 @@ def enqueue_remediations(rows: list["Row"], roots: list[Path],
                     out = queue_db.submit(
                         con, payload, kind="auto_remediate",
                         repo=row.repo, batch=f"sync-{day}",
-                        idempotency_key=key, max_attempts=2)
+                        idempotency_key=key, max_attempts=3)
                 finally:
                     con.close()
             except Exception as exc:
@@ -1904,6 +1955,8 @@ def main(argv: list[str] | None = None) -> int:
     if not args.offline:
         if not args.freshness:
             rows += collect_ci_config({**owners, **EXTRA_REPOS}, args.timeout)
+            rows += collect_repo_settings({**owners, **EXTRA_REPOS},
+                                          args.timeout)
         rows += collect_freshness(roots, {**owners, **EXTRA_REPOS},
                                   args.timeout)
     health = [] if args.offline else collect_health(roots, args.timeout)
