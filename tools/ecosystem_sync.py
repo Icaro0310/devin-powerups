@@ -1707,6 +1707,26 @@ def _load_qdispatch(roots: list[Path]):
     return None
 
 
+def _load_orchestrator_queue(roots: list[Path]):
+    """Import devin_orchestrator.queue_db from a devin-control checkout
+    under roots — the laptop-side task-queue.db the remediate-runner
+    claims from. Absent on the VM (no devin-control there)."""
+    pattern = "packages/orchestrator/src/devin_orchestrator/queue_db.py"
+    for root in roots:
+        direct = root / "devin-control" / pattern
+        for script in [direct, *sorted(root.glob(f"*/{pattern}"))]:
+            if not script.is_file():
+                continue
+            sys.path.insert(0, str(script.parent.parent))
+            try:
+                import devin_orchestrator.queue_db as queue_db
+            except ImportError:
+                sys.path.pop(0)
+                continue
+            return queue_db
+    return None
+
+
 def _failure_class(row: "Row") -> str:
     if row.local == "err streak":
         return "ci_errors"
@@ -1719,36 +1739,42 @@ def enqueue_remediations(rows: list["Row"], roots: list[Path],
                          now: float | None = None) -> list[str]:
     """One auto_remediate task per drift row with a repo, deduped 24h.
 
+    Preferred sink is the laptop task-queue.db (devin-orchestrator) —
+    native dedup via ``idempotency_key = auto_remediate:<repo>:<class>:
+    <yyyymmdd>``. When the orchestrator is absent (the freshness cron
+    runs on the VM), falls back to the qwenpaw queue: that handler
+    relays to the same laptop db over ssh.
+
     The sensor keeps reporting drift while a fix is in flight — dedup
-    prevents re-paging the agent on the same (product, channel, repo).
-    A submit failure never masks the row; it is logged and the next run
-    retries."""
+    prevents re-paging the agent on the same (repo, failure_class) on
+    the same day. A submit failure never masks the row; it is logged
+    and the next run retries."""
     messages: list[str] = []
     candidates = [r for r in rows if r.state in DRIFT_STATES and r.repo]
     if not candidates:
         return messages
-    qdispatch = _load_qdispatch(roots)
-    if qdispatch is None:
-        return ["remediate: no qdispatch.py under roots — nothing enqueued"]
     now = time.time() if now is None else now
+    day = datetime.now(timezone.utc).strftime("%Y%m%d")
+    queue_db = _load_orchestrator_queue(roots)
     state_path = _remediate_state_path()
     sent: dict[str, float] = {}
-    try:
-        if state_path.is_file():
-            sent = json.loads(state_path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        sent = {}
+    qdispatch = None
+    if queue_db is None:
+        qdispatch = _load_qdispatch(roots)
+        if qdispatch is None:
+            return ["remediate: neither task-queue.db (orchestrator) "
+                    "nor qdispatch.py reachable — nothing enqueued"]
+        try:
+            if state_path.is_file():
+                sent = json.loads(state_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            sent = {}
     changed = False
     for row in candidates:
-        key = f"{row.product}|{row.channel}|{row.repo}"
-        last = sent.get(key)
-        if isinstance(last, (int, float)) and now - last < _REMEDIATE_TTL_S:
-            messages.append(
-                f"remediate: {key} enqueued {int(now - last)}s ago — skip")
-            continue
+        failure_class = _failure_class(row)
         payload = {
             "repo": row.repo,
-            "failure_class": _failure_class(row),
+            "failure_class": failure_class,
             "product": row.product,
             "channel": row.channel,
             "local": row.local,
@@ -1758,6 +1784,37 @@ def enqueue_remediations(rows: list["Row"], roots: list[Path],
             "detected_at": datetime.now(timezone.utc).isoformat(),
             "source": "ecosystem_sync",
         }
+        if queue_db is not None:
+            key = f"auto_remediate:{row.repo}:{failure_class}:{day}"
+            try:
+                con = queue_db.connect(queue_db.default_queue_path())
+                try:
+                    out = queue_db.submit(
+                        con, payload, kind="auto_remediate",
+                        repo=row.repo, batch=f"sync-{day}",
+                        idempotency_key=key, max_attempts=2)
+                finally:
+                    con.close()
+            except Exception as exc:
+                messages.append(
+                    f"remediate: {row.repo} queue submit failed: "
+                    f"{type(exc).__name__}")
+                continue
+            if out.get("deduplicated"):
+                messages.append(
+                    f"remediate: {row.repo} {failure_class} already "
+                    f"queued today — dedup")
+                continue
+            messages.append(
+                f"remediate: {row.repo} {failure_class} -> task "
+                f"{out.get('id')}")
+            continue
+        key = f"{row.product}|{row.channel}|{row.repo}"
+        last = sent.get(key)
+        if isinstance(last, (int, float)) and now - last < _REMEDIATE_TTL_S:
+            messages.append(
+                f"remediate: {key} enqueued {int(now - last)}s ago — skip")
+            continue
         try:
             task_id = qdispatch.submit_task("auto_remediate", payload)
         except Exception as exc:  # queue down — report, retry next run
