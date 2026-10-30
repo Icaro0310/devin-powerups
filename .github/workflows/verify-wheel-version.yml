@@ -55,8 +55,12 @@ jobs:
         working-directory: ${{ inputs.package-dir }}
         # Pinned, not --upgrade-latest: the publish path must not float
         # build/twine across runs (dev-deps-pin-check enforces).
+        # packaging is pinned too: twine>=7 validates dist metadata with it,
+        # and only packaging>=26 accepts Metadata-Version 2.5 (hatchling
+        # >=1.28). A runner toolcache with packaging<26 satisfies twine's
+        # spec but fails `twine check` on modern wheels.
         run: |
-          python -m pip install --upgrade "build==1.2.2" "twine==7.0.0"
+          python -m pip install --upgrade "build==1.2.2" "twine==7.0.0" "packaging==26.3"
           python -m build
           python -m twine check dist/*
 
