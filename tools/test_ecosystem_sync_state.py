@@ -645,3 +645,46 @@ class ParseTimestampTests(unittest.TestCase):
         self.assertIsNone(es._parse_timestamp(40))  # counters aren't epochs
         self.assertIsNone(es._parse_timestamp(None))
         self.assertIsNone(es._parse_timestamp(True))
+
+
+class HostScopingTests(unittest.TestCase):
+    """`host` scoping: foreign-host rows skipped; unhosted run everywhere."""
+
+    def _collect(self, matrix, this_host="laptop"):
+        with mock.patch.object(es, "_this_host", return_value=this_host), \
+             mock.patch.object(es, "_load_silence_matrix",
+                               return_value=matrix), \
+             mock.patch.object(es, "_read_heartbeats", return_value={}), \
+             mock.patch.object(es, "_install_evidence", return_value=""), \
+             mock.patch.object(es, "_workflow_freshness", return_value=[]):
+            return es.collect_freshness([Path("/nonexistent")], {}, 5)
+
+    def test_foreign_host_row_skipped(self):
+        matrix = {"vm-probes": {"threshold_h": 1, "repo": "o/r",
+                                "host": "vm"}}
+        self.assertEqual(self._collect(matrix, "laptop"), [])
+
+    def test_own_host_row_evaluated(self):
+        matrix = {"vm-probes": {"threshold_h": 1, "repo": "o/r",
+                                "host": "vm"}}
+        rows = self._collect(matrix, "vm")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].product, "vm-probes")
+
+    def test_unhosted_row_runs_on_both_hosts(self):
+        matrix = {"cron-daemon": {"threshold_h": 1, "repo": "o/r"}}
+        self.assertEqual(len(self._collect(matrix, "laptop")), 1)
+        self.assertEqual(len(self._collect(matrix, "vm")), 1)
+
+    def test_shipped_matrix_host_consistency(self):
+        """Every shipped entry is host-scoped or in the shared allowlist."""
+        shared = {"cron-daemon", "scout", "slack-output", "review-fallback"}
+        matrix = es._load_silence_matrix()  # real tools/silence-matrix.json
+        unhosted = {t for t, cfg in matrix.items() if "host" not in cfg}
+        self.assertEqual(unhosted, shared)
+        for tool, cfg in matrix.items():
+            self.assertIn(cfg.get("host", "") or "shared",
+                          ("laptop", "vm", "shared"), tool)
+        self.assertEqual(matrix["laptop-freshness"].get("host"), "laptop")
+        self.assertEqual(
+            matrix["laptop-freshness-watch"].get("host"), "vm")
