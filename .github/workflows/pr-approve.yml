@@ -1,6 +1,14 @@
 name: pr-approve
 
-# Version: v1.14 (D-2026-11-09: arm gate re-verification — Devin Review
+# Version: v1.15 (D-2026-11-09: statuses:read — the judge gate and the
+# v1.14 arm re-verification read the devin-judge/review commit status;
+# on private repos the combined-status endpoint 403s for GITHUB_TOKEN
+# without statuses:read, holding every approvable PR fail-closed
+# forever. Observed live: devin-dashboard#25 + personal-agent-system#147.
+# Callers must also grant statuses:read — workflow_call caps the
+# reusable's permissions by the caller's.)
+#
+# v1.14 (D-2026-11-09: arm gate re-verification — Devin Review
 # SEC finding on v1.13: reviewDecision + a commit-pinned APPROVED review
 # reflect GitHub review state only, so a PR the gate HELD this run
 # (non-approvable verdict, unresolved blocking findings, or judge
@@ -253,6 +261,7 @@ concurrency:
 permissions:
   contents: read
   pull-requests: write
+  statuses: read
 
 jobs:
   approve:
@@ -263,9 +272,18 @@ jobs:
     # effective grant is capped by the caller job's permissions —
     # callers still on contents:read keep the approve path and get a
     # ::warning:: from the arm step instead of a merge.
+    # statuses:read is required by the judge gate (v1.12) and the v1.14
+    # arm re-verification: both read the devin-judge/review commit
+    # status, and on PRIVATE repos the combined-status endpoint returns
+    # 403 "Resource not accessible by integration" without it — the
+    # gate then holds fail-closed forever (observed devin-dashboard#25,
+    # personal-agent-system#147). Public repos are unaffected either
+    # way; callers must also grant statuses:read for the token to
+    # carry it through workflow_call.
     permissions:
       contents: write
       pull-requests: write
+      statuses: read
     if: >-
       (github.event_name == 'status' &&
        github.event.context == 'Devin Review' &&
