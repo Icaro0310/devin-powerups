@@ -1165,10 +1165,24 @@ class GateFallback(unittest.TestCase):
 
     # --- v1.13 arm step: auto-merge on approved PRs --------------------
 
-    def arm_fixtures(self, head=HEAD_SHA, reviews=None, view=None):
+    def arm_env(self, **over):
+        # v1.14: the arm re-verifies the approve step's per-PR gate —
+        # verdict + blocking + judge status — before mutating. Defaults
+        # model a cleanly-approved PR 5.
+        env = {
+            "VERDICT_MAP": '{"5": "APPROVED"}',
+            "BLOCKING_MAP": '{"5": 0}',
+        }
+        env.update(over)
+        return env
+
+    def arm_fixtures(self, head=HEAD_SHA, reviews=None, view=None,
+                     status=None):
         fx = {
             "compares.json": {},
             "commits.json": [],
+            "status.json": status if status is not None
+                           else status_fixture(),
             "pulls.json": {"Icaro0310/devin-test#5": {
                 "head": {"sha": head}, "number": 5}},
             "pulls_reviews_pr5.json": reviews if reviews is not None else [
@@ -1180,7 +1194,8 @@ class GateFallback(unittest.TestCase):
         return fx
 
     def test_arm_approved_pr_arms_auto_merge(self):
-        proc, _, log = self.run_block(self.arm, self.arm_fixtures())
+        proc, _, log = self.run_block(
+            self.arm, self.arm_fixtures(), extra_env=self.arm_env())
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn("auto-merge armed for PR #5", proc.stdout)
         self.assertIn("pr merge 5", log)
@@ -1237,7 +1252,8 @@ class GateFallback(unittest.TestCase):
         # best-effort and the job must stay green for the approve.
         proc, _, _ = self.run_block(
             self.arm, self.arm_fixtures(),
-            extra_env={"GH_STUB_PR_MERGE_FAIL":
+            extra_env={**self.arm_env(),
+                       "GH_STUB_PR_MERGE_FAIL":
                        "GraphQL: Pull request is in clean status "
                        "(enablePullRequestAutoMerge)"})
         self.assertEqual(proc.returncode, 0, proc.stderr)
@@ -1254,6 +1270,84 @@ class GateFallback(unittest.TestCase):
         self.assertIn("::warning::", proc.stdout)
         self.assertIn("live head lookup failed", proc.stdout)
         self.assertNotIn("pr merge", log)
+
+    # --- v1.14 arm gate re-verification --------------------------------
+    #
+    # Devin Review SEC finding: reviewDecision=APPROVED plus a
+    # commit-pinned APPROVED review only prove GitHub review state — a
+    # PR the gate HELD this run can still carry one (human approval, or
+    # an approval posted before the judge vetoed). The arm must re-apply
+    # the approve step's per-PR eligibility or it merges past the veto.
+
+    def test_arm_v14_held_verdict_not_armed(self):
+        # CHANGES_REQUESTED verdict + APPROVED review on the head: the
+        # exact bypass the finding describes — never reaches pr merge.
+        env = self.arm_env(VERDICT_MAP='{"5": "CHANGES_REQUESTED"}')
+        proc, _, log = self.run_block(
+            self.arm, self.arm_fixtures(), extra_env=env)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("not approvable", proc.stdout)
+        self.assertNotIn("pr merge", log)
+
+    def test_arm_v14_missing_verdict_fails_closed(self):
+        # verdict_map without an entry for this PR -> "no-review" ->
+        # not approvable. An unreadable gate must never arm.
+        env = self.arm_env(VERDICT_MAP='{"9": "APPROVED"}')
+        proc, _, log = self.run_block(
+            self.arm, self.arm_fixtures(), extra_env=env)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("no-review", proc.stdout)
+        self.assertNotIn("pr merge", log)
+
+    def test_arm_v14_blocking_findings_not_armed(self):
+        # COMMENTED verdict approves only with zero blocking threads —
+        # same rule the approve step applies. Two unresolved findings
+        # hold the arm even though an APPROVED review sits on the head.
+        env = self.arm_env(VERDICT_MAP='{"5": "COMMENTED"}',
+                           BLOCKING_MAP='{"5": 2}')
+        proc, _, log = self.run_block(
+            self.arm, self.arm_fixtures(), extra_env=env)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("unresolved blocking finding", proc.stdout)
+        self.assertNotIn("pr merge", log)
+
+    def test_arm_v14_commented_clean_still_arms(self):
+        # COMMENTED + zero blocking is approvable — the arm must not
+        # over-hold a PR the gate actually cleared.
+        env = self.arm_env(VERDICT_MAP='{"5": "COMMENTED"}',
+                           BLOCKING_MAP='{"5": 0}')
+        proc, _, log = self.run_block(
+            self.arm, self.arm_fixtures(), extra_env=env)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("auto-merge armed for PR #5", proc.stdout)
+        self.assertIn("pr merge 5", log)
+
+    def test_arm_v14_approved_verdict_ignores_blocking_count(self):
+        # APPROVED short-circuits the blocking check in the approve
+        # step; the arm mirrors that — an APPROVED verdict arms even
+        # with a nonzero map entry (findings step is skipped for
+        # APPROVED-only runs, leaving an empty map anyway).
+        env = self.arm_env(VERDICT_MAP='{"5": "APPROVED"}',
+                           BLOCKING_MAP='{"5": 2}')
+        proc, _, log = self.run_block(
+            self.arm, self.arm_fixtures(), extra_env=env)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("auto-merge armed for PR #5", proc.stdout)
+        self.assertIn("pr merge 5", log)
+
+    def test_arm_v14_judge_veto_not_armed(self):
+        # devin-judge/review failure on the live head: the approve step
+        # holds with judge-blocked; the arm must hold identically even
+        # though reviewDecision stays APPROVED.
+        for judge_state in ("failure", "pending", None):
+            with self.subTest(judge_state=judge_state):
+                fx = self.arm_fixtures(
+                    status=status_fixture(judge_state=judge_state))
+                proc, _, log = self.run_block(
+                    self.arm, fx, extra_env=self.arm_env())
+                self.assertEqual(proc.returncode, 0, proc.stderr)
+                self.assertIn("judge gate", proc.stdout)
+                self.assertNotIn("pr merge", log)
 
     # --- owner-requested arm scenarios ---------------------------------
     #
@@ -1274,7 +1368,8 @@ class GateFallback(unittest.TestCase):
         # is a warning, never a job failure.
         proc, _, log = self.run_block(
             self.arm, self.arm_fixtures(),
-            extra_env={"GH_STUB_PR_MERGE_FAIL":
+            extra_env={**self.arm_env(),
+                       "GH_STUB_PR_MERGE_FAIL":
                        "GraphQL: Pull request is not mergeable "
                        "(enablePullRequestAutoMerge)"})
         self.assertEqual(proc.returncode, 0, proc.stderr)

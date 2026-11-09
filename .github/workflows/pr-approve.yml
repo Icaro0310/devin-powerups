@@ -1,6 +1,18 @@
 name: pr-approve
 
-# Version: v1.13 (D-2026-11-09: auto-merge arm — after the approve step,
+# Version: v1.14 (D-2026-11-09: arm gate re-verification — Devin Review
+# SEC finding on v1.13: reviewDecision + a commit-pinned APPROVED review
+# reflect GitHub review state only, so a PR the gate HELD this run
+# (non-approvable verdict, unresolved blocking findings, or judge
+# vetoed) could still carry an APPROVED review — human, or posted before
+# the veto — and the arm would merge past the gate. The arm step now
+# re-applies the approve step's per-PR eligibility before mutating:
+# approvable verdict (APPROVED|STATUS_CLEAN|COMMENTED|FALLBACK_COVERED)
+# AND (APPROVED verdict OR zero unresolved blocking) AND
+# devin-judge/review success on the live head. A held PR logs the exact
+# skip reason and is never armed.)
+#
+# v1.13 (D-2026-11-09: auto-merge arm — after the approve step,
 # a best-effort step runs `gh pr merge --auto --squash --match-head-commit`
 # on every PR that carries an APPROVED review pinned to the live head, so
 # an approved PR never waits on a human click (personal-agent-system#141
@@ -967,7 +979,10 @@ jobs:
         # APPROVED review pinned to the live head — covers both the PRs
         # this run just approved and PRs approved by an earlier run that
         # never got armed (the approve dedupe path used to leave them
-        # waiting on a human click forever). Best-effort by contract:
+        # waiting on a human click forever). v1.14: before arming, the
+        # step re-verifies the gate state that produced that approval —
+        # an APPROVED review alone is not sufficient evidence the gate
+        # is clean (see the eligibility check in the run block). Best-effort by contract:
         # every skip/failure is a ::warning:: or an info line, never a
         # job failure — the approve already posted. Merged/closed/draft/
         # already-armed/moved-head PRs are clean no-ops; a conflicting
@@ -980,8 +995,14 @@ jobs:
           REPO: ${{ github.repository }}
           PR_NUMBERS: ${{ steps.review.outputs.pr_numbers }}
           HEAD_SHA: ${{ steps.review.outputs.head_sha }}
+          VERDICT_MAP: ${{ steps.review.outputs.verdict_map }}
+          BLOCKING_MAP: ${{ steps.findings.outputs.blocking_map }}
         run: |
           set -euo pipefail
+          vmap="${VERDICT_MAP:-}"
+          [ -z "$vmap" ] && vmap='{}'
+          bmap="${BLOCKING_MAP:-}"
+          [ -z "$bmap" ] && bmap='{}'
           for pr in $PR_NUMBERS; do
             # Freshness first — same discipline as the approve step: a
             # queued run can be stale by the time it reaches here, and a
@@ -1033,6 +1054,35 @@ jobs:
             case "$nappr" in ''|*[!0-9]*) nappr=0 ;; esac
             if [ "$nappr" -lt 1 ]; then
               echo "PR #$pr reviewDecision=APPROVED but no APPROVED review on live head ${live_head:0:12} — stale approval, skipping"
+              continue
+            fi
+            # Gate re-verification (v1.14): reviewDecision and the pinned
+            # APPROVED review reflect GitHub review state only — they do
+            # NOT prove the gate is clean. A PR this run HELD (verdict
+            # CHANGES_REQUESTED/no-review, unresolved blocking findings,
+            # or judge veto) can still carry an APPROVED review from a
+            # human or from before the veto, and arming on that alone
+            # would merge code the gate rejected. Re-apply the approve
+            # step's per-PR eligibility: approvable verdict AND
+            # (APPROVED verdict OR zero blocking) AND judge success on
+            # the live head — same semantics, same fail-closed defaults.
+            v=$(echo "$vmap" | jq -r --arg p "$pr" '.[$p] // "no-review"')
+            count=$(echo "$bmap" | jq -r --arg p "$pr" '.[$p] // 0')
+            case "$v" in
+              APPROVED|STATUS_CLEAN|COMMENTED|FALLBACK_COVERED) ;;
+              *)
+                echo "PR #$pr verdict '$v' is not approvable — gate held, skipping auto-merge arm"
+                continue ;;
+            esac
+            if [ "$v" != "APPROVED" ] && [ "$count" != "0" ]; then
+              echo "PR #$pr has $count unresolved blocking finding(s) on ${live_head:0:12} — gate held, skipping auto-merge arm"
+              continue
+            fi
+            jstate=$(gh api "repos/$REPO/commits/$live_head/status" \
+              --jq '[.statuses[] | select(.context == "devin-judge/review")] | .[0].state // "missing"' \
+              2>/dev/null || echo "unknown")
+            if [ "$jstate" != "success" ]; then
+              echo "PR #$pr judge gate is '$jstate' on ${live_head:0:12} — skipping auto-merge arm"
               continue
             fi
             # --match-head-commit pins the arm to the head verified above:
