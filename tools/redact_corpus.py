@@ -78,6 +78,12 @@ CASES = [
     ("env_literal_raw",    "MY_API_KEY = r\"hunter2secret\""),
     ("env_literal_bytes",  "MY_API_KEY = b\"hunter2secret\""),
     ("env_literal_triple", "MY_API_KEY = \"\"\"hunter2secret\"\"\""),
+    # Trailing `#` comments are invisible to ast.literal_eval (the
+    # tokenizer strips them), so a parenthesized literal with a comment
+    # tail is still a hardcoded value — Devin Review finding on #276.
+    ("env_literal_paren_comment",      'API_KEY = ("hunter2secret99") # nota'),
+    ("env_literal_paren_comment_nospace", 'API_KEY = ("hunter2secret99")#nota'),
+    ("env_literal_quoted_comment",     'API_KEY = "hunter2secret99" # nota'),
     ("env_name_call",      "MY_SECRET = obj.method()"),
     ("env_name_pure_no_match", "PASSWORD = hunter2secret  # bare name, no prefix"),
     # --- overlaps / ordering -------------------------------------------

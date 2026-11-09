@@ -276,8 +276,22 @@ class LiteralParser {
   private ws(): void {
     while (this.i < this.s.length) {
       const c = this.s[this.i]!;
-      if (c === ' ' || c === '\t' || c === '\n' || c === '\r' || c === '\f' || c === '\v') this.i++;
-      else break;
+      if (c === ' ' || c === '\t' || c === '\n' || c === '\r' || c === '\f' || c === '\v') {
+        this.i++;
+        continue;
+      }
+      // CPython's tokenizer strips `#` comments wherever whitespace is
+      // legal, so ast.literal_eval accepts `("x") # note` — the comment
+      // is invisible to the parse. ws() only runs between tokens (never
+      // inside a string/number scan), so `#` here always opens a comment
+      // running to the physical line end.
+      if (c === '#') {
+        while (this.i < this.s.length && this.s[this.i] !== '\n' && this.s[this.i] !== '\r') {
+          this.i++;
+        }
+        continue;
+      }
+      break;
     }
   }
   private peek(off = 0): string {
@@ -1740,7 +1754,8 @@ export function patternSurface(): Set<string> {
   if (surfaceCache === null) {
     surfaceCache = new Set(COMPILED.map((e) => `${e.category}:${e.name}`));
   }
-  return surfaceCache;
+  // Return a copy — callers must not be able to mutate the shared cache.
+  return new Set(surfaceCache);
 }
 
 export { SECRET_CATEGORIES };
