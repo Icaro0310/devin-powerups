@@ -1,6 +1,41 @@
 name: pr-approve
 
-# Version: v1.12 (D-2026-10-29: judge gate — the devin-judge/review
+# Version: v1.14 (D-2026-11-09: arm gate re-verification — Devin Review
+# SEC finding on v1.13: reviewDecision + a commit-pinned APPROVED review
+# reflect GitHub review state only, so a PR the gate HELD this run
+# (non-approvable verdict, unresolved blocking findings, or judge
+# vetoed) could still carry an APPROVED review — human, or posted before
+# the veto — and the arm would merge past the gate. The arm step now
+# re-applies the approve step's per-PR eligibility before mutating:
+# approvable verdict (APPROVED|STATUS_CLEAN|COMMENTED|FALLBACK_COVERED)
+# AND (APPROVED verdict OR zero unresolved blocking) AND
+# devin-judge/review success on the live head. A held PR logs the exact
+# skip reason and is never armed.)
+#
+# v1.13 (D-2026-11-09: auto-merge arm — after the approve step,
+# a best-effort step runs `gh pr merge --auto --squash --match-head-commit`
+# on every PR that carries an APPROVED review pinned to the live head, so
+# an approved PR never waits on a human click (personal-agent-system#141
+# sat ready-but-unmerged for days). The arm only fires when
+# reviewDecision is APPROVED AND an APPROVED review's commit_id equals
+# the live head sha — a stale approval on a moved head, a draft, a
+# merged/closed PR (idempotent retry no-op) or an already-armed PR is
+# skipped. Any arm failure (auto-merge disabled on
+# the repo, conflicts, branch protection, missing contents:write on the
+# caller) logs ::warning:: with the exact gh error and NEVER fails the
+# job — the approve already posted. The merge itself is still executed
+# by GitHub once branch-protection requirements are met; where the
+# approve completes after every requirement is already green the arm
+# can fail with "clean status" (nothing left to wait for) — those PRs
+# still need the merge click, and the ecosystem_sync pr-merge sensor
+# surfaces them. Caller jobs must grant contents:write for the arm to
+# succeed (approve itself still only needs pull-requests:write); until
+# callers bump, the arm warns and the approve path is unchanged. The
+# v1.12 invariant narrows accordingly: automation still never merges
+# DIRECTLY — no plain `gh pr merge` without --auto and no --admin
+# anywhere in this file.)
+#
+# v1.12 (D-2026-10-29: judge gate — the devin-judge/review
 # commit status must be success on the live head before any approve.
 # failure/pending/missing posts a deduped "merge automático bloqueado"
 # comment and holds. Private repos have no required-check enforcement
@@ -222,6 +257,15 @@ permissions:
 jobs:
   approve:
     runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
+    # contents:write is required only by the v1.13 auto-merge arm
+    # (enablePullRequestAutoMerge rejects pull-requests:write alone with
+    # "Resource not accessible by integration"). For workflow_call the
+    # effective grant is capped by the caller job's permissions —
+    # callers still on contents:read keep the approve path and get a
+    # ::warning:: from the arm step instead of a merge.
+    permissions:
+      contents: write
+      pull-requests: write
     if: >-
       (github.event_name == 'status' &&
        github.event.context == 'Devin Review' &&
@@ -928,6 +972,128 @@ jobs:
               *)
                 echo "::warning::PR #$pr held — Devin Review verdict '$v'" ;;
             esac
+          done
+
+      - name: Arm auto-merge on approved PRs
+        # v1.13: arms GitHub native auto-merge on every PR that carries an
+        # APPROVED review pinned to the live head — covers both the PRs
+        # this run just approved and PRs approved by an earlier run that
+        # never got armed (the approve dedupe path used to leave them
+        # waiting on a human click forever). v1.14: before arming, the
+        # step re-verifies the gate state that produced that approval —
+        # an APPROVED review alone is not sufficient evidence the gate
+        # is clean (see the eligibility check in the run block). Best-effort by contract:
+        # every skip/failure is a ::warning:: or an info line, never a
+        # job failure — the approve already posted. Merged/closed/draft/
+        # already-armed/moved-head PRs are clean no-ops; a conflicting
+        # PR still reaches the arm and gh refuses it — the ::warning::
+        # carries the exact reason and the pr-merge sensor keeps it
+        # visible until the conflict resolves.
+        if: steps.review.outputs.pr_numbers != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBERS: ${{ steps.review.outputs.pr_numbers }}
+          HEAD_SHA: ${{ steps.review.outputs.head_sha }}
+          VERDICT_MAP: ${{ steps.review.outputs.verdict_map }}
+          BLOCKING_MAP: ${{ steps.findings.outputs.blocking_map }}
+        run: |
+          set -euo pipefail
+          vmap="${VERDICT_MAP:-}"
+          [ -z "$vmap" ] && vmap='{}'
+          bmap="${BLOCKING_MAP:-}"
+          [ -z "$bmap" ] && bmap='{}'
+          for pr in $PR_NUMBERS; do
+            # Freshness first — same discipline as the approve step: a
+            # queued run can be stale by the time it reaches here, and a
+            # moved head belongs to the fresh run that owns it.
+            live_head=$(gh api "repos/$REPO/pulls/$pr" --jq .head.sha 2>/dev/null || true)
+            if [ -z "$live_head" ]; then
+              echo "::warning::PR #$pr auto-merge arm skipped — live head lookup failed"
+              continue
+            fi
+            if [ "$live_head" != "$HEAD_SHA" ]; then
+              echo "PR #$pr head moved to ${live_head:0:12} since evaluation — skipping auto-merge arm; a fresh run owns the new head"
+              continue
+            fi
+            meta=$(gh pr view "$pr" --repo "$REPO" \
+              --json state,isDraft,reviewDecision,autoMergeRequest \
+              2>/dev/null || true)
+            if [ -z "$meta" ]; then
+              echo "::warning::PR #$pr auto-merge arm skipped — pr view lookup failed"
+              continue
+            fi
+            # Retry-safe no-op: a late status/review event can re-run this
+            # job after the PR already merged or closed — arming is not
+            # an error there, just nothing left to do.
+            pstate=$(echo "$meta" | jq -r '.state')
+            if [ "$pstate" != "OPEN" ]; then
+              echo "PR #$pr state is $pstate — nothing to arm"
+              continue
+            fi
+            if [ "$(echo "$meta" | jq -r '.isDraft')" = "true" ]; then
+              echo "PR #$pr is draft — skipping auto-merge arm"
+              continue
+            fi
+            if [ "$(echo "$meta" | jq -r '.autoMergeRequest != null')" = "true" ]; then
+              echo "PR #$pr auto-merge already armed — nothing to do"
+              continue
+            fi
+            if [ "$(echo "$meta" | jq -r '.reviewDecision')" != "APPROVED" ]; then
+              echo "PR #$pr reviewDecision is not APPROVED — nothing to arm"
+              continue
+            fi
+            # reviewDecision stays APPROVED across pushes unless stale
+            # reviews are dismissed — the commit-pinned check below is
+            # the real guard: an APPROVED review must exist on the live
+            # head itself, not on an ancestor the head has moved past.
+            nappr=$(gh api "repos/$REPO/pulls/$pr/reviews?per_page=100" --paginate 2>/dev/null \
+              | jq -s --arg sha "$live_head" \
+                '[(add // [])[] | select(.state == "APPROVED" and .commit_id == $sha)] | length' \
+              2>/dev/null || echo 0)
+            case "$nappr" in ''|*[!0-9]*) nappr=0 ;; esac
+            if [ "$nappr" -lt 1 ]; then
+              echo "PR #$pr reviewDecision=APPROVED but no APPROVED review on live head ${live_head:0:12} — stale approval, skipping"
+              continue
+            fi
+            # Gate re-verification (v1.14): reviewDecision and the pinned
+            # APPROVED review reflect GitHub review state only — they do
+            # NOT prove the gate is clean. A PR this run HELD (verdict
+            # CHANGES_REQUESTED/no-review, unresolved blocking findings,
+            # or judge veto) can still carry an APPROVED review from a
+            # human or from before the veto, and arming on that alone
+            # would merge code the gate rejected. Re-apply the approve
+            # step's per-PR eligibility: approvable verdict AND
+            # (APPROVED verdict OR zero blocking) AND judge success on
+            # the live head — same semantics, same fail-closed defaults.
+            v=$(echo "$vmap" | jq -r --arg p "$pr" '.[$p] // "no-review"')
+            count=$(echo "$bmap" | jq -r --arg p "$pr" '.[$p] // 0')
+            case "$v" in
+              APPROVED|STATUS_CLEAN|COMMENTED|FALLBACK_COVERED) ;;
+              *)
+                echo "PR #$pr verdict '$v' is not approvable — gate held, skipping auto-merge arm"
+                continue ;;
+            esac
+            if [ "$v" != "APPROVED" ] && [ "$count" != "0" ]; then
+              echo "PR #$pr has $count unresolved blocking finding(s) on ${live_head:0:12} — gate held, skipping auto-merge arm"
+              continue
+            fi
+            jstate=$(gh api "repos/$REPO/commits/$live_head/status" \
+              --jq '[.statuses[] | select(.context == "devin-judge/review")] | .[0].state // "missing"' \
+              2>/dev/null || echo "unknown")
+            if [ "$jstate" != "success" ]; then
+              echo "PR #$pr judge gate is '$jstate' on ${live_head:0:12} — skipping auto-merge arm"
+              continue
+            fi
+            # --match-head-commit pins the arm to the head verified above:
+            # if the head moves between this check and the mutation the
+            # arm is refused instead of landing on unreviewed code.
+            if merge_out=$(gh pr merge "$pr" --repo "$REPO" --auto --squash \
+                --match-head-commit "$live_head" 2>&1); then
+              echo "auto-merge armed for PR #$pr"
+            else
+              echo "::warning::PR #$pr auto-merge arm failed (best-effort — approve already posted): $merge_out"
+            fi
           done
 
       - name: Hold approval until findings are fixed or resolved

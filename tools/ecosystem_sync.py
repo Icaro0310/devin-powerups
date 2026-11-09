@@ -747,6 +747,207 @@ def collect_repo_settings(repos: dict[str, str], timeout: int) -> list[Row]:
     return out
 
 
+# ---------------------------------------------------------------------------
+# PR merge-flow sensor (pr_ready_not_merged)
+#
+# An APPROVED PR with green checks that sits unmerged is drift between the
+# review gate and the merge click — personal-agent-system#141 stayed
+# ready-but-stuck for days because nothing arms auto-merge. pr-approve@v1.13
+# now arms `gh pr merge --auto` best-effort; this sensor is the net for
+# whatever the arm cannot cover (auto-merge disabled, clean-status PRs,
+# callers still on contents:read).
+#
+# "Approved" follows the two paths the gate documents: a formal APPROVED
+# review (reviewDecision APPROVED), or the manual-blocking0 audit comment
+# left when the APPROVE review is undeliverable — judge success is still
+# required so a later rejected verdict un-counts it. devin-judge/review
+# success ALONE is not approval: the approve step also requires a clean
+# Devin verdict and zero blocking findings, so counting the judge status
+# by itself would flag PRs legitimately held for findings.
+#
+# "Checks green" treats CANCELLED check-run conclusions as non-blocking —
+# approve/fallback cancellations are known concurrency flakes, not signal.
+
+_PR_READY_MIN_AGE_S = 30 * 60
+_CHECKRUN_GREEN = {"SUCCESS", "SKIPPED", "NEUTRAL"}
+
+
+def _rollup_blocker(rollup: object) -> str:
+    """First non-green entry on the head's statusCheckRollup, else "".
+
+    CheckRun nodes carry status+conclusion; StatusContext nodes carry
+    state. CANCELLED conclusions are ignored (concurrency flakes); a
+    non-COMPLETED run or a PENDING/EXPECTED status blocks as "pending".
+    """
+    if not isinstance(rollup, list):
+        return ""
+    for entry in rollup:
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("__typename") == "StatusContext" or (
+                "state" in entry and "conclusion" not in entry
+                and "status" not in entry):
+            state = str(entry.get("state") or "").upper()
+            if state == "SUCCESS":
+                continue
+            context = str(entry.get("context") or entry.get("name") or "?")
+            if state in {"PENDING", "EXPECTED"}:
+                return f"{context} pending"
+            return f"{context} {state.lower() or 'unknown'}"
+        conclusion = str(entry.get("conclusion") or "").upper()
+        if conclusion == "CANCELLED":
+            continue
+        status = str(entry.get("status") or "").upper()
+        name = str(entry.get("name") or entry.get("context") or "?")
+        if status and status != "COMPLETED":
+            return f"{name} pending ({status.lower()})"
+        if conclusion in _CHECKRUN_GREEN:
+            continue
+        if conclusion:
+            return f"{name} {conclusion.lower()}"
+        return f"{name} pending"
+    return ""
+
+
+def _judge_success(rollup: object) -> bool:
+    """devin-judge/review green on the head — commit status or check run."""
+    if not isinstance(rollup, list):
+        return False
+    for entry in rollup:
+        if not isinstance(entry, dict):
+            continue
+        if str(entry.get("context") or entry.get("name") or "") \
+                != "devin-judge/review":
+            continue
+        if str(entry.get("state") or "").upper() == "SUCCESS":
+            return True
+        if str(entry.get("conclusion") or "").upper() == "SUCCESS":
+            return True
+    return False
+
+
+def _has_manual_blocking0_audit(repo: str, number: int,
+                                timeout: int,
+                                head_sha: str | None = None) -> bool:
+    """Second approval path: the gate-resolved-via audit comment.
+
+    The audit comment carries `head:<sha>`; matching it without the
+    sha would let an audit written for an older head still count as
+    approval after a push (the workflow itself dedupes per head)."""
+    try:
+        proc = subprocess.run(
+            ["gh", "pr", "view", str(number), "--repo", repo,
+             "--json", "comments"],
+            capture_output=True, text=True, timeout=timeout + 10)
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    if proc.returncode != 0:
+        return False
+    try:
+        data = json.loads(proc.stdout)
+    except ValueError:
+        return False
+    for comment in data.get("comments") or []:
+        if not isinstance(comment, dict):
+            continue
+        body = str(comment.get("body") or "")
+        if "gate-resolved-via: manual-blocking0" not in body:
+            continue
+        if head_sha and f"head:{head_sha}" not in body:
+            continue
+        return True
+    return False
+
+
+def _stuck_pr_verdict(pr: dict, now: float) -> str:
+    """'' when the PR is approved+green+unmerged+old enough, else why not.
+
+    Returned reasons: draft | armed | changes-requested | too-young |
+    checks:<blocker> | not-approved | maybe-manual-blocking0 (needs the
+    comments lookup) | no-createdAt.
+    """
+    if pr.get("isDraft"):
+        return "draft"
+    if pr.get("autoMergeRequest"):
+        return "armed"
+    decision = str(pr.get("reviewDecision") or "")
+    if decision == "CHANGES_REQUESTED":
+        return "changes-requested"
+    created = _parse_timestamp(pr.get("createdAt"))
+    if created is None:
+        return "no-createdAt"
+    if now - created < _PR_READY_MIN_AGE_S:
+        return "too-young"
+    blocker = _rollup_blocker(pr.get("statusCheckRollup"))
+    if blocker:
+        return f"checks:{blocker}"
+    if decision == "APPROVED":
+        return ""
+    if _judge_success(pr.get("statusCheckRollup")):
+        return "maybe-manual-blocking0"
+    return "not-approved"
+
+
+def collect_pr_ready_not_merged(repos: dict[str, str], timeout: int,
+                                now: float | None = None) -> list[Row]:
+    """One drift Row per approved PR that should have merged but didn't.
+
+    ``repos`` maps repo name -> owner (same shape as collect_open_prs).
+    gh failures skip the repo silently — an unreachable API must not
+    blank the report. ``now`` is injectable for tests (epoch seconds).
+    """
+    now = time.time() if now is None else now
+    rows: list[Row] = []
+    for name, owner in sorted(repos.items()):
+        repo = f"{owner}/{name}"
+        try:
+            proc = subprocess.run(
+                ["gh", "pr", "list", "--repo", repo, "--state", "open",
+                 "--limit", "100",
+                 "--json", "number,title,reviewDecision,isDraft,headRefOid,"
+                           "statusCheckRollup,autoMergeRequest,createdAt,url"],
+                capture_output=True, text=True, timeout=timeout + 10)
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+        if proc.returncode != 0:
+            continue
+        try:
+            prs = json.loads(proc.stdout)
+        except ValueError:
+            continue
+        if not isinstance(prs, list):
+            continue
+        for pr in prs:
+            if not isinstance(pr, dict):
+                continue
+            try:
+                number = int(pr.get("number"))
+            except (TypeError, ValueError):
+                continue
+            verdict = _stuck_pr_verdict(pr, now)
+            if verdict == "maybe-manual-blocking0":
+                if not _has_manual_blocking0_audit(
+                        repo, number, timeout,
+                        head_sha=str(pr.get("headRefOid") or "") or None):
+                    continue
+            elif verdict:
+                continue
+            created = _parse_timestamp(pr.get("createdAt"))
+            age = max(0.0, now - created) if created is not None else 0.0
+            title = str(pr.get("title") or "")
+            url = str(pr.get("url") or "")
+            rows.append(Row(
+                product=f"{name}#{number}",
+                channel="pr-merge",
+                local=f"unmerged {_fmt_age(age)}",
+                remote="merged",
+                state="drift",
+                repo=repo,
+                note=f"{title} — {url}"[:200],
+            ))
+    return rows
+
+
 def collect_ci_config(repos: dict[str, str], timeout: int) -> list[Row]:
     """Half-configured review-fallback detection -> one Row per physical repo.
 
@@ -1588,13 +1789,59 @@ def open_drift_issues(rows: list[Row], timeout: int) -> list[str]:
             open_issues = json.loads(proc.stdout) if proc.returncode == 0 else []
         except (OSError, ValueError, subprocess.TimeoutExpired):
             open_issues = []
-        title = f"ecosystem_sync: version drift detected in {repo.split('/')[-1]}"
+        title = f"ecosystem_sync: drift detected in {repo.split('/')[-1]}"
         existing = next(
             (i for i in open_issues if "drift" in str(i.get("title", "")).lower()),
             None,
         )
         if existing:
-            messages.append(f"{repo}: skipped, open drift issue #{existing['number']} exists")
+            try:
+                proc = subprocess.run(
+                    ["gh", "issue", "view", str(existing["number"]),
+                     "--repo", repo, "--json", "body,comments"],
+                    capture_output=True, text=True, timeout=timeout + 10)
+                seen_text = proc.stdout if proc.returncode == 0 else ""
+            except (OSError, subprocess.TimeoutExpired):
+                seen_text = ""
+            new_rows = [
+                r for r in repo_rows
+                if f"| {r.product} | {r.channel} |" not in seen_text]
+            if not new_rows:
+                messages.append(
+                    f"{repo}: skipped, open drift issue "
+                    f"#{existing['number']} covers all rows")
+                continue
+            body_lines = [
+                "Update — new drift rows not covered by the original",
+                "report:",
+                "",
+                "| product | channel | local | remote | state |",
+                "|---|---|---|---|---|",
+            ]
+            body_lines += [
+                f"| {r.product} | {r.channel} | {r.local} | {r.remote} | {r.state} |"
+                for r in new_rows]
+            body_lines += ["",
+                           f"Detected {datetime.now(timezone.utc):%Y-%m-%dT%H:%M:%SZ}."]
+            try:
+                proc = subprocess.run(
+                    ["gh", "issue", "comment", str(existing["number"]),
+                     "--repo", repo, "--body", "\n".join(body_lines)],
+                    capture_output=True, text=True, timeout=timeout + 10,
+                )
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                messages.append(
+                    f"{repo}: issue comment failed: "
+                    f"{type(exc).__name__}")
+                continue
+            if proc.returncode == 0:
+                messages.append(
+                    f"{repo}: commented {len(new_rows)} new row(s) on "
+                    f"drift issue #{existing['number']}")
+            else:
+                messages.append(
+                    f"{repo}: issue comment failed: "
+                    f"{(proc.stderr or proc.stdout).strip()[:160]}")
             continue
         subprocess.run(
             ["gh", "label", "create", "drift", "--repo", repo,
@@ -1603,8 +1850,8 @@ def open_drift_issues(rows: list[Row], timeout: int) -> list[str]:
             capture_output=True, text=True, timeout=timeout + 10,
         )
         body_lines = [
-            "`tools/ecosystem_sync.py` detected version drift between local",
-            "manifests and published channels:",
+            "`tools/ecosystem_sync.py` detected drift between expected and",
+            "actual state (versions, CI config, PR merge flow):",
             "",
             "| product | channel | local | remote | state |",
             "|---|---|---|---|---|",
@@ -1783,6 +2030,8 @@ def _failure_class(row: "Row") -> str:
         return "ci_errors"
     if row.channel == "freshness":
         return "silence"
+    if row.channel == "pr-merge":
+        return "pr_stuck"
     return "version_drift"
 
 
@@ -1957,6 +2206,12 @@ def main(argv: list[str] | None = None) -> int:
             rows += collect_ci_config({**owners, **EXTRA_REPOS}, args.timeout)
             rows += collect_repo_settings({**owners, **EXTRA_REPOS},
                                           args.timeout)
+        # pr-merge runs in BOTH modes: the hourly --freshness sweeps are
+        # the only automated callers, so gating it behind the full sync
+        # would leave stuck approved PRs unsensed. ~1 gh call per repo,
+        # same cost class as the freshness workflow roll-up.
+        rows += collect_pr_ready_not_merged({**owners, **EXTRA_REPOS},
+                                            args.timeout)
         rows += collect_freshness(roots, {**owners, **EXTRA_REPOS},
                                   args.timeout)
     health = [] if args.offline else collect_health(roots, args.timeout)

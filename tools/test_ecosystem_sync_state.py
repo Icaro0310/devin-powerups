@@ -247,6 +247,46 @@ class OpenSilenceIssuesTests(unittest.TestCase):
         self.assertIn(("issue", "create"), kinds)
 
 
+class OpenDriftIssuesTests(unittest.TestCase):
+    def test_comment_timeout_does_not_abort_other_repos(self):
+        # A gh issue comment that raises (timeout/OSError) must be
+        # recorded per-repo and must not kill the whole --issue sweep.
+        def fake_run(cmd, **kw):
+            repo = cmd[cmd.index("--repo") + 1]
+            if repo in {"o/bad", "o/err"} and cmd[1:3] == ["issue", "comment"]:
+                if repo == "o/bad":
+                    raise es.subprocess.TimeoutExpired(cmd, kw.get("timeout"))
+                raise OSError("gh missing")
+            if repo in {"o/bad", "o/err"}:
+                if cmd[1:3] == ["issue", "list"]:
+                    return mock.Mock(returncode=0, stdout=json.dumps(
+                        [{"number": 3, "title": "drift report"}]))
+                # issue view: body lacks the new row -> comment path
+                return mock.Mock(returncode=0, stdout="old report",
+                                 stderr="")
+            if cmd[1:3] == ["issue", "list"]:
+                return mock.Mock(returncode=0, stdout="[]")
+            return mock.Mock(returncode=0, stdout="https://x/9\n",
+                             stderr="")
+
+        rows = [
+            es.Row(product="prod-a", channel="pypi", local="0.1",
+                   remote="0.2", state="drift", repo="o/bad"),
+            es.Row(product="prod-b", channel="pypi", local="0.1",
+                   remote="0.2", state="drift", repo="o/err"),
+            es.Row(product="prod-c", channel="pypi", local="0.1",
+                   remote="0.2", state="drift", repo="o/good"),
+        ]
+        with mock.patch.object(es.subprocess, "run", side_effect=fake_run):
+            messages = es.open_drift_issues(rows, 5)
+        self.assertTrue(any("o/bad: issue comment failed" in m
+                            for m in messages))
+        self.assertTrue(any("o/err: issue comment failed" in m
+                            for m in messages))
+        # sorted order puts o/good last — its issue was still opened
+        self.assertTrue(any("o/good: opened" in m for m in messages))
+
+
 class CollectFreshnessTests(unittest.TestCase):
     def _collect(self, matrix, heartbeats=None, evidence="", workflow_rows=None,
                  roots=None, probes=None):
@@ -645,6 +685,194 @@ class ParseTimestampTests(unittest.TestCase):
         self.assertIsNone(es._parse_timestamp(40))  # counters aren't epochs
         self.assertIsNone(es._parse_timestamp(None))
         self.assertIsNone(es._parse_timestamp(True))
+
+
+class CollectPrReadyNotMergedTests(unittest.TestCase):
+    """pr-merge sensor: approved+green+unmerged+old PRs -> drift rows."""
+
+    NOW = 1_800_000_000.0
+    HEAD_SHA = "a" * 40  # fixture head; audit comments bind via head:<sha>
+
+    def _iso(self, epoch):
+        return datetime.fromtimestamp(epoch, timezone.utc).isoformat()
+
+    def _green_rollup(self, extra=()):
+        return [
+            {"__typename": "CheckRun", "name": "ci",
+             "status": "COMPLETED", "conclusion": "SUCCESS"},
+            {"__typename": "StatusContext", "context": "devin-judge/review",
+             "state": "SUCCESS"},
+            *extra,
+        ]
+
+    def _pr(self, number=1, decision="APPROVED", rollup=None,
+            auto_merge=None, age_s=3600, draft=False, title="t",
+            head_sha=None):
+        return {
+            "number": number,
+            "title": title,
+            "url": f"https://github.com/o/r/pull/{number}",
+            "reviewDecision": decision,
+            "isDraft": draft,
+            "autoMergeRequest": auto_merge,
+            "createdAt": self._iso(self.NOW - age_s),
+            "headRefOid": self.HEAD_SHA if head_sha is None else head_sha,
+            "statusCheckRollup": self._green_rollup() if rollup is None
+            else rollup,
+        }
+
+    def _gh(self, prs_by_repo, comments_by_pr=None, fail_repos=()):
+        calls = []
+
+        def fake(cmd, **kw):
+            calls.append(cmd)
+            if "view" in cmd:
+                repo = cmd[cmd.index("--repo") + 1]
+                num = cmd[cmd.index("view") + 1]
+                comments = (comments_by_pr or {}).get((repo, num), [])
+                return mock.Mock(
+                    returncode=0,
+                    stdout=json.dumps({"comments": comments}), stderr="")
+            repo = cmd[cmd.index("--repo") + 1]
+            if repo in fail_repos:
+                return mock.Mock(returncode=1, stdout="", stderr="boom")
+            return mock.Mock(
+                returncode=0,
+                stdout=json.dumps(prs_by_repo.get(repo, [])), stderr="")
+
+        fake.calls = calls
+        return fake
+
+    def _collect(self, prs_by_repo, comments_by_pr=None, fail_repos=()):
+        fake = self._gh(prs_by_repo, comments_by_pr, fail_repos)
+        with mock.patch.object(es.subprocess, "run", side_effect=fake):
+            rows = es.collect_pr_ready_not_merged(
+                {"r": "o"}, 10, now=self.NOW)
+        return rows, fake.calls
+
+    def test_approved_green_unmerged_is_drift(self):
+        rows, _ = self._collect({"o/r": [self._pr(7, title="feat: x")]})
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        self.assertEqual((row.channel, row.state, row.repo),
+                         ("pr-merge", "drift", "o/r"))
+        self.assertEqual(row.product, "r#7")
+        self.assertIn("unmerged 1h", row.local)
+        self.assertIn("feat: x", row.note)
+
+    def test_cancelled_checks_do_not_block(self):
+        # approve/fallback CANCELLED are known concurrency flakes — the
+        # lesson that motivated treating CANCELLED as non-blocking.
+        rollup = self._green_rollup(extra=[
+            {"__typename": "CheckRun", "name": "approve",
+             "status": "COMPLETED", "conclusion": "CANCELLED"},
+            {"__typename": "CheckRun", "name": "fallback / classify",
+             "status": "COMPLETED", "conclusion": "CANCELLED"},
+            {"__typename": "CheckRun", "name": "sonar",
+             "status": "COMPLETED", "conclusion": "SKIPPED"},
+        ])
+        rows, _ = self._collect({"o/r": [self._pr(1, rollup=rollup)]})
+        self.assertEqual(len(rows), 1)
+
+    def test_failure_check_blocks(self):
+        rollup = self._green_rollup(extra=[
+            {"__typename": "CheckRun", "name": "tools-tests",
+             "status": "COMPLETED", "conclusion": "FAILURE"}])
+        rows, _ = self._collect({"o/r": [self._pr(1, rollup=rollup)]})
+        self.assertEqual(rows, [])
+
+    def test_pending_check_blocks(self):
+        rollup = self._green_rollup(extra=[
+            {"__typename": "CheckRun", "name": "ci",
+             "status": "IN_PROGRESS", "conclusion": None}])
+        rows, _ = self._collect({"o/r": [self._pr(1, rollup=rollup)]})
+        self.assertEqual(rows, [])
+
+    def test_pending_status_context_blocks(self):
+        rollup = self._green_rollup(extra=[
+            {"__typename": "StatusContext", "context": "ci/build",
+             "state": "PENDING"}])
+        rows, _ = self._collect({"o/r": [self._pr(1, rollup=rollup)]})
+        self.assertEqual(rows, [])
+
+    def test_status_failure_blocks(self):
+        rollup = [
+            {"__typename": "CheckRun", "name": "ci",
+             "status": "COMPLETED", "conclusion": "SUCCESS"},
+            {"__typename": "StatusContext", "context": "devin-judge/review",
+             "state": "FAILURE"},
+        ]
+        rows, _ = self._collect({"o/r": [self._pr(1, rollup=rollup)]})
+        self.assertEqual(rows, [])
+
+    def test_armed_draft_and_young_skip(self):
+        prs = [
+            self._pr(1, auto_merge={"enabledAt": "x"}),
+            self._pr(2, draft=True),
+            self._pr(3, age_s=10 * 60),
+            self._pr(4, decision="CHANGES_REQUESTED"),
+        ]
+        rows, _ = self._collect({"o/r": prs})
+        self.assertEqual(rows, [])
+
+    def test_not_approved_skips_without_comments_lookup(self):
+        rollup = [
+            {"__typename": "CheckRun", "name": "ci",
+             "status": "COMPLETED", "conclusion": "SUCCESS"},
+        ]
+        rows, calls = self._collect(
+            {"o/r": [self._pr(1, decision="REVIEW_REQUIRED",
+                              rollup=rollup)]})
+        self.assertEqual(rows, [])
+        self.assertFalse(any("view" in c for c in calls))
+
+    def test_manual_blocking0_path_needs_audit_comment(self):
+        rollup = self._green_rollup()
+        prs = {"o/r": [self._pr(9, decision="REVIEW_REQUIRED",
+                                rollup=rollup)]}
+        # judge success but no audit marker -> still not approved
+        rows, _ = self._collect(
+            prs, comments_by_pr={("o/r", "9"): [
+                {"body": "unrelated comment"}]})
+        self.assertEqual(rows, [])
+        # audit bound to a STALE head -> not approval for the live head
+        rows, _ = self._collect(
+            prs, comments_by_pr={("o/r", "9"): [
+                {"body": "gate-resolved-via: manual-blocking0 — clean "
+                         "evaluation on abc123\n"
+                         "gate-fallback-pairs: manual-blocking0 "
+                         f"head:{'0' * 40}"}]})
+        self.assertEqual(rows, [])
+        # audit with no head binding at all -> rejected the same way
+        rows, _ = self._collect(
+            prs, comments_by_pr={("o/r", "9"): [
+                {"body": "gate-resolved-via: manual-blocking0 — clean "
+                         "evaluation on abc123"}]})
+        self.assertEqual(rows, [])
+        # audit on the CURRENT head -> approved via the documented 2nd path
+        rows, _ = self._collect(
+            prs, comments_by_pr={("o/r", "9"): [
+                {"body": "gate-resolved-via: manual-blocking0 — clean "
+                         "evaluation on abc123\n"
+                         "gate-fallback-pairs: manual-blocking0 "
+                         f"head:{self.HEAD_SHA}"}]})
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].product, "r#9")
+
+    def test_repo_failure_skips_silently(self):
+        rows, _ = self._collect({}, fail_repos={"o/r"})
+        self.assertEqual(rows, [])
+
+    def test_unparsable_created_skips(self):
+        pr = self._pr(1)
+        pr["createdAt"] = "not-a-date"
+        rows, _ = self._collect({"o/r": [pr]})
+        self.assertEqual(rows, [])
+
+    def test_failure_class_mapping(self):
+        row = es.Row("r#1", "pr-merge", "unmerged 1h", "merged", "drift",
+                     "o/r")
+        self.assertEqual(es._failure_class(row), "pr_stuck")
 
 
 class HostScopingTests(unittest.TestCase):
