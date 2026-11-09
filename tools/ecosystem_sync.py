@@ -1823,11 +1823,17 @@ def open_drift_issues(rows: list[Row], timeout: int) -> list[str]:
                 for r in new_rows]
             body_lines += ["",
                            f"Detected {datetime.now(timezone.utc):%Y-%m-%dT%H:%M:%SZ}."]
-            proc = subprocess.run(
-                ["gh", "issue", "comment", str(existing["number"]),
-                 "--repo", repo, "--body", "\n".join(body_lines)],
-                capture_output=True, text=True, timeout=timeout + 10,
-            )
+            try:
+                proc = subprocess.run(
+                    ["gh", "issue", "comment", str(existing["number"]),
+                     "--repo", repo, "--body", "\n".join(body_lines)],
+                    capture_output=True, text=True, timeout=timeout + 10,
+                )
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                messages.append(
+                    f"{repo}: issue comment failed: "
+                    f"{type(exc).__name__}")
+                continue
             if proc.returncode == 0:
                 messages.append(
                     f"{repo}: commented {len(new_rows)} new row(s) on "

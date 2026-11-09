@@ -247,6 +247,46 @@ class OpenSilenceIssuesTests(unittest.TestCase):
         self.assertIn(("issue", "create"), kinds)
 
 
+class OpenDriftIssuesTests(unittest.TestCase):
+    def test_comment_timeout_does_not_abort_other_repos(self):
+        # A gh issue comment that raises (timeout/OSError) must be
+        # recorded per-repo and must not kill the whole --issue sweep.
+        def fake_run(cmd, **kw):
+            repo = cmd[cmd.index("--repo") + 1]
+            if repo in {"o/bad", "o/err"} and cmd[1:3] == ["issue", "comment"]:
+                if repo == "o/bad":
+                    raise es.subprocess.TimeoutExpired(cmd, kw.get("timeout"))
+                raise OSError("gh missing")
+            if repo in {"o/bad", "o/err"}:
+                if cmd[1:3] == ["issue", "list"]:
+                    return mock.Mock(returncode=0, stdout=json.dumps(
+                        [{"number": 3, "title": "drift report"}]))
+                # issue view: body lacks the new row -> comment path
+                return mock.Mock(returncode=0, stdout="old report",
+                                 stderr="")
+            if cmd[1:3] == ["issue", "list"]:
+                return mock.Mock(returncode=0, stdout="[]")
+            return mock.Mock(returncode=0, stdout="https://x/9\n",
+                             stderr="")
+
+        rows = [
+            es.Row(product="prod-a", channel="pypi", local="0.1",
+                   remote="0.2", state="drift", repo="o/bad"),
+            es.Row(product="prod-b", channel="pypi", local="0.1",
+                   remote="0.2", state="drift", repo="o/err"),
+            es.Row(product="prod-c", channel="pypi", local="0.1",
+                   remote="0.2", state="drift", repo="o/good"),
+        ]
+        with mock.patch.object(es.subprocess, "run", side_effect=fake_run):
+            messages = es.open_drift_issues(rows, 5)
+        self.assertTrue(any("o/bad: issue comment failed" in m
+                            for m in messages))
+        self.assertTrue(any("o/err: issue comment failed" in m
+                            for m in messages))
+        # sorted order puts o/good last — its issue was still opened
+        self.assertTrue(any("o/good: opened" in m for m in messages))
+
+
 class CollectFreshnessTests(unittest.TestCase):
     def _collect(self, matrix, heartbeats=None, evidence="", workflow_rows=None,
                  roots=None, probes=None):
@@ -651,6 +691,7 @@ class CollectPrReadyNotMergedTests(unittest.TestCase):
     """pr-merge sensor: approved+green+unmerged+old PRs -> drift rows."""
 
     NOW = 1_800_000_000.0
+    HEAD_SHA = "a" * 40  # fixture head; audit comments bind via head:<sha>
 
     def _iso(self, epoch):
         return datetime.fromtimestamp(epoch, timezone.utc).isoformat()
@@ -665,7 +706,8 @@ class CollectPrReadyNotMergedTests(unittest.TestCase):
         ]
 
     def _pr(self, number=1, decision="APPROVED", rollup=None,
-            auto_merge=None, age_s=3600, draft=False, title="t"):
+            auto_merge=None, age_s=3600, draft=False, title="t",
+            head_sha=None):
         return {
             "number": number,
             "title": title,
@@ -674,6 +716,7 @@ class CollectPrReadyNotMergedTests(unittest.TestCase):
             "isDraft": draft,
             "autoMergeRequest": auto_merge,
             "createdAt": self._iso(self.NOW - age_s),
+            "headRefOid": self.HEAD_SHA if head_sha is None else head_sha,
             "statusCheckRollup": self._green_rollup() if rollup is None
             else rollup,
         }
@@ -792,11 +835,27 @@ class CollectPrReadyNotMergedTests(unittest.TestCase):
             prs, comments_by_pr={("o/r", "9"): [
                 {"body": "unrelated comment"}]})
         self.assertEqual(rows, [])
-        # audit marker present -> approved via the documented 2nd path
+        # audit bound to a STALE head -> not approval for the live head
+        rows, _ = self._collect(
+            prs, comments_by_pr={("o/r", "9"): [
+                {"body": "gate-resolved-via: manual-blocking0 — clean "
+                         "evaluation on abc123\n"
+                         "gate-fallback-pairs: manual-blocking0 "
+                         f"head:{'0' * 40}"}]})
+        self.assertEqual(rows, [])
+        # audit with no head binding at all -> rejected the same way
         rows, _ = self._collect(
             prs, comments_by_pr={("o/r", "9"): [
                 {"body": "gate-resolved-via: manual-blocking0 — clean "
                          "evaluation on abc123"}]})
+        self.assertEqual(rows, [])
+        # audit on the CURRENT head -> approved via the documented 2nd path
+        rows, _ = self._collect(
+            prs, comments_by_pr={("o/r", "9"): [
+                {"body": "gate-resolved-via: manual-blocking0 — clean "
+                         "evaluation on abc123\n"
+                         "gate-fallback-pairs: manual-blocking0 "
+                         f"head:{self.HEAD_SHA}"}]})
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0].product, "r#9")
 
