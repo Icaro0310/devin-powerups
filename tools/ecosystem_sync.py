@@ -827,8 +827,13 @@ def _judge_success(rollup: object) -> bool:
 
 
 def _has_manual_blocking0_audit(repo: str, number: int,
-                                timeout: int) -> bool:
-    """Second approval path: the gate-resolved-via audit comment."""
+                                timeout: int,
+                                head_sha: str | None = None) -> bool:
+    """Second approval path: the gate-resolved-via audit comment.
+
+    The audit comment carries `head:<sha>`; matching it without the
+    sha would let an audit written for an older head still count as
+    approval after a push (the workflow itself dedupes per head)."""
     try:
         proc = subprocess.run(
             ["gh", "pr", "view", str(number), "--repo", repo,
@@ -845,9 +850,12 @@ def _has_manual_blocking0_audit(repo: str, number: int,
     for comment in data.get("comments") or []:
         if not isinstance(comment, dict):
             continue
-        if "gate-resolved-via: manual-blocking0" in \
-                str(comment.get("body") or ""):
-            return True
+        body = str(comment.get("body") or "")
+        if "gate-resolved-via: manual-blocking0" not in body:
+            continue
+        if head_sha and f"head:{head_sha}" not in body:
+            continue
+        return True
     return False
 
 
@@ -896,7 +904,7 @@ def collect_pr_ready_not_merged(repos: dict[str, str], timeout: int,
             proc = subprocess.run(
                 ["gh", "pr", "list", "--repo", repo, "--state", "open",
                  "--limit", "100",
-                 "--json", "number,title,reviewDecision,isDraft,"
+                 "--json", "number,title,reviewDecision,isDraft,headRefOid,"
                            "statusCheckRollup,autoMergeRequest,createdAt,url"],
                 capture_output=True, text=True, timeout=timeout + 10)
         except (OSError, subprocess.TimeoutExpired):
@@ -918,7 +926,9 @@ def collect_pr_ready_not_merged(repos: dict[str, str], timeout: int,
                 continue
             verdict = _stuck_pr_verdict(pr, now)
             if verdict == "maybe-manual-blocking0":
-                if not _has_manual_blocking0_audit(repo, number, timeout):
+                if not _has_manual_blocking0_audit(
+                        repo, number, timeout,
+                        head_sha=str(pr.get("headRefOid") or "") or None):
                     continue
             elif verdict:
                 continue
@@ -1785,7 +1795,47 @@ def open_drift_issues(rows: list[Row], timeout: int) -> list[str]:
             None,
         )
         if existing:
-            messages.append(f"{repo}: skipped, open drift issue #{existing['number']} exists")
+            try:
+                proc = subprocess.run(
+                    ["gh", "issue", "view", str(existing["number"]),
+                     "--repo", repo, "--json", "body,comments"],
+                    capture_output=True, text=True, timeout=timeout + 10)
+                seen_text = proc.stdout if proc.returncode == 0 else ""
+            except (OSError, subprocess.TimeoutExpired):
+                seen_text = ""
+            new_rows = [
+                r for r in repo_rows
+                if f"| {r.product} | {r.channel} |" not in seen_text]
+            if not new_rows:
+                messages.append(
+                    f"{repo}: skipped, open drift issue "
+                    f"#{existing['number']} covers all rows")
+                continue
+            body_lines = [
+                "Update — new drift rows not covered by the original",
+                "report:",
+                "",
+                "| product | channel | local | remote | state |",
+                "|---|---|---|---|---|",
+            ]
+            body_lines += [
+                f"| {r.product} | {r.channel} | {r.local} | {r.remote} | {r.state} |"
+                for r in new_rows]
+            body_lines += ["",
+                           f"Detected {datetime.now(timezone.utc):%Y-%m-%dT%H:%M:%SZ}."]
+            proc = subprocess.run(
+                ["gh", "issue", "comment", str(existing["number"]),
+                 "--repo", repo, "--body", "\n".join(body_lines)],
+                capture_output=True, text=True, timeout=timeout + 10,
+            )
+            if proc.returncode == 0:
+                messages.append(
+                    f"{repo}: commented {len(new_rows)} new row(s) on "
+                    f"drift issue #{existing['number']}")
+            else:
+                messages.append(
+                    f"{repo}: issue comment failed: "
+                    f"{(proc.stderr or proc.stdout).strip()[:160]}")
             continue
         subprocess.run(
             ["gh", "label", "create", "drift", "--repo", repo,
