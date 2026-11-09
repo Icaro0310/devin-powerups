@@ -64,6 +64,17 @@ EXPR_RE = re.compile(r"\$\{\{.*?\}\}")
 KEY_RE = re.compile(r"^\s*(?:-\s*)?['\"]?([\w.-]+)['\"]?\s*:")
 REUSABLE_RE = re.compile(r"^([^/]+)/([^/]+)/(\.github/workflows/\S+)$")
 
+# Required contexts produced outside GitHub Actions, so no workflow job
+# can ever declare them and the observed-names leg only sees them on PR
+# heads the external producer has already judged. Each entry names the
+# producer; dropping the producer turns this exemption into a lie, so
+# keep the list short and justified.
+EXTERNAL_CONTEXTS = {
+    # PAS scripts/judge-watch.sh posts this commit status on open-PR
+    # heads across JUDGE_WATCH_REPOS (documented in review-fallback.yml).
+    "devin-judge/review": "judge-watch.sh (laptop-side ACP gate)",
+}
+
 
 def _standalone(path: Path) -> bool:
     """True when the workflow's `on:` triggers runs of its own.
@@ -449,6 +460,13 @@ def audit_repo(
         exact, patterns = declared_contexts(repo_dir, dirs)
     else:
         result["notes"].append("no local checkout — declared-context leg skipped")
+    external = sorted(c for c in result["required"] if c in EXTERNAL_CONTEXTS)
+    if external:
+        exact |= set(external)
+        result["notes"].append(
+            "external producer(s): "
+            + ", ".join(f"{c} ({EXTERNAL_CONTEXTS[c]})" for c in external)
+        )
     result["orphans"] = [
         c for c in result["required"] if not covered(c, observed, exact, patterns)
     ]

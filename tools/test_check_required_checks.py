@@ -518,6 +518,28 @@ class TestAuditRepo:
         r = crc.audit_repo("OWNER", "r", tmp_path, {}, 0)
         assert r["orphans"] == ["old-name"]
 
+    def test_external_context_not_orphan(self, monkeypatch, tmp_path):
+        # devin-judge/review is posted by the laptop-side judge-watch
+        # daemon, never by a workflow job — required but undeclared.
+        resp = base_responses(
+            **{
+                r"branches/main$": {
+                    "protected": True,
+                    "protection": {
+                        "enabled": True,
+                        "required_status_checks": {
+                            "contexts": ["devin-judge/review"]
+                        },
+                    },
+                },
+                "check-runs": {"check_runs": []},
+            }
+        )
+        monkeypatch.setattr(crc, "gh_api", fake_api(resp))
+        r = crc.audit_repo("OWNER", "r", tmp_path, {}, 0)
+        assert r["orphans"] == []
+        assert any("external producer" in n for n in r["notes"])
+
     def test_required_covered_by_declared_job(self, monkeypatch, tmp_path):
         # pull_request-only job: never observed on main, but declared —
         # not an orphan.
