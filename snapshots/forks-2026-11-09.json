@@ -1,0 +1,54 @@
+{
+  "date": "2026-11-09",
+  "upstream_prs": {
+    "CognitionAI/devin-cli": {
+      "open": 0,
+      "merged": 0,
+      "closed_unmerged": 0,
+      "other": 1
+    },
+    "EclipseFdn/open-vsx.org": {
+      "open": 0,
+      "merged": 0,
+      "closed_unmerged": 0,
+      "other": 1
+    }
+  },
+  "details": {
+    "CognitionAI/devin-cli": {
+      "open": 0,
+      "merged": 0,
+      "closed_unmerged": 0,
+      "prs": [],
+      "other": [
+        {
+          "title": "[Linux] Renderer crashes with SIGILL/SIGBUS on session open \u2014 10+ crashes/day, 7.6GB RAM",
+          "url": "https://github.com/CognitionAI/devin-cli/issues/54",
+          "state": "open",
+          "merged_at": null
+        }
+      ]
+    },
+    "EclipseFdn/open-vsx.org": {
+      "open": 0,
+      "merged": 0,
+      "closed_unmerged": 0,
+      "prs": [],
+      "other": [
+        {
+          "title": "Claiming namespace `icaro0310`",
+          "url": "https://github.com/EclipseFdn/open-vsx.org/issues/14088",
+          "state": "closed_unmerged",
+          "merged_at": null
+        }
+      ]
+    }
+  },
+  "totals": {
+    "open": 0,
+    "merged": 0,
+    "closed_unmerged": 0,
+    "other": 2
+  },
+  "errors": []
+}
