@@ -51,6 +51,23 @@ GH_STUB = r"""#!/usr/bin/env bash
 set -u
 echo "gh $*" >> "${GH_STUB_LOG:?missing GH_STUB_LOG}"
 if [ "${1:-}" = "pr" ]; then
+  # v1.13 arm-step knobs: `pr view` serves pr_view_pr<N>.json (default:
+  # approved, not draft, not armed); `pr merge` succeeds unless
+  # GH_STUB_PR_MERGE_FAIL carries the error text.
+  if [ "${2:-}" = "view" ]; then
+    num="${3:-}"
+    f="$GH_FIXTURE_DIR/pr_view_pr${num}.json"
+    [ -f "$f" ] && cat "$f" \
+      || echo '{"isDraft":false,"reviewDecision":"APPROVED","autoMergeRequest":null}'
+    exit 0
+  fi
+  if [ "${2:-}" = "merge" ]; then
+    if [ -n "${GH_STUB_PR_MERGE_FAIL:-}" ]; then
+      echo "gh: ${GH_STUB_PR_MERGE_FAIL}" >&2
+      exit 1
+    fi
+    exit 0
+  fi
   # Knobs for the manual-blocking0 path: fail the APPROVE review with
   # the real GitHub restriction ("deny") or an unrelated error ("other").
   if [ "${2:-}" = "review" ] && [ "${GH_STUB_PR_REVIEW_FAIL:-}" = "deny" ]; then
@@ -274,9 +291,12 @@ class GateFallback(unittest.TestCase):
         cls.findings = extract_run_block(cls.text, "id: findings")
         cls.approve = extract_run_block(
             cls.text, "name: Approve PRs with no blocking findings")
+        cls.arm = extract_run_block(
+            cls.text, "name: Arm auto-merge on approved PRs")
         # the fixture block must be the fallback-aware version
         assert "fallback-resolved" in cls.findings
         assert "gate-resolved-via" in cls.approve
+        assert "--auto --squash" in cls.arm
 
     def run_block(self, block, fixtures, extra_env=None):
         """Run an extracted run-block with the gh stub; return (outputs,
@@ -1142,6 +1162,96 @@ class GateFallback(unittest.TestCase):
             self.approve, fx, extra_env=self.approve_env())
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn("pr review --approve", log)
+
+    # --- v1.13 arm step: auto-merge on approved PRs --------------------
+
+    def arm_fixtures(self, head=HEAD_SHA, reviews=None, view=None):
+        fx = {
+            "compares.json": {},
+            "commits.json": [],
+            "pulls.json": {"Icaro0310/devin-test#5": {
+                "head": {"sha": head}, "number": 5}},
+            "pulls_reviews_pr5.json": reviews if reviews is not None else [
+                {"user": {"login": "github-actions[bot]"},
+                 "state": "APPROVED", "commit_id": HEAD_SHA}],
+        }
+        if view is not None:
+            fx["pr_view_pr5.json"] = view
+        return fx
+
+    def test_arm_approved_pr_arms_auto_merge(self):
+        proc, _, log = self.run_block(self.arm, self.arm_fixtures())
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("auto-merge armed for PR #5", proc.stdout)
+        self.assertIn("pr merge 5", log)
+        self.assertIn("--auto", log)
+        self.assertIn("--squash", log)
+        self.assertIn("--match-head-commit", log)
+
+    def test_arm_skips_when_head_moved(self):
+        moved = "f" * 40
+        proc, _, log = self.run_block(
+            self.arm, self.arm_fixtures(head=moved))
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("head moved", proc.stdout)
+        self.assertNotIn("pr merge", log)
+
+    def test_arm_skips_draft_and_armed(self):
+        for view in (
+                {"isDraft": True, "reviewDecision": "APPROVED",
+                 "autoMergeRequest": None},
+                {"isDraft": False, "reviewDecision": "APPROVED",
+                 "autoMergeRequest": {"enabledAt": "x"}}):
+            proc, _, log = self.run_block(
+                self.arm, self.arm_fixtures(view=view))
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            self.assertNotIn("pr merge", log)
+
+    def test_arm_skips_unapproved_decision(self):
+        view = {"isDraft": False, "reviewDecision": "CHANGES_REQUESTED",
+                "autoMergeRequest": None}
+        proc, _, log = self.run_block(
+            self.arm, self.arm_fixtures(view=view))
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("not APPROVED", proc.stdout)
+        self.assertNotIn("pr merge", log)
+        # decision gate runs before the reviews lookup
+        self.assertNotIn("/reviews", log)
+
+    def test_arm_skips_stale_approval_on_old_commit(self):
+        # reviewDecision lingers APPROVED across pushes — the
+        # commit-pinned review check is what actually guards staleness
+        reviews = [{"user": {"login": "github-actions[bot]"},
+                    "state": "APPROVED", "commit_id": "old-sha-123"}]
+        proc, _, log = self.run_block(
+            self.arm, self.arm_fixtures(reviews=reviews))
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("stale approval", proc.stdout)
+        self.assertNotIn("pr merge", log)
+
+    def test_arm_merge_failure_warns_but_never_fails(self):
+        # clean-status / protection / permission errors are expected on
+        # repos where nothing is left to wait for — the arm is
+        # best-effort and the job must stay green for the approve.
+        proc, _, _ = self.run_block(
+            self.arm, self.arm_fixtures(),
+            extra_env={"GH_STUB_PR_MERGE_FAIL":
+                       "GraphQL: Pull request is in clean status "
+                       "(enablePullRequestAutoMerge)"})
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("::warning::", proc.stdout)
+        self.assertIn("auto-merge arm failed", proc.stdout)
+        self.assertIn("clean status", proc.stdout)
+
+    def test_arm_live_head_lookup_failure_warns(self):
+        # no pulls.json -> the stub 404s the head GET; the arm skips
+        # with a warning instead of crashing the job
+        proc, _, log = self.run_block(
+            self.arm, {"compares.json": {}, "commits.json": []})
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("::warning::", proc.stdout)
+        self.assertIn("live head lookup failed", proc.stdout)
+        self.assertNotIn("pr merge", log)
 
 
 if __name__ == "__main__":

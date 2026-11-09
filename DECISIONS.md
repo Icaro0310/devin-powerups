@@ -4,6 +4,48 @@ Structural decisions about the ecosystem, newest first. Format per
 `GOVERNANCE.md`: Decision / Date / Reason / Evidence / Expected outcome /
 Result. Records are not eternal — revisit when new evidence arrives.
 
+## D-2026-11-09 — pr-approve v1.13 arms auto-merge; ecosystem_sync senses stuck approved PRs
+
+- **Decision:** two mechanical defences so an approved PR never waits on
+  a human click. (1) `pr-approve.yml` v1.13 adds a best-effort step after
+  the approve step: `gh pr merge --auto --squash --match-head-commit`
+  per PR carrying an APPROVED review pinned to the live head
+  (reviewDecision APPROVED + commit-pinned review; draft/already-armed/
+  moved-head skipped). The job gains `contents: write` — required by
+  `enablePullRequestAutoMerge`, which rejects `pull-requests: write`
+  alone; for `workflow_call` the grant is capped by the caller, so
+  callers still on `contents: read` get a `::warning::` and unchanged
+  approve behaviour until they bump. Every arm failure logs the exact
+  gh error and never fails the job. (2) `ecosystem_sync.py` gains the
+  `pr-merge` sensor (`collect_pr_ready_not_merged`): one drift Row per
+  open PR that is approved (reviewDecision APPROVED, or the
+  manual-blocking0 audit path with judge success), has only
+  green/neutral/skipped terminal checks — CANCELLED conclusions are
+  ignored as known concurrency flakes — no autoMergeRequest, and is
+  older than 30 min. It runs in both normal and `--freshness` modes
+  (the hourly sweeps are the only automated callers) and feeds the
+  standard drift issue + `auto_remediate` (`failure_class=pr_stuck`)
+  + exit-code paths.
+- **Reason:** personal-agent-system#141 sat "ready but stuck" — green
+  checks + judge approve, `autoMergeRequest: null`, waiting on a manual
+  merge. `gh pr create` does not arm auto-merge and nothing else did.
+- **Evidence:** live fleet scan at implementation time flagged
+  devin-powerups#270/#272/#273 (APPROVED, checks green modulo CANCELLED
+  flakes, unmerged 55m–167h) and correctly skipped #269 (already armed).
+- **Expected outcome:** on repos where auto-merge can be armed (public,
+  `allow_auto_merge`, a pending requirement) approved PRs merge without
+  a human; everywhere else the sensor surfaces the stuck PR via the
+  existing drift/remediate alerts instead of silence.
+- **Known limit:** where the approve completes after every requirement
+  is already green the PR is CLEAN/UNSTABLE and `--auto` fails with
+  "clean status" — nothing left to wait for. Private free-tier repos
+  (personal-agent-system, devin-dashboard) cannot use auto-merge at
+  all (`allow_auto_merge=false`, no branch protection). Those PRs still
+  need the merge click; the sensor is the detection layer. A deliberate
+  direct-merge fallback would be a separate governance decision — the
+  v1.12 invariant narrows to "no plain `gh pr merge` without --auto,
+  no --admin".
+
 ## D-2026-10-20b — Gate fallback v1.5: cross-repo fix anchors + idempotent audit comment
 
 - **Decision:** `pr-approve.yml` v1.5 extends the v1.4 fallback (D-2026-10-20)
