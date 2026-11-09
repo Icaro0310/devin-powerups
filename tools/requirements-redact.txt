@@ -1,1 +1,1 @@
-devin-redact==0.2.5
+devin-redact==0.2.6

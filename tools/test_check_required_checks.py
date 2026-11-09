@@ -518,6 +518,45 @@ class TestAuditRepo:
         r = crc.audit_repo("OWNER", "r", tmp_path, {}, 0)
         assert r["orphans"] == ["old-name"]
 
+    def _judge_resp(self, repo_path):
+        return base_responses(
+            **{
+                repo_path: {"default_branch": "main", "archived": False},
+                r"branches/main$": {
+                    "protected": True,
+                    "protection": {
+                        "enabled": True,
+                        "required_status_checks": {
+                            "contexts": ["devin-judge/review"]
+                        },
+                    },
+                },
+                "check-runs": {"check_runs": []},
+            }
+        )
+
+    def test_external_context_not_orphan(self, monkeypatch, tmp_path):
+        # devin-judge/review is posted by the laptop-side judge-watch
+        # daemon, never by a workflow job — required but undeclared.
+        # Exemption applies only to repos the watcher covers.
+        monkeypatch.setattr(
+            crc,
+            "gh_api",
+            fake_api(self._judge_resp(r"repos/Icaro0310/awesome-devin$")),
+        )
+        r = crc.audit_repo("Icaro0310", "awesome-devin", tmp_path, {}, 0)
+        assert r["orphans"] == []
+        assert any("external producer" in n for n in r["notes"])
+
+    def test_external_context_orphan_outside_watch(self, monkeypatch, tmp_path):
+        # Same required context on a repo judge-watch does NOT cover:
+        # no producer exists, so it must still be flagged.
+        monkeypatch.setattr(
+            crc, "gh_api", fake_api(self._judge_resp(r"repos/OWNER/r$"))
+        )
+        r = crc.audit_repo("OWNER", "r", tmp_path, {}, 0)
+        assert r["orphans"] == ["devin-judge/review"]
+
     def test_required_covered_by_declared_job(self, monkeypatch, tmp_path):
         # pull_request-only job: never observed on main, but declared —
         # not an orphan.

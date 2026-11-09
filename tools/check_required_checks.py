@@ -64,6 +64,40 @@ EXPR_RE = re.compile(r"\$\{\{.*?\}\}")
 KEY_RE = re.compile(r"^\s*(?:-\s*)?['\"]?([\w.-]+)['\"]?\s*:")
 REUSABLE_RE = re.compile(r"^([^/]+)/([^/]+)/(\.github/workflows/\S+)$")
 
+# Required contexts produced outside GitHub Actions, so no workflow job
+# can ever declare them and the observed-names leg only sees them on PR
+# heads the external producer has already judged. Each entry names the
+# producer and the repos it actually covers — exempting a repo the
+# producer does not watch would hide a real orphan (PR #275 review).
+EXTERNAL_CONTEXTS = {
+    # PAS scripts/judge-watch.sh posts this commit status on open-PR
+    # heads. Coverage = JUDGE_WATCH_REPOS default in that script —
+    # keep this set in sync with it.
+    "devin-judge/review": {
+        "producer": "judge-watch.sh (laptop-side ACP gate)",
+        "repos": frozenset({
+            "Icaro0310/personal-agent-system",
+            "Icaro0310/devin-powerups",
+            "Icaro0310/devin-internals-spec",
+            "Icaro0310/devin-assure",
+            "Icaro0310/devin-judge",
+            "Icaro0310/devin-state",
+            "Icaro0310/devin-control",
+            "Icaro0310/devin-dashboard",
+            "Icaro0310/devin-evals",
+            "Icaro0310/devin-review-fallback",
+            "Icaro0310/devin-brain",
+            "Icaro0310/devin-explore",
+            "Icaro0310/devin-devkit",
+            "Icaro0310/devin-judge-action",
+            "Icaro0310/qwenpaw-suite",
+            "Icaro0310/awesome-devin",
+            "Icaro0310/Icaro0310",
+            "Icaro0310/Icaro0310.github.io",
+        }),
+    },
+}
+
 
 def _standalone(path: Path) -> bool:
     """True when the workflow's `on:` triggers runs of its own.
@@ -449,6 +483,21 @@ def audit_repo(
         exact, patterns = declared_contexts(repo_dir, dirs)
     else:
         result["notes"].append("no local checkout — declared-context leg skipped")
+    full_name = f"{owner}/{repo}"
+    external = sorted(
+        c
+        for c in result["required"]
+        if c in EXTERNAL_CONTEXTS
+        and full_name in EXTERNAL_CONTEXTS[c]["repos"]
+    )
+    if external:
+        exact |= set(external)
+        result["notes"].append(
+            "external producer(s): "
+            + ", ".join(
+                f"{c} ({EXTERNAL_CONTEXTS[c]['producer']})" for c in external
+            )
+        )
     result["orphans"] = [
         c for c in result["required"] if not covered(c, observed, exact, patterns)
     ]
