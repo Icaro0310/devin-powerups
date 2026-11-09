@@ -14,11 +14,9 @@ if (process.argv.includes('--surface')) {
   for await (const chunk of process.stdin) chunks.push(chunk);
   const cases = JSON.parse(Buffer.concat(chunks).toString('utf8'));
   const out = cases.map(({ input, file }) => ({
-    redact_text: redactText(input),
-    // `file` is the corpus schema-v2 blob hint: it feeds scanText's
-    // finding label today and the file-gated / python-source hints once
-    // the devin-redact 0.2.6 port lands (redactText gains its file
-    // param there — PR2).
+    // devin-redact 0.2.6: redact_text accepts the blob-name hint for
+    // file-gated patterns and python-source semantics (file=None == bare).
+    redact_text: redactText(input, file),
     scan_text: scanText(input, file ?? '<corpus>', 'corpus'),
   }));
   process.stdout.write(JSON.stringify(out) + '\n');
