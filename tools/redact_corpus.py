@@ -8,8 +8,15 @@ engine's semantics move — a corpus generated from buggy code freezes
 the bug as expected output (env_tag_tail encoded devin-state#66).
 
 Each line of the emitted JSONL is one case:
-    {"name": ..., "input": ..., "redact_text": {"output": ..., "edits": [...]},
+    {"name": ..., "input": ..., "file": <optional str>,
+     "redact_text": {"output": ..., "edits": [...]},
      "scan_text": [...]}
+
+`file` is the optional blob-name hint (corpus schema v2,
+devin-powerups#271): absent -> scan_text sees file="<corpus>" and
+redact_text sees file=None, exactly the pre-v2 asymmetry. Present ->
+the same value feeds both calls (scan label + the file-gated /
+python-source hints devin-redact >= 0.2.6 honours).
 
 The TS port must reproduce every field byte-identically
 (tools/check_redact_parity.py runs the same corpus through both engines —
@@ -20,12 +27,21 @@ Usage:
         > packages/agent-sessions/test/redact-corpus.jsonl
 """
 
+import inspect
 import json
 import sys
 
 from devin_redact.engine import redact_text, scan_text  # noqa: E402
 
+# devin-redact 0.2.6 added `file=` to redact_text; the pinned 0.2.5
+# signature is redact_text(text) only. Forward the case's file hint
+# only when the resolved engine accepts it, so the same corpus drives
+# both pins.
+_REDACT_HAS_FILE = "file" in inspect.signature(redact_text).parameters
+
 # fmt: off
+# Entries are (name, input) or (name, input, file) — `file` is the
+# optional blob-name hint described in the module docstring.
 CASES = [
     # --- every secret category -----------------------------------------
     ("openai_key",         "token sk-proj-Ab12Cd34Ef56Gh78Ij90Kl12 here"),
@@ -117,15 +133,26 @@ CASES = [
 
 def main() -> None:
     out = sys.stdout
-    for name, text in CASES:
-        redacted, edits = redact_text(text)
-        findings = scan_text(text, file="<corpus>", location="corpus")
+    for entry in CASES:
+        name, text = entry[0], entry[1]
+        file = entry[2] if len(entry) > 2 else None
+        if _REDACT_HAS_FILE:
+            redacted, edits = redact_text(text, file=file)
+        else:
+            redacted, edits = redact_text(text)
+        findings = scan_text(
+            text,
+            file=file if file is not None else "<corpus>",
+            location="corpus",
+        )
         record = {
             "name": name,
             "input": text,
             "redact_text": {"output": redacted, "edits": edits},
             "scan_text": findings,
         }
+        if file is not None:
+            record["file"] = file
         out.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
 
 

@@ -12,6 +12,10 @@ const cases = readFileSync(CORPUS, 'utf8')
   .map((l) => JSON.parse(l) as {
     name: string;
     input: string;
+    // corpus schema v2 (devin-powerups#271): optional blob-name hint —
+    // feeds scanText's file label; redactText gains the param with the
+    // devin-redact 0.2.6 port.
+    file?: string;
     redact_text: { output: string; edits: { category: string; line: number; fingerprint: string }[] };
     scan_text: unknown[];
   });
@@ -19,7 +23,7 @@ const cases = readFileSync(CORPUS, 'utf8')
 for (const c of cases) {
   test(`redact corpus: ${c.name}`, () => {
     assert.deepEqual(redactText(c.input), c.redact_text);
-    assert.deepEqual(scanText(c.input, '<corpus>', 'corpus'), c.scan_text);
+    assert.deepEqual(scanText(c.input, c.file ?? '<corpus>', 'corpus'), c.scan_text);
   });
 }
 
