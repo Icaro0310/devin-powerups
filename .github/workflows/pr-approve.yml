@@ -6,8 +6,9 @@ name: pr-approve
 # an approved PR never waits on a human click (personal-agent-system#141
 # sat ready-but-unmerged for days). The arm only fires when
 # reviewDecision is APPROVED AND an APPROVED review's commit_id equals
-# the live head sha — a stale approval on a moved head, a draft, or an
-# already-armed PR is skipped. Any arm failure (auto-merge disabled on
+# the live head sha — a stale approval on a moved head, a draft, a
+# merged/closed PR (idempotent retry no-op) or an already-armed PR is
+# skipped. Any arm failure (auto-merge disabled on
 # the repo, conflicts, branch protection, missing contents:write on the
 # caller) logs ::warning:: with the exact gh error and NEVER fails the
 # job — the approve already posted. The merge itself is still executed
@@ -968,7 +969,11 @@ jobs:
         # never got armed (the approve dedupe path used to leave them
         # waiting on a human click forever). Best-effort by contract:
         # every skip/failure is a ::warning:: or an info line, never a
-        # job failure — the approve already posted.
+        # job failure — the approve already posted. Merged/closed/draft/
+        # already-armed/moved-head PRs are clean no-ops; a conflicting
+        # PR still reaches the arm and gh refuses it — the ::warning::
+        # carries the exact reason and the pr-merge sensor keeps it
+        # visible until the conflict resolves.
         if: steps.review.outputs.pr_numbers != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -991,9 +996,18 @@ jobs:
               continue
             fi
             meta=$(gh pr view "$pr" --repo "$REPO" \
-              --json isDraft,reviewDecision,autoMergeRequest 2>/dev/null || true)
+              --json state,isDraft,reviewDecision,autoMergeRequest \
+              2>/dev/null || true)
             if [ -z "$meta" ]; then
               echo "::warning::PR #$pr auto-merge arm skipped — pr view lookup failed"
+              continue
+            fi
+            # Retry-safe no-op: a late status/review event can re-run this
+            # job after the PR already merged or closed — arming is not
+            # an error there, just nothing left to do.
+            pstate=$(echo "$meta" | jq -r '.state')
+            if [ "$pstate" != "OPEN" ]; then
+              echo "PR #$pr state is $pstate — nothing to arm"
               continue
             fi
             if [ "$(echo "$meta" | jq -r '.isDraft')" = "true" ]; then

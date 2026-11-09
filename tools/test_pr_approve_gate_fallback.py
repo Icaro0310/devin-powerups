@@ -52,13 +52,13 @@ set -u
 echo "gh $*" >> "${GH_STUB_LOG:?missing GH_STUB_LOG}"
 if [ "${1:-}" = "pr" ]; then
   # v1.13 arm-step knobs: `pr view` serves pr_view_pr<N>.json (default:
-  # approved, not draft, not armed); `pr merge` succeeds unless
+  # OPEN, approved, not draft, not armed); `pr merge` succeeds unless
   # GH_STUB_PR_MERGE_FAIL carries the error text.
   if [ "${2:-}" = "view" ]; then
     num="${3:-}"
     f="$GH_FIXTURE_DIR/pr_view_pr${num}.json"
     [ -f "$f" ] && cat "$f" \
-      || echo '{"isDraft":false,"reviewDecision":"APPROVED","autoMergeRequest":null}'
+      || echo '{"state":"OPEN","isDraft":false,"reviewDecision":"APPROVED","autoMergeRequest":null}'
     exit 0
   fi
   if [ "${2:-}" = "merge" ]; then
@@ -1198,9 +1198,10 @@ class GateFallback(unittest.TestCase):
 
     def test_arm_skips_draft_and_armed(self):
         for view in (
-                {"isDraft": True, "reviewDecision": "APPROVED",
-                 "autoMergeRequest": None},
-                {"isDraft": False, "reviewDecision": "APPROVED",
+                {"state": "OPEN", "isDraft": True,
+                 "reviewDecision": "APPROVED", "autoMergeRequest": None},
+                {"state": "OPEN", "isDraft": False,
+                 "reviewDecision": "APPROVED",
                  "autoMergeRequest": {"enabledAt": "x"}}):
             proc, _, log = self.run_block(
                 self.arm, self.arm_fixtures(view=view))
@@ -1208,7 +1209,8 @@ class GateFallback(unittest.TestCase):
             self.assertNotIn("pr merge", log)
 
     def test_arm_skips_unapproved_decision(self):
-        view = {"isDraft": False, "reviewDecision": "CHANGES_REQUESTED",
+        view = {"state": "OPEN", "isDraft": False,
+                "reviewDecision": "CHANGES_REQUESTED",
                 "autoMergeRequest": None}
         proc, _, log = self.run_block(
             self.arm, self.arm_fixtures(view=view))
@@ -1251,6 +1253,53 @@ class GateFallback(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn("::warning::", proc.stdout)
         self.assertIn("live head lookup failed", proc.stdout)
+        self.assertNotIn("pr merge", log)
+
+    # --- owner-requested arm scenarios ---------------------------------
+    #
+    # The three merge states the arm must handle, exercised end-to-end
+    # through the real run-block + gh stub:
+    #   clean PR        -> `gh pr merge --auto --squash` is invoked
+    #   conflicting PR  -> the arm still attempts; gh refuses with the
+    #                      real error and the ::warning:: carries it —
+    #                      mergeable_state stays dirty until a human (or
+    #                      the pr-merge sensor) resolves the conflict
+    #   already merged  -> idempotent no-op: clean skip, no warning,
+    #                      no merge call (late status/review retries)
+
+    def test_scenario_conflicting_pr_attempts_and_warns(self):
+        # mergeable=CONFLICTING: the arm does not pre-judge mergeability
+        # (mergeStateStatus can be UNKNOWN mid-computation); it calls
+        # gh pr merge and surfaces whatever GitHub answers. The refusal
+        # is a warning, never a job failure.
+        proc, _, log = self.run_block(
+            self.arm, self.arm_fixtures(),
+            extra_env={"GH_STUB_PR_MERGE_FAIL":
+                       "GraphQL: Pull request is not mergeable "
+                       "(enablePullRequestAutoMerge)"})
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("pr merge 5", log)          # arm was attempted
+        self.assertIn("::warning::", proc.stdout)
+        self.assertIn("not mergeable", proc.stdout)
+
+    def test_scenario_already_merged_is_clean_noop(self):
+        # retry after the merge landed: state=MERGED short-circuits
+        # before draft/decision/reviews — no merge call, no warning.
+        view = {"state": "MERGED", "isDraft": False,
+                "reviewDecision": "APPROVED", "autoMergeRequest": None}
+        proc, _, log = self.run_block(
+            self.arm, self.arm_fixtures(view=view))
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("state is MERGED", proc.stdout)
+        self.assertNotIn("::warning::", proc.stdout)
+        self.assertNotIn("pr merge", log)
+        # closed-not-merged is the same no-op
+        view["state"] = "CLOSED"
+        proc, _, log = self.run_block(
+            self.arm, self.arm_fixtures(view=view))
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("state is CLOSED", proc.stdout)
+        self.assertNotIn("::warning::", proc.stdout)
         self.assertNotIn("pr merge", log)
 
 
