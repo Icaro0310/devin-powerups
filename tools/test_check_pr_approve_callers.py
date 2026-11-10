@@ -1,6 +1,6 @@
 """Tests for check_pr_approve_callers.py — pure filesystem, no live API.
 
-Pins the statuses:read caller contract introduced by pr-approve v1.16:
+Pins the statuses:read caller contract introduced by pr-approve v1.15:
 a caller job that omits the grant is rejected at reusable-workflow
 startup (silent ``startup_failure``), so the audit must flag it before
 the bump ships. The load-bearing case is a job-level ``permissions:``
@@ -133,14 +133,126 @@ jobs:
     assert f["gated"] and f["has_statuses_read"] and f["ok"]
 
 
-def test_v15_missing_grant_is_not_gated(tmp_path):
-    """Pre-v1.16 pins predate the statuses:read requirement: reported as a
+def test_v14_missing_grant_is_not_gated(tmp_path):
+    """Pre-v1.15 pins predate the statuses:read requirement: reported as a
     note, never a failure — they are not yet exposed to the break."""
+    body = HEADER + (
+        "    uses: Icaro0310/devin-powerups/.github/workflows/pr-approve.yml@v1.14\n"
+    )
+    f = single(tmp_path, body)
+    assert not f["gated"] and f["ok"]
+
+
+def test_v15_missing_grant_is_gated(tmp_path):
+    """v1.15 already declares statuses:read (D-2026-11-09): a caller
+    without the grant hits the same startup cap as v1.16."""
     body = HEADER + (
         "    uses: Icaro0310/devin-powerups/.github/workflows/pr-approve.yml@v1.15\n"
     )
     f = single(tmp_path, body)
-    assert not f["gated"] and f["ok"]
+    assert f["gated"] and not f["has_statuses_read"] and not f["ok"]
+
+
+def test_v15_with_grant_is_ok(tmp_path):
+    body = HEADER + (
+        """    permissions:
+      contents: write
+      pull-requests: write
+      statuses: read
+    uses: Icaro0310/devin-powerups/.github/workflows/pr-approve.yml@v1.15
+"""
+    )
+    f = single(tmp_path, body)
+    assert f["gated"] and f["has_statuses_read"] and f["ok"]
+
+
+def test_statuses_write_counts_as_read(tmp_path):
+    """``statuses: write`` implies read — must not false-positive."""
+    body = HEADER + (
+        """    permissions:
+      contents: write
+      pull-requests: write
+      statuses: write
+    uses: Icaro0310/devin-powerups/.github/workflows/pr-approve.yml@v1.16
+"""
+    )
+    f = single(tmp_path, body)
+    assert f["gated"] and f["has_statuses_read"] and f["ok"]
+
+
+def test_read_all_scalar_counts_as_read(tmp_path):
+    """``permissions: read-all`` grants statuses read at job level."""
+    body = (
+        """name: auto-approve
+on:
+  pull_request_target: {}
+permissions:
+  contents: write
+jobs:
+  approve:
+    permissions: read-all
+    uses: Icaro0310/devin-powerups/.github/workflows/pr-approve.yml@v1.16
+"""
+    )
+    f = single(tmp_path, body)
+    assert f["gated"] and f["has_statuses_read"] and f["ok"]
+
+
+def test_trailing_comment_after_statuses_read(tmp_path):
+    """``statuses: read  # note`` is still a grant."""
+    body = HEADER + (
+        """    permissions:
+      contents: write
+      pull-requests: write
+      statuses: read  # needed by the judge gate
+    uses: Icaro0310/devin-powerups/.github/workflows/pr-approve.yml@v1.16
+"""
+    )
+    f = single(tmp_path, body)
+    assert f["gated"] and f["has_statuses_read"] and f["ok"]
+
+
+def test_inline_job_permissions_map_drops_statuses(tmp_path):
+    """A flow-map ``permissions: {contents: read}`` on the job replaces the
+    top-level block — top-level ``statuses: read`` does NOT rescue it."""
+    body = (
+        """name: auto-approve
+on:
+  pull_request_target: {}
+permissions:
+  contents: write
+  pull-requests: write
+  statuses: read
+jobs:
+  approve:
+    permissions: {contents: read, pull-requests: write}
+    uses: Icaro0310/devin-powerups/.github/workflows/pr-approve.yml@v1.16
+"""
+    )
+    f = single(tmp_path, body)
+    assert f["gated"] and not f["has_statuses_read"] and not f["ok"]
+
+
+def test_inline_job_permissions_map_with_statuses_ok(tmp_path):
+    body = HEADER + (
+        """    permissions: {contents: write, pull-requests: write, statuses: read}
+    uses: Icaro0310/devin-powerups/.github/workflows/pr-approve.yml@v1.16
+"""
+    )
+    f = single(tmp_path, body)
+    assert f["gated"] and f["has_statuses_read"] and f["ok"]
+
+
+def test_commented_uses_line_ignored(tmp_path):
+    """A ``# uses:`` comment is not an active call — no finding at all."""
+    body = HEADER + (
+        "    # uses: Icaro0310/devin-powerups/.github/workflows/pr-approve.yml@v1.16\n"
+        "    uses: Icaro0310/devin-powerups/.github/workflows/pr-approve.yml@v1.14\n"
+    )
+    wf = write_wf(tmp_path, "auto-approve.yml", body)
+    findings = audit.audit_workflow(wf)
+    assert len(findings) == 1
+    assert findings[0]["version"] == "v1.14" and not findings[0]["gated"]
 
 
 def test_v17_missing_grant_still_gated(tmp_path):

@@ -2,7 +2,7 @@
 """Audit ``pr-approve.yml`` callers for the ``statuses: read`` contract.
 
 ``pr-approve.yml`` (devin-powerups) is a reusable ``workflow_call`` gate.
-From **v1.16** it declares ``statuses: read`` internally so the approve job
+From **v1.15** it declares ``statuses: read`` internally so the approve job
 can read commit statuses (``Devin Review`` / ``devin-judge/review``) and the
 ``arm-auto-merge`` job can inspect check state. ``workflow_call`` caps the
 called workflow's permissions by the *caller's*, so a caller job that does
@@ -17,9 +17,9 @@ were found in the same state by this audit.
 
 This script walks every repo in ``registry.json`` (plus ``--extra-repo``
 entries such as the personal site), finds workflows that call
-``pr-approve.yml``, and fails for any caller pinned at **v1.16 or later**
+``pr-approve.yml``, and fails for any caller pinned at **v1.15 or later**
 whose calling job does not grant ``statuses: read``. Callers on older pins
-are reported but do not fail — they are not yet exposed to the v1.16
+are reported but do not fail — they are not yet exposed to the v1.15
 requirement, though they must add the grant before bumping.
 
 Run from anywhere; it resolves checkouts under ``--root`` (the directory
@@ -42,8 +42,8 @@ from pathlib import Path
 HUB = Path(__file__).resolve().parent.parent
 USES_RE = re.compile(r"uses:\s*\S*?/pr-approve\.yml@v(\d+)\.(\d+)")
 VERSION_RE = re.compile(r"pr-approve\.yml@v(\d+)\.(\d+)")
-MIN_MAJOR, MIN_MINOR = 1, 16
-STATUSES_READ_RE = re.compile(r"^\s*statuses:\s*read\s*$", re.MULTILINE)
+MIN_MAJOR, MIN_MINOR = 1, 15
+MIN_VERSION = f"v{MIN_MAJOR}.{MIN_MINOR}"
 
 
 def _slug(entry: dict) -> tuple[str, str] | None:
@@ -90,10 +90,18 @@ def _indent(line: str) -> int:
 
 
 def _top_level_permissions(lines: list[str], jobs_idx: int) -> str:
-    """Text of the workflow-level ``permissions:`` block (before ``jobs:``)."""
+    """Effective workflow-level ``permissions:`` value (before ``jobs:``).
+
+    Returns the inline scalar/map (``permissions: read-all`` or
+    ``permissions: {contents: read}``) or the block body — never both.
+    """
     start = None
     for i, line in enumerate(lines[:jobs_idx]):
-        if re.match(r"^permissions:\s*$", line):
+        m = re.match(r"^permissions:\s*(.*)$", line)
+        if m:
+            inline = m.group(1).split("#", 1)[0].strip()
+            if inline:
+                return inline
             start = i
             break
     if start is None:
@@ -147,7 +155,15 @@ def _job_permissions(lines: list[str], uses_lineno: int) -> str:
     # locate a ``permissions:`` key inside this job block (indent > job header)
     job_indent = _indent(lines[start])
     for i, line in enumerate(block):
-        if re.match(r"^\s*permissions:\s*$", line) and _indent(line) > job_indent:
+        m = re.match(r"^\s*permissions:\s*(.*)$", line)
+        if m and _indent(line) > job_indent:
+            # scalar / flow-map value on the same line replaces the
+            # top-level block wholesale (e.g. ``permissions: read-all``
+            # or ``permissions: {contents: read}`` — the latter silently
+            # drops ``statuses``).
+            inline = m.group(1).split("#", 1)[0].strip()
+            if inline:
+                return inline
             # collect the block body (deeper indent than the permissions key)
             pindent = _indent(line)
             body = []
@@ -166,6 +182,26 @@ def _jobs_index(lines: list[str]) -> int:
     )
 
 
+def _grants_statuses_read(perms: str) -> bool:
+    """True when the effective ``permissions:`` text grants statuses read.
+
+    Every YAML shape GitHub accepts: ``statuses: read``, ``statuses: write``
+    (write implies read), the ``read-all``/``write-all`` scalars, and any of
+    these inside a ``{...}`` flow map. Trailing ``# comments`` are ignored.
+    """
+    for raw in perms.splitlines():
+        code = raw.split("#", 1)[0].strip().strip("{}").strip()
+        if not code:
+            continue
+        for part in code.split(","):
+            part = part.strip()
+            if part in ("read-all", "write-all"):
+                return True
+            if re.fullmatch(r"statuses:\s*(read|write)", part):
+                return True
+    return False
+
+
 def audit_workflow(path: Path) -> list[dict]:
     """Return one finding per pr-approve caller in ``path`` that needs a grant.
 
@@ -175,13 +211,15 @@ def audit_workflow(path: Path) -> list[dict]:
     lines = text.splitlines()
     findings = []
     for i, line in enumerate(lines):
+        if line.lstrip().startswith("#"):
+            continue  # a commented-out uses: line is not an active call
         m = USES_RE.search(line)
         if not m:
             continue
         major, minor = int(m.group(1)), int(m.group(2))
         gated = (major, minor) >= (MIN_MAJOR, MIN_MINOR)
         perms = _job_permissions(lines, i)
-        has_statuses = STATUSES_READ_RE.search(perms) is not None
+        has_statuses = _grants_statuses_read(perms)
         findings.append(
             {
                 "line": i + 1,
@@ -240,7 +278,9 @@ def main() -> int:
                 )
                 tag = f"{owner_repo} {wf.name}:{f['line']} -> pr-approve@{f['version']}"
                 if not f["gated"]:
-                    warnings.append(f"note: {tag} (pre-v1.16, add statuses:read before bump) {link}")
+                    warnings.append(
+                        f"note: {tag} (pre-{MIN_VERSION}, add statuses:read before bump) {link}"
+                    )
                 elif not f["has_statuses_read"]:
                     failures.append(
                         f"FAIL: {tag} missing statuses:read -> startup_failure risk {link}"
@@ -254,7 +294,7 @@ def main() -> int:
         print(f"::error::{f_}")
     print(
         f"pr-approve callers audit: {scanned} workflow files scanned, "
-        f"{len(failures)} failing, {len(warnings)} pre-v1.16 notes"
+        f"{len(failures)} failing, {len(warnings)} pre-{MIN_VERSION} notes"
     )
     return 1 if failures else 0
 
