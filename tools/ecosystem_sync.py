@@ -985,6 +985,236 @@ def collect_ci_config(repos: dict[str, str], timeout: int) -> list[Row]:
 
 
 # ---------------------------------------------------------------------------
+# Cron branch sensor (cron_branch_stale)
+#
+# DL-152e (2026-11-10): the remediate-runner cron ran
+# scripts/remediate-runner.py from a checkout sitting on
+# backlog/session-rows-oom — a version WITHOUT the auto_merge_pr handler.
+# Tasks enqueued by ecosystem_sync were never processed: the sensor path
+# dead in production, silently. Same class as the ci-watch.py stale copy
+# and uptime-email lost on the VM rebuild. The fix routes every PAS cron
+# through ~/.local/bin/pas-cron.sh / remediate-runner-cron.sh, which pull
+# --ff-only origin main inside dedicated worktrees and abort on failure;
+# this sensor is the regression net for any cron that still executes repo
+# code out of a checkout that is not on main.
+#
+# Scope: the local user crontab of whatever host runs the sync (the laptop
+# in practice — VM crontabs are a different fleet). A cron line "uses repo
+# code" when it references a path under <home>/devin/ ending in a script
+# extension (.py/.sh/.mjs/.js) or cds into a directory under it. Lines
+# wrapping the known self-updating entrypoints are exempt: pas-cron.sh,
+# remediate-runner-cron.sh and anything already inside worktrees/pas-main
+# either pull main themselves or are not repo code (~/.local/bin helpers
+# never match the ~/devin/ scope). For each repo a path resolves to
+# (git rev-parse --show-toplevel), the checked-out branch must be `main`;
+# detached HEAD is tolerated only when it sits exactly on a tag.
+#
+# Findings are WARN rows — visible in the report and STATE.md but
+# deliberately outside DRIFT_STATES: a stale cron checkout is hygiene debt
+# the Owner re-points by hand, not a defect the --remediate agent should
+# patch unattended. Undeterminable checkouts (not a git repo, git failure)
+# are skipped — the sensor only flags what it can prove.
+
+_CRON_SCRIPT_EXTS = (".py", ".sh", ".mjs", ".js")
+_CRON_EXEMPT_RE = re.compile(
+    r"(?<![\w.-])(?:pas-cron\.sh|remediate-runner-cron\.sh"
+    r"|worktrees/pas-main)(?![\w.-])")
+_CRON_ENV_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+_CRON_SHELL_COMMENT_RE = re.compile(r"\s+#")
+# Path characters inside a crontab command: everything except whitespace,
+# quotes and shell metacharacters (incl. glob chars, which would only
+# produce paths that fail to resolve anyway).
+_CRON_PATH_CHARS = r"[^\s\"'`;|&<>()*?\[\]{}]+"
+
+
+def _cron_path_token_re(devin: Path) -> re.Pattern:
+    """Devin-root path tokens in any cron spelling: absolute,
+    ``$HOME/<name>/…`` or ``~/<name>/…``."""
+    name = re.escape(devin.name)
+    root = rf"(?:{re.escape(str(devin))}|\$HOME/{name}|~/{name})"
+    return re.compile(rf"{root}/{_CRON_PATH_CHARS}")
+
+
+def _cron_cd_re(devin: Path) -> re.Pattern:
+    """``cd <devin-root path>`` — a directory target needs no extension."""
+    name = re.escape(devin.name)
+    root = rf"(?:{re.escape(str(devin))}|\$HOME/{name}|~/{name})"
+    return re.compile(rf"\bcd\s+[\"']?({root}/{_CRON_PATH_CHARS})")
+
+
+def _normalize_cron_path(raw: str, devin: Path) -> Path:
+    """``$HOME``/``~`` spellings -> absolute path under the devin root."""
+    prefix = str(devin)
+    if raw == prefix or raw.startswith(prefix + "/"):
+        return Path(raw)
+    marker = f"/{devin.name}/"
+    if marker in raw:
+        return devin / raw.split(marker, 1)[1]
+    return Path(raw)
+
+
+def _cron_repo_candidates(line: str, devin: Path) -> list[Path]:
+    """Devin-root paths a cron command may execute, deduped in order.
+
+    Script files (.py/.sh/.mjs/.js) qualify anywhere on the line; a
+    ``cd <dir>`` target qualifies without an extension — both resolve to
+    a repo root downstream.
+    """
+    out: list[Path] = []
+    for match in _cron_path_token_re(devin).finditer(line):
+        raw = match.group(0)
+        if raw.lower().endswith(_CRON_SCRIPT_EXTS):
+            out.append(_normalize_cron_path(raw, devin))
+    for match in _cron_cd_re(devin).finditer(line):
+        out.append(_normalize_cron_path(match.group(1), devin))
+    return list(dict.fromkeys(out))
+
+
+def _git(repo: Path, *args: str,
+         timeout: int) -> subprocess.CompletedProcess | None:
+    """``git -C <repo> <args>``; None on spawn/timeout failure."""
+    try:
+        return subprocess.run(
+            ["git", "-C", str(repo), *args],
+            capture_output=True, text=True, timeout=timeout)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+
+
+def _cron_repo_root(candidate: Path, devin: Path,
+                    timeout: int) -> Path | None:
+    """Git toplevel containing ``candidate`` when it lives under devin.
+
+    The candidate may be a file (probe its parent) or not exist at all
+    (walk up to the nearest existing directory). ``None`` when the path
+    is not inside a git repo or the repo resolves ABOVE the devin root —
+    both out of this sensor's scope.
+    """
+    probe = candidate if candidate.is_dir() else candidate.parent
+    while not probe.is_dir() and probe != probe.parent:
+        probe = probe.parent
+    if not probe.is_dir():
+        return None
+    proc = _git(probe, "rev-parse", "--show-toplevel", timeout=timeout)
+    if proc is None or proc.returncode != 0:
+        return None
+    top = proc.stdout.strip()
+    if not top:
+        return None
+    root = Path(top)
+    try:
+        root_r, devin_r = root.resolve(), devin.resolve()
+    except OSError:
+        root_r, devin_r = root, devin
+    if root_r != devin_r and devin_r not in root_r.parents:
+        return None
+    return root
+
+
+def _cron_repo_ref(repo_root: Path, timeout: int) -> str | None:
+    """HEAD descriptor for a repo checkout: ``main``, ``<branch>``,
+    ``tag:<name>`` (detached exactly on a tag) or ``detached@<sha>``.
+    ``None`` when git cannot prove the state."""
+    proc = _git(repo_root, "rev-parse", "--abbrev-ref", "HEAD",
+               timeout=timeout)
+    if proc is None or proc.returncode != 0:
+        return None
+    ref = proc.stdout.strip()
+    if not ref:
+        return None
+    if ref != "HEAD":  # named branch — "HEAD" means detached
+        return ref
+    tag = _git(repo_root, "describe", "--tags", "--exact-match", "HEAD",
+               timeout=timeout)
+    if tag is not None and tag.returncode == 0 and tag.stdout.strip():
+        return f"tag:{tag.stdout.strip()}"
+    sha = _git(repo_root, "rev-parse", "--short", "HEAD", timeout=timeout)
+    short = sha.stdout.strip() if (
+        sha is not None and sha.returncode == 0) else "?"
+    return f"detached@{short}"
+
+
+def collect_cron_branch_stale(devin: Path | str | None = None,
+                              timeout: int = 5) -> list[Row]:
+    """Cron entries running repo code off a non-main checkout -> rows.
+
+    See the section comment for scope and exemptions. One row per repo
+    checkout the crontab touches: ``warn`` when HEAD is not ``main``
+    (detached HEAD only tolerated exactly on a tag), ``ok`` otherwise.
+    ``skip``/``unavailable`` rows cover a missing crontab or git failures.
+    """
+    devin_path = (Path(devin).expanduser() if devin is not None
+                  else Path.home() / "devin")
+    if shutil.which("crontab") is None:
+        return [Row("cron-branch-stale", "cron-branch", "—", "—", "skip",
+                    "", "crontab not installed on this host")]
+    try:
+        proc = subprocess.run(["crontab", "-l"], capture_output=True,
+                              text=True, timeout=timeout)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return [Row("cron-branch-stale", "cron-branch", "—", "—",
+                    "unavailable", "",
+                    f"crontab -l failed: {type(exc).__name__}")]
+    if proc.returncode != 0:
+        # "no crontab for <user>" is rc=1 with empty stdout — an empty
+        # crontab is a clean result, not an error. Any other failure
+        # (permission, spool, rc>=2) stays honestly unavailable.
+        if proc.returncode == 1 and not proc.stdout.strip():
+            return [Row("cron-branch-stale", "cron-branch", "—", "—",
+                        "ok", "", "no crontab for this user")]
+        return [Row("cron-branch-stale", "cron-branch", "—", "—",
+                    "unavailable", "",
+                    f"crontab -l rc={proc.returncode}: "
+                    f"{(proc.stderr or '').strip()[:120]}")]
+    hits: dict[Path, dict] = {}
+    for raw_line in proc.stdout.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if _CRON_ENV_RE.match(line):
+            continue  # NAME=value environment line, not a command
+        line = _CRON_SHELL_COMMENT_RE.split(line, maxsplit=1)[0].strip()
+        if not line or _CRON_EXEMPT_RE.search(line):
+            continue
+        per_line: dict[Path, list[Path]] = {}
+        for cand in _cron_repo_candidates(line, devin_path):
+            root = _cron_repo_root(cand, devin_path, timeout)
+            if root is not None:
+                per_line.setdefault(root, []).append(cand)
+        for root, cands in per_line.items():
+            slot = hits.setdefault(root, {"paths": set(), "entries": 0})
+            slot["paths"].update(cands)
+            slot["entries"] += 1
+    rows: list[Row] = []
+    undetermined = 0
+    for root in sorted(hits, key=str):
+        info = hits[root]
+        ref = _cron_repo_ref(root, timeout)
+        if ref is None:
+            undetermined += 1
+            continue
+        shown = sorted(str(p) for p in info["paths"])
+        note = (f"{info['entries']} cron "
+                f"{'entry' if info['entries'] == 1 else 'entries'}"
+                f" -> {', '.join(shown[:3])}"
+                + (f" +{len(shown) - 3} more" if len(shown) > 3 else ""))
+        local = ref.removeprefix("tag:")
+        state = "ok" if ref == "main" or ref.startswith("tag:") else "warn"
+        rows.append(Row(root.name or str(root), "cron-branch", local,
+                        "main", state, "", note))
+    if not hits:
+        rows.append(Row("cron-branch-stale", "cron-branch", "—", "—",
+                        "ok", "", "no repo-script cron entries under "
+                                  "~/devin"))
+    elif not rows:
+        rows.append(Row("cron-branch-stale", "cron-branch", "—", "—",
+                        "unavailable", "",
+                        f"{undetermined} repo checkout(s) could not be "
+                        "classified"))
+    return rows
+
+
+# ---------------------------------------------------------------------------
 # Freshness / silence sensors
 #
 # A component that is alive but produces nothing within its expected interval
@@ -2214,6 +2444,9 @@ def main(argv: list[str] | None = None) -> int:
                                             args.timeout)
         rows += collect_freshness(roots, {**owners, **EXTRA_REPOS},
                                   args.timeout)
+    # cron_branch_stale is pure-local (crontab -l + git) — like a health
+    # probe it runs in every mode, including --freshness and --offline.
+    rows += collect_cron_branch_stale(timeout=args.timeout)
     health = [] if args.offline else collect_health(roots, args.timeout)
 
     if args.json:
