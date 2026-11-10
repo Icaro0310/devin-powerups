@@ -1002,18 +1002,18 @@ def collect_ci_config(repos: dict[str, str], timeout: int) -> list[Row]:
 # in practice — VM crontabs are a different fleet). A cron line "uses repo
 # code" when it references a path under <home>/devin/ ending in a script
 # extension (.py/.sh/.mjs/.js) or cds into a directory under it. Exemption
-# is per command SEGMENT (split on &&, ||, ;) and only covers paths under
-# <devin>/worktrees/ inside an exempt segment: the wrappers (pas-cron.sh,
-# repo-cron.sh, remediate-runner-cron.sh) pull --ff-only inside their
-# canonical worktree then exec their args, so an absolute devin path to
-# any OTHER checkout in the same command is NOT protected and is still
-# checked. ~/.local/bin helpers never match the ~/devin/ scope at all.
-# ``$HOME``/``~`` spellings expand against the crontab's own ``HOME=`` env
-# lines when present; an expansion landing outside the configured devin
-# root is reported unavailable, never silently ok. For each repo a path
-# resolves to (git rev-parse --show-toplevel), the checked-out branch
-# must be `main`; detached HEAD is tolerated only when it sits exactly on
-# a tag.
+# is per command SEGMENT (quote-aware split on &&, ||, ;) and only covers
+# paths under <devin>/worktrees/ inside an exempt segment: the wrappers
+# (pas-cron.sh, repo-cron.sh, remediate-runner-cron.sh) pull --ff-only
+# inside their canonical worktree then exec their args, so an absolute
+# devin path to any OTHER checkout in the same command is NOT protected
+# and is still checked. ~/.local/bin helpers never match the ~/devin/
+# scope at all. ``$HOME``/``~`` spellings expand against the crontab's own
+# ``HOME=`` env lines when present; an expansion landing outside the
+# configured devin root is reported unavailable, never silently ok. For
+# each repo a path resolves to (git rev-parse --show-toplevel), the
+# checked-out branch must be `main`; detached HEAD is tolerated only when
+# it sits exactly on a tag.
 #
 # Findings are WARN rows — visible in the report and STATE.md but
 # deliberately outside DRIFT_STATES: a stale cron checkout is hygiene debt
@@ -1029,7 +1029,6 @@ _CRON_EXEMPT_RE = re.compile(
 _CRON_ENV_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 _CRON_HOME_RE = re.compile(r"""^HOME=(?:"([^"]+)"|'([^']+)'|(\S+))""")
 _CRON_SHELL_COMMENT_RE = re.compile(r"\s+#")
-_CRON_SEGMENT_RE = re.compile(r"&&|\|\||;")
 # Path characters inside a crontab command: everything except whitespace,
 # quotes and shell metacharacters (incl. glob chars, which would only
 # produce paths that fail to resolve anyway).
@@ -1049,6 +1048,59 @@ def _cron_cd_re(devin: Path) -> re.Pattern:
     name = re.escape(devin.name)
     root = rf"(?:{re.escape(str(devin))}|\$HOME/{name}|~/{name})"
     return re.compile(rf"\bcd\s+[\"']?({root}/{_CRON_PATH_CHARS})")
+
+
+def _cron_split_segments(line: str) -> list[str]:
+    """Split a cron command on ``&&``, ``||`` and ``;`` — quote-aware.
+
+    Operators inside ``'…'`` or ``"…"`` are literal text, not command
+    separators: ``repo-cron.sh r bash -c "a.py; b.py"`` stays ONE segment
+    so the wrapper token keeps protecting the whole quoted payload (a
+    naive split would strip the wrapper from ``b.py`` and false-flag the
+    worktree). ``\\`` escapes the next char outside quotes and inside
+    double quotes (inside single quotes it is literal, per shell rules);
+    a single ``|`` never separates — pipes don't change which checkout
+    runs. Separators themselves are consumed, like ``re.split``.
+    """
+    segments: list[str] = []
+    buf: list[str] = []
+    quote = ""
+    i = 0
+    while i < len(line):
+        ch = line[i]
+        if quote:
+            buf.append(ch)
+            if ch == "\\" and quote == '"' and i + 1 < len(line):
+                buf.append(line[i + 1])
+                i += 2
+                continue
+            if ch == quote:
+                quote = ""
+            i += 1
+            continue
+        if ch in "'\"":
+            quote = ch
+            buf.append(ch)
+            i += 1
+            continue
+        if ch == "\\":
+            buf.append(ch)
+            if i + 1 < len(line):
+                buf.append(line[i + 1])
+                i += 2
+            else:
+                i += 1
+            continue
+        pair = line[i:i + 2]
+        if ch == ";" or pair in ("&&", "||"):
+            segments.append("".join(buf))
+            buf = []
+            i += 2 if pair in ("&&", "||") else 1
+            continue
+        buf.append(ch)
+        i += 1
+    segments.append("".join(buf))
+    return segments
 
 
 def _normalize_cron_path(raw: str, devin: Path,
@@ -1236,7 +1288,7 @@ def collect_cron_branch_stale(devin: Path | str | None = None,
         if not line:
             continue
         per_line: dict[Path, list[Path]] = {}
-        for segment in _CRON_SEGMENT_RE.split(line):
+        for segment in _cron_split_segments(line):
             segment = segment.strip()
             if not segment:
                 continue
