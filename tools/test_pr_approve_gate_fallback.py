@@ -291,12 +291,21 @@ class GateFallback(unittest.TestCase):
         cls.findings = extract_run_block(cls.text, "id: findings")
         cls.approve = extract_run_block(
             cls.text, "name: Approve PRs with no blocking findings")
+        # v1.16: the arm lives in the dedicated `arm-auto-merge` job —
+        # the step keeps its name, so the extraction is unchanged, but
+        # the sections below pin the job/permission split structurally.
         cls.arm = extract_run_block(
             cls.text, "name: Arm auto-merge on approved PRs")
         # the fixture block must be the fallback-aware version
         assert "fallback-resolved" in cls.findings
         assert "gate-resolved-via" in cls.approve
         assert "--auto --squash" in cls.arm
+        # Job sections for the structural asserts: everything between
+        # the `approve:` and `arm-auto-merge:` job keys belongs to the
+        # approve job; the arm job runs to end of file.
+        cls.approve_job = cls.text[
+            cls.text.index("  approve:"):cls.text.index("  arm-auto-merge:")]
+        cls.arm_job = cls.text[cls.text.index("  arm-auto-merge:"):]
 
     def run_block(self, block, fixtures, extra_env=None):
         """Run an extracted run-block with the gh stub; return (outputs,
@@ -1163,7 +1172,40 @@ class GateFallback(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn("pr review --approve", log)
 
-    # --- v1.13 arm step: auto-merge on approved PRs --------------------
+    # --- arm-auto-merge job: auto-merge on approved PRs ---------------
+    #
+    # v1.13 introduced the arm as a step inside the approve job; v1.14
+    # made it re-verify gate eligibility; v1.16 (owner review —
+    # contents:write can edit workflows, the most elevated permission)
+    # moved it into a dedicated `arm-auto-merge` job so the elevated
+    # grant no longer sits on the job that reads PR content. The step
+    # keeps its name and run-block, so every scenario below still
+    # executes the real workflow bash against the gh stub.
+
+    def test_v16_arm_lives_in_dedicated_job_with_write_scope(self):
+        # Permission split: approve stays contents:read (it only needs
+        # pull-requests:write for reviews/comments plus statuses:read
+        # for the judge gate); the arm job owns contents:write and also
+        # carries statuses:read because the v1.14 re-verification reads
+        # the devin-judge/review commit status. The arm step must not
+        # be inside the approve job section, and the arm job must
+        # consume the approve job's outputs rather than re-fetching
+        # the gate state.
+        self.assertIn("contents: read", self.approve_job)
+        self.assertNotIn("contents: write", self.approve_job)
+        self.assertNotIn("Arm auto-merge", self.approve_job)
+        self.assertIn("contents: write", self.arm_job)
+        self.assertIn("pull-requests: write", self.arm_job)
+        self.assertIn("statuses: read", self.arm_job)
+        self.assertIn("needs: approve", self.arm_job)
+        self.assertIn("needs.approve.result == 'success'", self.arm_job)
+        self.assertIn("needs.approve.outputs.pr_numbers", self.arm_job)
+        self.assertIn("needs.approve.outputs.verdict_map", self.arm_job)
+        self.assertIn("needs.approve.outputs.blocking_map", self.arm_job)
+        # the approve job must expose the outputs the arm consumes
+        for out in ("pr_numbers", "head_sha", "verdict_map",
+                    "blocking_map"):
+            self.assertIn(f"{out}: ${{{{ steps.", self.approve_job)
 
     def arm_env(self, **over):
         # v1.14: the arm re-verifies the approve step's per-PR gate —
