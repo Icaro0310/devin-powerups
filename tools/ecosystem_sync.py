@@ -1017,7 +1017,7 @@ def collect_ci_config(repos: dict[str, str], timeout: int) -> list[Row]:
 
 _CRON_SCRIPT_EXTS = (".py", ".sh", ".mjs", ".js")
 _CRON_EXEMPT_RE = re.compile(
-    r"(?<![\w.-])(?:pas-cron\.sh|remediate-runner-cron\.sh"
+    r"(?<![\w.-])(?:pas-cron\.sh|repo-cron\.sh|remediate-runner-cron\.sh"
     r"|worktrees/pas-main)(?![\w.-])")
 _CRON_ENV_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 _CRON_SHELL_COMMENT_RE = re.compile(r"\s+#")

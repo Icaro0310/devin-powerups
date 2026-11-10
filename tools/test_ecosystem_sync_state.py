@@ -1128,6 +1128,8 @@ class CollectCronBranchStaleTests(unittest.TestCase):
              ("*/30 * * * * /home/x/.local/bin/pas-cron.sh "
               "{DEVIN}/worktrees/pas-main/scripts/y.sh"),
              "*/30 * * * * /home/x/.local/bin/remediate-runner-cron.sh",
+             ("*/5 * * * * /home/x/.local/bin/repo-cron.sh repo-b "
+              "/usr/bin/python3 {DEVIN}/worktrees/repo-b/tools/x.py"),
              "0 9 * * * cd {DEVIN}/worktrees/pas-main && ./z.sh",
              ("0 9 * * * /usr/bin/python3 {DEVIN}/repo-a/x.py "
               "# pas-cron.sh mentioned only in a shell comment")],
