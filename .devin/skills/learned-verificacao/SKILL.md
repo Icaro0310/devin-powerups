@@ -168,3 +168,15 @@ muitos ficheiros, superficies geradas, ou merges sob guardrails.
   um sweep, cruzar com uma segunda fonte (o report da sessao paralela,
   search API, ou lista manual conhecida) antes de declarar o universo
   completo.
+- (2026-11-10) "judge success" sozinho NAO e aprovacao — o caminho
+  real de aprovacao-sem-review-formal sao TRES sinais: `devin-judge/review`
+  commit-status success + `Review Coverage` check-run success +
+  audit comment `gate-resolved-via: manual-blocking0` com
+  `head:<sha actual>` (o audit e por head SHA — um de head antigo nao
+  vale). Verificar so o judge mergeia PRs que o approve marcou como
+  "blocking manual" — e `manual-blocking0` so existe quando nao ha
+  APPROVED formal; com review formal o audit nao e exigido. Qualquer
+  gate que automerge (runner, sensor, doctor) deve replicar os 3 sinais,
+  nunca so o judge. Corolario: `devin-judge/review` e COMMIT STATUS
+  (`/commits/{sha}/status`), nao check-run — `check-runs?check_name=`
+  devolve zero e um gate escrito assim fica fail-closed para sempre.
