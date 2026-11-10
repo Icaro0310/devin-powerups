@@ -997,39 +997,6 @@ class CronRepoCandidatesTests(unittest.TestCase):
         self.assertEqual(cands, [Path("/home/test/devin/r/a.py")])
 
 
-class CronSplitSegmentsTests(unittest.TestCase):
-    """Quote-aware command segmentation for the cron exempt check."""
-
-    def test_operators_outside_quotes_split(self):
-        self.assertEqual(es._cron_split_segments("a && b"), ["a ", " b"])
-        self.assertEqual(es._cron_split_segments("a || b; c"),
-                         ["a ", " b", " c"])
-        self.assertEqual(es._cron_split_segments("a;b"), ["a", "b"])
-
-    def test_operators_inside_quotes_do_not_split(self):
-        # BUG: repo-cron.sh r bash -c "a.py; b.py" — the ; is payload of
-        # the quoted bash -c string, not a cron command separator.
-        self.assertEqual(
-            es._cron_split_segments('bash -c "a.py; b.py" && c'),
-            ['bash -c "a.py; b.py" ', " c"])
-        self.assertEqual(
-            es._cron_split_segments("bash -c 'a && b'"),
-            ["bash -c 'a && b'"])
-
-    def test_escaped_separator_is_literal(self):
-        self.assertEqual(es._cron_split_segments(r"a\;b"), [r"a\;b"])
-        self.assertEqual(es._cron_split_segments(r'a\&&b'), [r'a\&&b'])
-
-    def test_escape_inside_double_quotes(self):
-        # \" inside "…" does not close the quote — the ; stays payload.
-        self.assertEqual(
-            es._cron_split_segments(r'bash -c "a\" ; b"'),
-            [r'bash -c "a\" ; b"'])
-
-    def test_single_pipe_never_splits(self):
-        self.assertEqual(es._cron_split_segments("a | b"), ["a | b"])
-
-
 class CronRepoRefTests(unittest.TestCase):
     """Branch classification: main ok, tag-detached ok, else warn."""
 
@@ -1191,8 +1158,13 @@ class CollectCronBranchStaleTests(unittest.TestCase):
         self.assertEqual(by_product["repo-det"].state, "warn")
         self.assertEqual(by_product["repo-det"].local, "detached@abc1234")
 
-    def test_exempt_wrappers_skipped(self):
-        rows, fake = self._collect(
+    def test_wrapper_lines_checked_via_git(self):
+        # No exemptions: every ~/devin path — including worktrees/*
+        # targets of the self-updating wrappers — goes through the git
+        # check. Worktrees sitting on main come back ok; the stale
+        # repo-a script still warns. Wrapper tokens themselves live in
+        # ~/.local/bin and never match the ~/devin scope.
+        rows, _ = self._collect(
             ["# comment with {DEVIN}/repo-a/x.py inside",
              "",
              "PATH=/home/x/.local/bin:/usr/bin:/bin",
@@ -1208,15 +1180,20 @@ class CollectCronBranchStaleTests(unittest.TestCase):
              ("0 9 * * * /usr/bin/python3 {DEVIN}/repo-a/x.py "
               "# pas-cron.sh mentioned only in a shell comment")],
             {"repo-a": {"branch": "stale-branch"},
-             "worktrees/pas-main": {"branch": "main"}})
-        # the inline comment is stripped BEFORE the exempt check, so the
-        # stale path on the last line still counts and warns; every
-        # wrapper line above is exempt and never reaches git.
-        self.assertEqual(len(rows), 1)
-        self.assertEqual((rows[0].product, rows[0].state),
-                         ("repo-a", "warn"))
-        git_dirs = [c[2] for c in fake.calls if c[0] == "git"]
-        self.assertFalse(any("pas-main" in d for d in git_dirs))
+             "worktrees/pas-main": {"branch": "main"},
+             "worktrees/repo-b": {"branch": "main"}})
+        by_product = {r.product: r for r in rows}
+        self.assertEqual(len(rows), 3)
+        self.assertEqual((by_product["repo-a"].state,
+                          by_product["repo-a"].local),
+                         ("warn", "stale-branch"))
+        self.assertEqual((by_product["pas-main"].state,
+                          by_product["pas-main"].local),
+                         ("ok", "main"))
+        self.assertIn("2 cron entries", by_product["pas-main"].note)
+        self.assertEqual((by_product["repo-b"].state,
+                          by_product["repo-b"].local),
+                         ("ok", "main"))
 
     def test_non_repo_paths_skipped(self):
         rows, _ = self._collect(
@@ -1337,51 +1314,60 @@ class CollectCronBranchStaleTests(unittest.TestCase):
         rows = run_with(mock.Mock(returncode=1, stdout="", stderr=""))
         self.assertEqual(rows[0].state, "unavailable")
 
-    def test_wrapper_in_later_segment_does_not_launder_stale(self):
-        # BUG_0001: exemption is per command segment — a wrapper later in
-        # the same cron entry must not hide an earlier stale repo script.
+    def test_wrapper_on_same_line_does_not_launder_stale(self):
+        # BUG_0001: a wrapper token anywhere in the cron entry must not
+        # hide an earlier stale repo script — every ~/devin path is
+        # checked regardless of what else the line invokes.
         for sep in ("&&", ";", "||"):
             with self.subTest(sep=sep):
                 rows, _ = self._collect(
                     [(f"0 * * * * python3 {{DEVIN}}/repo-old/job.py {sep} "
-                       "/home/x/.local/bin/pas-cron.sh")],
+                      "/home/x/.local/bin/pas-cron.sh")],
                     {"repo-old": {"branch": "backlog/old"}})
                 self.assertEqual(len(rows), 1)
                 self.assertEqual((rows[0].product, rows[0].state),
                                  ("repo-old", "warn"))
-        # and the symmetric order: exempt first, stale second
+        # and the symmetric order: wrapper first, stale second
         rows, _ = self._collect(
             [("0 * * * * /home/x/.local/bin/pas-cron.sh ; "
-           "python3 {DEVIN}/repo-old/job.py")],
+              "python3 {DEVIN}/repo-old/job.py")],
             {"repo-old": {"branch": "backlog/old"}})
         self.assertEqual(len(rows), 1)
         self.assertEqual((rows[0].product, rows[0].state),
                          ("repo-old", "warn"))
 
-    def test_wrapper_segment_still_checks_foreign_devin_path(self):
+    def test_wrapper_line_still_checks_foreign_devin_path(self):
         # pas-cron.sh pulls pas-main then execs its args — an absolute
         # devin path to ANOTHER checkout in the same command is not
         # protected and must still be checked.
         rows, _ = self._collect(
             [("0 * * * * /home/x/.local/bin/pas-cron.sh "
-           "/usr/bin/python3 {DEVIN}/repo-stale/x.py")],
+              "/usr/bin/python3 {DEVIN}/repo-stale/x.py")],
             {"repo-stale": {"branch": "feature"}})
         self.assertEqual(len(rows), 1)
         self.assertEqual((rows[0].product, rows[0].state),
                          ("repo-stale", "warn"))
 
-    def test_repo_cron_wrapper_protects_only_worktrees(self):
-        # repo-cron.sh <repo> runs inside worktrees/<repo>; a devin path
-        # under worktrees/ in an exempt segment is covered, anything
-        # else in the same segment is still checked.
-        rows, _ = self._collect(
-            [("0 * * * * /home/x/.local/bin/repo-cron.sh repo-b "
-              "/usr/bin/python3 {DEVIN}/worktrees/repo-b/tools/x.py")],
-            {})
-        self.assertEqual(len(rows), 1)
-        self.assertEqual((rows[0].product, rows[0].state),
-                         ("cron-branch-stale", "ok"))
-        # ...but the same wrapper aimed at the MAIN checkout is checked
+    def test_worktree_paths_checked_like_any_checkout(self):
+        # No worktrees/ exemption: repo-cron.sh repo-b pulls
+        # worktrees/repo-b, but the git check — not the wrapper token —
+        # decides. On main -> ok row; on a stale branch -> warn.
+        for branch, want in (("main", "ok"), ("stale-x", "warn")):
+            with self.subTest(branch=branch):
+                rows, _ = self._collect(
+                    [("0 * * * * /home/x/.local/bin/repo-cron.sh repo-b "
+                      "python3 {DEVIN}/worktrees/repo-b/a.py; "
+                      "python3 {DEVIN}/worktrees/repo-b/b.py")],
+                    {"worktrees/repo-b": {"branch": branch}})
+                self.assertEqual(len(rows), 1)
+                self.assertEqual((rows[0].product, rows[0].state),
+                                 ("repo-b", want))
+                if want == "warn":
+                    self.assertIn("a.py", rows[0].note)
+                    self.assertIn("b.py", rows[0].note)
+        # ...and an absolute path to the MAIN checkout in the same
+        # wrapper line is checked too (the wrapper only pulls the
+        # worktree, never the sibling checkout).
         rows, _ = self._collect(
             [("0 * * * * /home/x/.local/bin/repo-cron.sh repo-b "
               "/usr/bin/python3 {DEVIN}/repo-b/tools/x.py")],
@@ -1390,32 +1376,25 @@ class CollectCronBranchStaleTests(unittest.TestCase):
         self.assertEqual((rows[0].product, rows[0].state),
                          ("repo-b", "warn"))
 
-    def test_quoted_payload_keeps_wrapper_exemption(self):
-        # BUG (review 790376b): `;` inside a quoted bash -c payload is not
-        # a command separator — splitting there strips repo-cron.sh from
-        # the second path and false-warns a worktree the wrapper pulls.
-        rows, fake = self._collect(
-            [("0 * * * * /home/x/.local/bin/repo-cron.sh repo-b "
-              "bash -c \"python3 {DEVIN}/worktrees/repo-b/a.py; "
-              "python3 {DEVIN}/worktrees/repo-b/b.py\"")],
-            {"worktrees/repo-b": {"branch": "stale-branch"}})
-        self.assertEqual(len(rows), 1)
-        self.assertEqual((rows[0].product, rows[0].state),
-                         ("cron-branch-stale", "ok"))
-        # the exempt worktree paths never reach git at all
-        self.assertFalse(any(c[0] == "git" for c in fake.calls))
-        # single quotes + && behave the same
-        rows, _ = self._collect(
-            [("0 * * * * /home/x/.local/bin/repo-cron.sh repo-b "
-              "bash -c 'python3 {DEVIN}/worktrees/repo-b/a.py && "
-              "python3 {DEVIN}/worktrees/repo-b/b.py'")],
-            {"worktrees/repo-b": {"branch": "stale-branch"}})
-        self.assertEqual(len(rows), 1)
-        self.assertEqual(rows[0].state, "ok")
+    def test_quoted_payload_paths_still_checked(self):
+        # Paths inside a quoted bash -c payload are extracted like any
+        # other — quoting changes nothing now that nothing is exempt.
+        # A stale worktree behind repo-cron.sh warns either way.
+        for quote in ('"', "'"):
+            with self.subTest(quote=quote):
+                rows, fake = self._collect(
+                    [("0 * * * * /home/x/.local/bin/repo-cron.sh repo-b "
+                      f"bash -c {quote}python3 {{DEVIN}}/worktrees/"
+                      f"repo-b/a.py{quote} ; true")],
+                    {"worktrees/repo-b": {"branch": "stale-branch"}})
+                self.assertEqual(len(rows), 1)
+                self.assertEqual((rows[0].product, rows[0].state),
+                                 ("repo-b", "warn"))
+                self.assertTrue(any(c[0] == "git" for c in fake.calls))
 
-    def test_unquoted_separator_still_splits_for_exemption(self):
-        # The flip side: `;` OUTSIDE quotes still isolates segments, so a
-        # stale repo script before the wrapper is still flagged.
+    def test_stale_script_alongside_wrapper_flagged(self):
+        # repo-x/a.py shares the line with pas-cron.sh — the wrapper
+        # protects only its own worktree, repo-x is still flagged.
         rows, _ = self._collect(
             [("0 * * * * python3 {DEVIN}/repo-x/a.py; "
               "/home/x/.local/bin/pas-cron.sh")],
