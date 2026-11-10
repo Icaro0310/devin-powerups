@@ -125,3 +125,14 @@ jobs:
           python3 tools/check_required_checks.py --root "$(pwd)/.." \
             --extra-repo Icaro0310:../Icaro0310 \
             --extra-repo Icaro0310.github.io:../site
+
+      - name: pr-approve callers grant statuses:read
+        working-directory: workspace/devin-ecosystem/devin-powerups
+        # Filesystem-only audit over the freshly cloned public checkouts:
+        # any caller pinned at pr-approve@v1.16+ whose calling job omits
+        # `statuses: read` fails here instead of dying silently as a
+        # reusable-workflow startup_failure (devin-state#123, website#53).
+        run: |
+          python3 tools/check_pr_approve_callers.py --root "$(pwd)/.." \
+            --extra-repo Icaro0310:../Icaro0310 \
+            --extra-repo Icaro0310.github.io:../site
