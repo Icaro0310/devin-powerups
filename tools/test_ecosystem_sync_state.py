@@ -922,12 +922,15 @@ class CronRepoCandidatesTests(unittest.TestCase):
     """Pure parsing: which paths in a cron command count as repo code."""
 
     DEVIN = Path("/home/test/devin")
+    HOME = Path("/home/test")
 
     def test_script_extensions(self):
         for ext in (".py", ".sh", ".mjs", ".js"):
             line = (f"0 9 * * * python3 /home/test/devin/repo-a/s/x{ext} "
                     ">>/tmp/log 2>&1")
-            cands = es._cron_repo_candidates(line, self.DEVIN)
+            cands, foreign = es._cron_repo_candidates(
+                line, self.DEVIN, self.HOME)
+            self.assertEqual(foreign, 0)
             self.assertEqual(
                 cands, [Path(f"/home/test/devin/repo-a/s/x{ext}")], ext)
 
@@ -935,34 +938,62 @@ class CronRepoCandidatesTests(unittest.TestCase):
         for spelling in ("$HOME/devin/repo-b/tools/y.mjs",
                          "~/devin/repo-b/tools/y.mjs"):
             line = f"*/5 * * * * /usr/bin/node {spelling}"
-            cands = es._cron_repo_candidates(line, self.DEVIN)
+            cands, foreign = es._cron_repo_candidates(
+                line, self.DEVIN, self.HOME)
+            self.assertEqual(foreign, 0)
             self.assertEqual(
                 cands, [Path("/home/test/devin/repo-b/tools/y.mjs")],
                 spelling)
 
+    def test_dollar_home_defaults_to_devin_parent(self):
+        # home=None -> devin.parent: $HOME/devin maps onto the devin root.
+        line = "0 9 * * * python3 $HOME/devin/repo-b/x.py"
+        cands, foreign = es._cron_repo_candidates(line, self.DEVIN)
+        self.assertEqual(foreign, 0)
+        self.assertEqual(cands, [Path("/home/test/devin/repo-b/x.py")])
+
+    def test_foreign_cron_home_is_counted_not_classified(self):
+        # HOME=/srv/alice -> $HOME/devin lands outside /home/test/devin:
+        # out of scope, reported as foreign — never silently ok.
+        line = "0 9 * * * python3 $HOME/devin/app/job.py"
+        cands, foreign = es._cron_repo_candidates(
+            line, self.DEVIN, Path("/srv/alice"))
+        self.assertEqual(cands, [])
+        self.assertEqual(foreign, 1)
+        # absolute spellings do not depend on HOME and stay in scope
+        line = "0 9 * * * python3 /home/test/devin/app/job.py"
+        cands, foreign = es._cron_repo_candidates(
+            line, self.DEVIN, Path("/srv/alice"))
+        self.assertEqual(foreign, 0)
+        self.assertEqual(cands, [Path("/home/test/devin/app/job.py")])
+
     def test_cd_target_needs_no_extension(self):
         line = "0 3 * * * cd /home/test/devin/repo-c && ./run.sh"
-        cands = es._cron_repo_candidates(line, self.DEVIN)
+        cands, _ = es._cron_repo_candidates(line, self.DEVIN, self.HOME)
         self.assertEqual(cands, [Path("/home/test/devin/repo-c")])
         line = '30 4 * * * cd "$HOME/devin/repo-c/sub" && make'
-        cands = es._cron_repo_candidates(line, self.DEVIN)
+        cands, _ = es._cron_repo_candidates(line, self.DEVIN, self.HOME)
         self.assertEqual(cands, [Path("/home/test/devin/repo-c/sub")])
 
     def test_non_devin_paths_and_non_scripts_ignored(self):
         line = ("0 9 * * * /home/test/.local/bin/tool.sh "
                 "/home/test/devin/repo-a/README.md /opt/x.py "
                 "/home/test/devin/repo-a/data.json")
-        self.assertEqual(es._cron_repo_candidates(line, self.DEVIN), [])
+        self.assertEqual(
+            es._cron_repo_candidates(line, self.DEVIN, self.HOME),
+            ([], 0))
 
     def test_devin_prefix_sibling_not_matched(self):
         # /home/test/devin-other is NOT under the devin root.
         line = "0 9 * * * python3 /home/test/devin-other/scripts/x.py"
-        self.assertEqual(es._cron_repo_candidates(line, self.DEVIN), [])
+        self.assertEqual(
+            es._cron_repo_candidates(line, self.DEVIN, self.HOME),
+            ([], 0))
 
     def test_duplicates_deduped(self):
         line = ("0 9 * * * python3 /home/test/devin/r/a.py && "
                 "python3 /home/test/devin/r/a.py")
-        cands = es._cron_repo_candidates(line, self.DEVIN)
+        cands, _ = es._cron_repo_candidates(line, self.DEVIN, self.HOME)
         self.assertEqual(cands, [Path("/home/test/devin/r/a.py")])
 
 
@@ -1012,7 +1043,9 @@ class _FakeCronGit:
 
     ``crontab -l`` returns the canned crontab; ``git -C <dir> ...``
     resolves the longest matching repo root from ``repos`` —
-    ``{root: {"branch": name, "detached": bool, "tag": name|None}}``.
+    ``{root: {"branch": name, "detached": bool, "tag": name|None,
+    "broken": bool}}`` (``broken`` makes every git call fail, modelling
+    a checkout the sensor cannot classify).
     """
 
     def __init__(self, crontab, repos):
@@ -1042,6 +1075,10 @@ class _FakeCronGit:
         cfg = self.repos[root]
         if args == ["rev-parse", "--show-toplevel"]:
             return self._proc(0, root + "\n")
+        if cfg.get("broken"):
+            # toplevel resolves but branch state cannot be proven —
+            # models the "undetermined" path in _cron_repo_ref.
+            return self._proc(128, "", "git exploded")
         if args == ["rev-parse", "--abbrev-ref", "HEAD"]:
             ref = "HEAD" if cfg.get("detached") else cfg["branch"]
             return self._proc(0, ref + "\n")
@@ -1074,12 +1111,16 @@ class CollectCronBranchStaleTests(unittest.TestCase):
             root.mkdir(parents=True, exist_ok=True)
             repos[str(root)] = cfg
         crontab = "\n".join(
-            e.format(DEVIN=devin) for e in entries) + "\n"
+            e.format(DEVIN=devin, HOME=devin.parent)
+            for e in entries) + "\n"
         fake = _FakeCronGit(crontab, repos)
         with mock.patch.object(es.shutil, "which",
                                return_value="/usr/bin/crontab"), \
                 mock.patch.object(es.subprocess, "run", side_effect=fake):
-            rows = es.collect_cron_branch_stale(devin=devin, timeout=5)
+            # home=devin.parent keeps $HOME/devin spellings inside the
+            # tmp devin root, mirroring <home>/devin on a real host.
+            rows = es.collect_cron_branch_stale(
+                devin=devin, home=devin.parent, timeout=5)
         return rows, fake
 
     def test_non_main_repo_script_warns(self):
@@ -1231,3 +1272,141 @@ class CollectCronBranchStaleTests(unittest.TestCase):
                                   side_effect=OSError("boom")):
             rows = es.collect_cron_branch_stale(devin=devin)
         self.assertEqual(rows[0].state, "unavailable")
+
+    def test_crontab_rc1_requires_known_diagnostic(self):
+        # BUG_0002: rc=1 + empty stdout is only "no crontab" when the
+        # output carries the known diagnostic — a silent or denied rc=1
+        # is a real failure and must surface as unavailable.
+        d = tempfile.mkdtemp()
+        self.addCleanup(
+            lambda: __import__("shutil").rmtree(d, ignore_errors=True))
+        devin = Path(d) / "devin"
+        devin.mkdir()
+
+        def run_with(proc):
+            with mock.patch.object(es.shutil, "which",
+                                   return_value="/usr/bin/crontab"), \
+                    mock.patch.object(es.subprocess, "run",
+                                      return_value=proc):
+                return es.collect_cron_branch_stale(devin=devin)
+
+        rows = run_with(mock.Mock(returncode=1, stdout="",
+                                  stderr="no crontab for ikaros"))
+        self.assertEqual(rows[0].state, "ok")
+        # the diagnostic may also arrive on stdout on some builds
+        rows = run_with(mock.Mock(returncode=1,
+                                  stdout="no crontab for ikaros",
+                                  stderr=""))
+        self.assertEqual(rows[0].state, "ok")
+        rows = run_with(mock.Mock(returncode=1, stdout="",
+                                  stderr="permission denied"))
+        self.assertEqual(rows[0].state, "unavailable")
+        rows = run_with(mock.Mock(returncode=1, stdout="", stderr=""))
+        self.assertEqual(rows[0].state, "unavailable")
+
+    def test_wrapper_in_later_segment_does_not_launder_stale(self):
+        # BUG_0001: exemption is per command segment — a wrapper later in
+        # the same cron entry must not hide an earlier stale repo script.
+        for sep in ("&&", ";", "||"):
+            with self.subTest(sep=sep):
+                rows, _ = self._collect(
+                    [(f"0 * * * * python3 {{DEVIN}}/repo-old/job.py {sep} "
+                       "/home/x/.local/bin/pas-cron.sh")],
+                    {"repo-old": {"branch": "backlog/old"}})
+                self.assertEqual(len(rows), 1)
+                self.assertEqual((rows[0].product, rows[0].state),
+                                 ("repo-old", "warn"))
+        # and the symmetric order: exempt first, stale second
+        rows, _ = self._collect(
+            [("0 * * * * /home/x/.local/bin/pas-cron.sh ; "
+           "python3 {DEVIN}/repo-old/job.py")],
+            {"repo-old": {"branch": "backlog/old"}})
+        self.assertEqual(len(rows), 1)
+        self.assertEqual((rows[0].product, rows[0].state),
+                         ("repo-old", "warn"))
+
+    def test_wrapper_segment_still_checks_foreign_devin_path(self):
+        # pas-cron.sh pulls pas-main then execs its args — an absolute
+        # devin path to ANOTHER checkout in the same command is not
+        # protected and must still be checked.
+        rows, _ = self._collect(
+            [("0 * * * * /home/x/.local/bin/pas-cron.sh "
+           "/usr/bin/python3 {DEVIN}/repo-stale/x.py")],
+            {"repo-stale": {"branch": "feature"}})
+        self.assertEqual(len(rows), 1)
+        self.assertEqual((rows[0].product, rows[0].state),
+                         ("repo-stale", "warn"))
+
+    def test_repo_cron_wrapper_protects_only_worktrees(self):
+        # repo-cron.sh <repo> runs inside worktrees/<repo>; a devin path
+        # under worktrees/ in an exempt segment is covered, anything
+        # else in the same segment is still checked.
+        rows, _ = self._collect(
+            [("0 * * * * /home/x/.local/bin/repo-cron.sh repo-b "
+           "/usr/bin/python3 {DEVIN}/worktrees/repo-b/tools/x.py")],
+            {})
+        self.assertEqual(len(rows), 1)
+        self.assertEqual((rows[0].product, rows[0].state),
+                         ("cron-branch-stale", "ok"))
+        # ...but the same wrapper aimed at the MAIN checkout is checked
+        rows, _ = self._collect(
+            [("0 * * * * /home/x/.local/bin/repo-cron.sh repo-b "
+           "/usr/bin/python3 {DEVIN}/repo-b/tools/x.py")],
+            {"repo-b": {"branch": "feature"}})
+        self.assertEqual(len(rows), 1)
+        self.assertEqual((rows[0].product, rows[0].state),
+                         ("repo-b", "warn"))
+
+    def test_foreign_cron_home_reported_unavailable(self):
+        # BUG_0003: HOME=/srv/alice makes $HOME/devin expand outside the
+        # sync devin root -> unavailable, never a silent ok.
+        rows, _ = self._collect(
+            ["HOME=/srv/alice",
+             "0 9 * * * python3 $HOME/devin/app/job.py"],
+            {})
+        self.assertEqual(len(rows), 1)
+        self.assertEqual((rows[0].state, rows[0].product),
+                         ("unavailable", "cron-branch-stale"))
+        self.assertIn("HOME", rows[0].note)
+
+    def test_cron_home_env_scoped_to_following_lines(self):
+        # HOME= applies only to commands AFTER it: the early line still
+        # expands against the process home (tmp devin root) and warns,
+        # the late line lands in /srv/alice and is reported foreign.
+        rows, _ = self._collect(
+            ["0 9 * * * python3 $HOME/devin/repo-early/x.py",
+             "HOME=/srv/alice",
+             "0 10 * * * python3 $HOME/devin/repo-late/x.py"],
+            {"repo-early": {"branch": "dev"}})
+        self.assertEqual(len(rows), 2)
+        by_state = {r.state: r for r in rows}
+        self.assertEqual(by_state["warn"].product, "repo-early")
+        self.assertEqual(by_state["unavailable"].product,
+                         "cron-branch-stale")
+        self.assertIn("HOME", by_state["unavailable"].note)
+
+    def test_matching_cron_home_still_classified(self):
+        # HOME=<tmp> lines make $HOME/devin resolve onto the tmp devin
+        # root — same classification as the absolute spelling.
+        rows, _ = self._collect(
+            ["HOME={HOME}",
+             "0 9 * * * python3 $HOME/devin/repo-h/x.py"],
+            {"repo-h": {"branch": "dev"}})
+        self.assertEqual(len(rows), 1)
+        self.assertEqual((rows[0].product, rows[0].state),
+                         ("repo-h", "warn"))
+
+    def test_partial_git_failure_surfaces_unavailable(self):
+        # ANALYSIS_0001: one checkout classifies, another cannot — the
+        # undetermined count must still appear as an unavailable row.
+        rows, _ = self._collect(
+            ["0 9 * * * python3 {DEVIN}/repo-ok/x.py",
+             "0 10 * * * python3 {DEVIN}/repo-broken/x.py"],
+            {"repo-ok": {"branch": "main"},
+             "repo-broken": {"broken": True}})
+        self.assertEqual(len(rows), 2)
+        states = {(r.product, r.state) for r in rows}
+        self.assertIn(("repo-ok", "ok"), states)
+        self.assertIn(("cron-branch-stale", "unavailable"), states)
+        unavail = next(r for r in rows if r.state == "unavailable")
+        self.assertIn("could not be classified", unavail.note)

@@ -1001,26 +1001,35 @@ def collect_ci_config(repos: dict[str, str], timeout: int) -> list[Row]:
 # Scope: the local user crontab of whatever host runs the sync (the laptop
 # in practice — VM crontabs are a different fleet). A cron line "uses repo
 # code" when it references a path under <home>/devin/ ending in a script
-# extension (.py/.sh/.mjs/.js) or cds into a directory under it. Lines
-# wrapping the known self-updating entrypoints are exempt: pas-cron.sh,
-# remediate-runner-cron.sh and anything already inside worktrees/pas-main
-# either pull main themselves or are not repo code (~/.local/bin helpers
-# never match the ~/devin/ scope). For each repo a path resolves to
-# (git rev-parse --show-toplevel), the checked-out branch must be `main`;
-# detached HEAD is tolerated only when it sits exactly on a tag.
+# extension (.py/.sh/.mjs/.js) or cds into a directory under it. Exemption
+# is per command SEGMENT (split on &&, ||, ;) and only covers paths under
+# <devin>/worktrees/ inside an exempt segment: the wrappers (pas-cron.sh,
+# repo-cron.sh, remediate-runner-cron.sh) pull --ff-only inside their
+# canonical worktree then exec their args, so an absolute devin path to
+# any OTHER checkout in the same command is NOT protected and is still
+# checked. ~/.local/bin helpers never match the ~/devin/ scope at all.
+# ``$HOME``/``~`` spellings expand against the crontab's own ``HOME=`` env
+# lines when present; an expansion landing outside the configured devin
+# root is reported unavailable, never silently ok. For each repo a path
+# resolves to (git rev-parse --show-toplevel), the checked-out branch
+# must be `main`; detached HEAD is tolerated only when it sits exactly on
+# a tag.
 #
 # Findings are WARN rows — visible in the report and STATE.md but
 # deliberately outside DRIFT_STATES: a stale cron checkout is hygiene debt
 # the Owner re-points by hand, not a defect the --remediate agent should
-# patch unattended. Undeterminable checkouts (not a git repo, git failure)
-# are skipped — the sensor only flags what it can prove.
+# patch unattended. Undeterminable checkouts (not a git repo, git failure,
+# foreign cron HOME) surface as an ``unavailable`` summary row — the
+# sensor only flags what it can prove, and never hides what it cannot.
 
 _CRON_SCRIPT_EXTS = (".py", ".sh", ".mjs", ".js")
 _CRON_EXEMPT_RE = re.compile(
     r"(?<![\w.-])(?:pas-cron\.sh|repo-cron\.sh|remediate-runner-cron\.sh"
     r"|worktrees/pas-main)(?![\w.-])")
 _CRON_ENV_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+_CRON_HOME_RE = re.compile(r"""^HOME=(?:"([^"]+)"|'([^']+)'|(\S+))""")
 _CRON_SHELL_COMMENT_RE = re.compile(r"\s+#")
+_CRON_SEGMENT_RE = re.compile(r"&&|\|\||;")
 # Path characters inside a crontab command: everything except whitespace,
 # quotes and shell metacharacters (incl. glob chars, which would only
 # produce paths that fail to resolve anyway).
@@ -1042,32 +1051,64 @@ def _cron_cd_re(devin: Path) -> re.Pattern:
     return re.compile(rf"\bcd\s+[\"']?({root}/{_CRON_PATH_CHARS})")
 
 
-def _normalize_cron_path(raw: str, devin: Path) -> Path:
-    """``$HOME``/``~`` spellings -> absolute path under the devin root."""
+def _normalize_cron_path(raw: str, devin: Path,
+                         home: Path) -> Path | None:
+    """``$HOME``/``~`` spellings -> absolute path, ``None`` when foreign.
+
+    ``$HOME`` and ``~`` expand against the crontab's effective HOME (env
+    ``HOME=`` lines override it), not necessarily the sync process's.
+    When that expansion lands outside the configured devin root the path
+    belongs to another account's tree — out of scope, reported as foreign
+    rather than classified against the wrong home.
+    """
     prefix = str(devin)
     if raw == prefix or raw.startswith(prefix + "/"):
         return Path(raw)
     marker = f"/{devin.name}/"
     if marker in raw:
-        return devin / raw.split(marker, 1)[1]
+        resolved = home / devin.name / raw.split(marker, 1)[1]
+        try:
+            resolved_r, devin_r = resolved.resolve(), devin.resolve()
+        except OSError:
+            resolved_r, devin_r = resolved, devin
+        if resolved_r != devin_r and devin_r not in resolved_r.parents:
+            return None
+        return resolved
     return Path(raw)
 
 
-def _cron_repo_candidates(line: str, devin: Path) -> list[Path]:
-    """Devin-root paths a cron command may execute, deduped in order.
+def _cron_repo_candidates(line: str, devin: Path,
+                          home: Path | None = None
+                          ) -> tuple[list[Path], int]:
+    """Devin-root paths a cron command may execute, plus foreign count.
 
-    Script files (.py/.sh/.mjs/.js) qualify anywhere on the line; a
-    ``cd <dir>`` target qualifies without an extension — both resolve to
-    a repo root downstream.
+    Returns ``(paths, foreign)``: ``paths`` are absolute candidates under
+    the devin root, deduped in order; ``foreign`` counts ``$HOME``/``~``
+    spellings whose expansion lands outside it (a crontab ``HOME=``
+    override pointing at another account's tree). Script files
+    (.py/.sh/.mjs/.js) qualify anywhere on the line; a ``cd <dir>`` target
+    qualifies without an extension — both resolve to a repo root
+    downstream. ``home`` defaults to the devin root's parent, the home
+    the ``devin`` dir conventionally lives under.
     """
-    out: list[Path] = []
+    home = devin.parent if home is None else home
+    paths: list[Path] = []
+    foreign = 0
     for match in _cron_path_token_re(devin).finditer(line):
         raw = match.group(0)
         if raw.lower().endswith(_CRON_SCRIPT_EXTS):
-            out.append(_normalize_cron_path(raw, devin))
+            norm = _normalize_cron_path(raw, devin, home)
+            if norm is None:
+                foreign += 1
+            else:
+                paths.append(norm)
     for match in _cron_cd_re(devin).finditer(line):
-        out.append(_normalize_cron_path(match.group(1), devin))
-    return list(dict.fromkeys(out))
+        norm = _normalize_cron_path(match.group(1), devin, home)
+        if norm is None:
+            foreign += 1
+        else:
+            paths.append(norm)
+    return list(dict.fromkeys(paths)), foreign
 
 
 def _git(repo: Path, *args: str,
@@ -1135,16 +1176,23 @@ def _cron_repo_ref(repo_root: Path, timeout: int) -> str | None:
 
 
 def collect_cron_branch_stale(devin: Path | str | None = None,
+                              home: Path | str | None = None,
                               timeout: int = 5) -> list[Row]:
     """Cron entries running repo code off a non-main checkout -> rows.
 
     See the section comment for scope and exemptions. One row per repo
     checkout the crontab touches: ``warn`` when HEAD is not ``main``
     (detached HEAD only tolerated exactly on a tag), ``ok`` otherwise.
-    ``skip``/``unavailable`` rows cover a missing crontab or git failures.
+    ``skip``/``unavailable`` rows cover a missing crontab, git failures
+    and ``$HOME``/``~`` expansions landing outside the devin root.
+    ``home`` is the home ``$HOME``/``~`` expand against when the crontab
+    sets no ``HOME=`` itself (defaults to the process home; the devin
+    root defaults to ``<home>/devin``).
     """
+    home_path = (Path(home).expanduser() if home is not None
+                 else Path.home())
     devin_path = (Path(devin).expanduser() if devin is not None
-                  else Path.home() / "devin")
+                  else home_path / "devin")
     if shutil.which("crontab") is None:
         return [Row("cron-branch-stale", "cron-branch", "—", "—", "skip",
                     "", "crontab not installed on this host")]
@@ -1156,31 +1204,61 @@ def collect_cron_branch_stale(devin: Path | str | None = None,
                     "unavailable", "",
                     f"crontab -l failed: {type(exc).__name__}")]
     if proc.returncode != 0:
-        # "no crontab for <user>" is rc=1 with empty stdout — an empty
-        # crontab is a clean result, not an error. Any other failure
-        # (permission, spool, rc>=2) stays honestly unavailable.
-        if proc.returncode == 1 and not proc.stdout.strip():
+        # "no crontab for <user>" is the only clean failure — rc=1 with
+        # that diagnostic on stderr (some builds echo it on stdout).
+        # Anything else (permission denied, spool errors, rc>=2, silent
+        # rc=1) stays honestly unavailable rather than a false "empty".
+        blob = f"{proc.stderr or ''}\n{proc.stdout or ''}".lower()
+        if proc.returncode == 1 and "no crontab" in blob:
             return [Row("cron-branch-stale", "cron-branch", "—", "—",
                         "ok", "", "no crontab for this user")]
         return [Row("cron-branch-stale", "cron-branch", "—", "—",
                     "unavailable", "",
                     f"crontab -l rc={proc.returncode}: "
-                    f"{(proc.stderr or '').strip()[:120]}")]
+                    f"{(proc.stderr or proc.stdout or '').strip()[:120]}")]
     hits: dict[Path, dict] = {}
+    foreign = 0
+    current_home = home_path
+    worktrees_root = devin_path / "worktrees"
     for raw_line in proc.stdout.splitlines():
         line = raw_line.strip()
         if not line or line.startswith("#"):
             continue
+        home_match = _CRON_HOME_RE.match(line)
+        if home_match:
+            # crontab env line: HOME= applies to every command AFTER it.
+            value = next(g for g in home_match.groups() if g is not None)
+            current_home = Path(value).expanduser()
+            continue
         if _CRON_ENV_RE.match(line):
-            continue  # NAME=value environment line, not a command
+            continue  # other NAME=value environment line, not a command
         line = _CRON_SHELL_COMMENT_RE.split(line, maxsplit=1)[0].strip()
-        if not line or _CRON_EXEMPT_RE.search(line):
+        if not line:
             continue
         per_line: dict[Path, list[Path]] = {}
-        for cand in _cron_repo_candidates(line, devin_path):
-            root = _cron_repo_root(cand, devin_path, timeout)
-            if root is not None:
-                per_line.setdefault(root, []).append(cand)
+        for segment in _CRON_SEGMENT_RE.split(line):
+            segment = segment.strip()
+            if not segment:
+                continue
+            # Exemption is per command segment, not per line — a wrapper
+            # token must not launder a stale repo script earlier in the
+            # same cron entry (`stale.py && pas-cron.sh`). And even inside
+            # an exempt segment only worktrees/* paths are covered: the
+            # wrappers pull --ff-only inside worktrees/<repo> then exec
+            # their args, so an absolute devin path to another checkout
+            # in the same command still runs that checkout's code.
+            segment_exempt = bool(_CRON_EXEMPT_RE.search(segment))
+            paths, seg_foreign = _cron_repo_candidates(
+                segment, devin_path, current_home)
+            foreign += seg_foreign
+            for cand in paths:
+                if segment_exempt and (
+                        cand == worktrees_root
+                        or worktrees_root in cand.parents):
+                    continue
+                root = _cron_repo_root(cand, devin_path, timeout)
+                if root is not None:
+                    per_line.setdefault(root, []).append(cand)
         for root, cands in per_line.items():
             slot = hits.setdefault(root, {"paths": set(), "entries": 0})
             slot["paths"].update(cands)
@@ -1202,15 +1280,20 @@ def collect_cron_branch_stale(devin: Path | str | None = None,
         state = "ok" if ref == "main" or ref.startswith("tag:") else "warn"
         rows.append(Row(root.name or str(root), "cron-branch", local,
                         "main", state, "", note))
-    if not hits:
+    notes: list[str] = []
+    if undetermined:
+        notes.append(f"{undetermined} repo checkout(s) could not be "
+                     "classified")
+    if foreign:
+        notes.append(f"{foreign} path(s) under a cron HOME outside the "
+                     "sync home")
+    if notes:
+        rows.append(Row("cron-branch-stale", "cron-branch", "—", "—",
+                        "unavailable", "", "; ".join(notes)))
+    if not hits and not foreign:
         rows.append(Row("cron-branch-stale", "cron-branch", "—", "—",
                         "ok", "", "no repo-script cron entries under "
                                   "~/devin"))
-    elif not rows:
-        rows.append(Row("cron-branch-stale", "cron-branch", "—", "—",
-                        "unavailable", "",
-                        f"{undetermined} repo checkout(s) could not be "
-                        "classified"))
     return rows
 
 
