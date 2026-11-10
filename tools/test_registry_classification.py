@@ -275,7 +275,8 @@ def test_mode_matches_documented_mutating_commands():
     mixed = {e["name"] for e in PUBLIC_ENTRIES if e["mode"] == "mixed"}
     # explicit, guarded mutations: --apply / --yes / restore / redact / swap / promote / install / control endpoints
     assert mixed == {"devin-powerups", "devin-devkit", "devin-state", "devin-backup", "devin-janitor", "devin-switch",
-                     "devin-skill-catalog", "devin-brain", "devin-control", "devin-office", "qwenpaw-suite"}
+                     "devin-skill-catalog", "devin-brain", "devin-control", "devin-office", "qwenpaw-suite",
+                     "devin-judge"}
     assert not [e for e in PUBLIC_ENTRIES if e["mode"] == "write"]
 
 
