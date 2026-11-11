@@ -35,11 +35,19 @@ or whose recent events are failures — is reported as ``drift`` in the
 ``silence-alert`` issues plus a Slack notify (``--no-silence-alerts``
 disables those side effects).
 
+A runtime section (``--runtime``) reads the PAS ``runtime-registry.json``
+(declarative inventory of every scheduled/daemon component on laptop,
+vm-qwenpaw and github-actions) and checks per component: heartbeat
+activity per ``heartbeat.source`` (heartbeats.jsonl / pm2 / cron-log /
+gh-run / systemd / none), host drift, and deploy freshness for git-managed
+deploys. Findings are ``warn`` rows — ops signal, outside DRIFT_STATES.
+
 Usage:
     python tools/ecosystem_sync.py [--registry registry.json]
                                    [--ecosystem-root ~/devin/devin-ecosystem]
                                    [--timeout 10] [--offline] [--json]
                                    [--issue] [--no-silence-alerts]
+                                   [--runtime] [--runtime-registry PATH]
 
 Without --issue the report is printed and the exit code is 1 when any drift
 is found (0 otherwise). With --issue, one GitHub Issue labeled ``drift`` is
@@ -55,6 +63,7 @@ import json
 import os
 import re
 import shutil
+import shlex
 import sqlite3
 import subprocess
 import sys
@@ -2424,6 +2433,1169 @@ def enqueue_remediations(rows: list["Row"], roots: list[Path],
     return messages
 
 
+# ---------------------------------------------------------------------------
+# Runtime registry drift (--runtime)
+#
+# ``runtime-registry.json`` (PAS repo, read from ``origin/main`` — never the
+# shared working tree, which can sit on a feature branch) is the declarative
+# inventory of everything that must be running: ~83 components across
+# ``laptop``, ``vm-qwenpaw`` and ``github-actions``, each carrying
+# ``host``/``deploy``/``deploy_path``/``staleness_policy`` and a
+# ``heartbeat {source, key, max_age}``. For every component this sweep
+# verifies:
+#
+#   heartbeat  ``heartbeats.jsonl`` — last ``success`` for ``key`` (the
+#              ledger's ``tool`` field) in the host's ledger vs ``max_age``;
+#              laptop ledger read locally, VM ledger gathered inside one
+#              batched ssh probe. A key found ONLY on the other host's
+#              ledger is host drift -> warn.
+#              ``pm2`` — process exists in ``pm2 jlist``; ``cron_restart``
+#              jobs legitimately sit ``stopped`` between ticks (registry
+#              conventions), so freshness is ``pm_uptime`` (last scheduled
+#              start) vs ``max_age``; plain daemons must be ``online``.
+#              ``cron-log`` — newest evidence wins: a cron-daemon journal
+#              ``CMD`` line containing ``key`` (``journalctl -u cron`` on
+#              the laptop; the VM has no journald, so VM evidence is the
+#              per-job log files only) or a dedicated log file's mtime /
+#              key match under ``~/logs`` or beside ``deploy_path``.
+#              ``gh-run`` — newest Actions run whose workflow path/name
+#              matches ``key``. ``github-actions`` deploys check their own
+#              repo; ``github-reusable`` heartbeats live in CALLER repos,
+#              so every local checkout carrying a matching
+#              ``.github/workflows/*<key>*`` file is scanned too.
+#              ``systemd`` — ``is-active``; timer-driven oneshots fall back
+#              to the ``.timer``'s ``LastTriggerUSec`` vs ``max_age``
+#              (``inactive`` between runs is normal, ``failed`` warns).
+#              ``none`` — skip.
+#   deploy     ``deploy`` in {git-pull-ff-only, pas-vm-cron, vm-cron,
+#              working-tree} and ``deploy_path`` inside a git repo ->
+#              ``HEAD`` vs ``origin/main`` (behind/ahead via
+#              ``rev-list --count --left-right``). Divergence warns per
+#              ``staleness_policy``: ``abort-if-stale``/``alert-if-stale``
+#              -> warn, ``accepted`` -> ok-with-note, ``none`` -> skip.
+#              VM deploy paths are checked inside the same ssh probe.
+#
+# Findings are WARN rows — visible in the report and STATE.md but outside
+# DRIFT_STATES: runtime drift is ops signal for the Owner, not a repo
+# defect for --remediate to patch. An unreachable probe (VM down, gh api
+# failure) warns per component, never crashes — fail-open. Only a
+# malformed runtime-registry fails the run (rc 2). Designed to run on the
+# laptop; on the VM the vm-qwenpaw probes run locally instead of ssh.
+
+RUNTIME_GIT_DEPLOYS = {"git-pull-ff-only", "pas-vm-cron", "vm-cron",
+                       "working-tree"}
+RUNTIME_VM_HOST = "vm-qwenpaw"
+RUNTIME_VM_SSH = "devin-vm"
+DEFAULT_PAS_DIR = Path.home() / "devin" / "personal-agent-system"
+_LOGICAL_HOSTS = {"laptop", "vm-qwenpaw", "github-actions"}
+
+# Remote probe: gathers every VM-side signal in ONE ssh round-trip so a
+# dead VM costs a single timeout, not 24. Reads the whole heartbeat ledger
+# (small), ``pm2 jlist``, stat+tail-greps the requested cron log candidates,
+# resolves each git deploy dir to HEAD/branch/upstream/behind/ahead, and
+# greps the cron journal for the requested keys. Prints one JSON doc.
+_VM_PROBE_SCRIPT = r'''
+import json, os, subprocess, sys
+req = json.loads(sys.argv[1]) if len(sys.argv) > 1 else {}
+res = {"hostname": "", "heartbeats": {}, "pm2": {}, "cron_files": {},
+       "git": {}, "cron_journal": {}}
+try:
+    res["hostname"] = os.uname().nodename
+except Exception:
+    pass
+hb = {}
+try:
+    with open("/root/.local/state/devin/heartbeats.jsonl",
+              encoding="utf-8", errors="replace") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                e = json.loads(line)
+            except Exception:
+                continue
+            if not isinstance(e, dict):
+                continue
+            tool = e.get("tool")
+            if not isinstance(tool, str) or not tool.strip():
+                continue
+            try:
+                ts = float(e.get("ts"))
+            except Exception:
+                continue
+            slot = hb.setdefault(tool.strip(), {
+                "last_success_at": None, "last_failure_at": None,
+                "last_host": None})
+            event = str(e.get("event") or "").strip().lower()
+            if event == "success" and (slot["last_success_at"] is None
+                                       or ts > slot["last_success_at"]):
+                slot["last_success_at"] = ts
+            elif event == "failure" and (slot["last_failure_at"] is None
+                                         or ts > slot["last_failure_at"]):
+                slot["last_failure_at"] = ts
+            host = e.get("host") or e.get("hostname") or e.get("source_host")
+            if host and slot["last_host"] is None:
+                slot["last_host"] = str(host)[:80]
+except OSError:
+    pass
+res["heartbeats"] = hb
+try:
+    proc = subprocess.run(["pm2", "jlist"], capture_output=True, text=True,
+                          timeout=30)
+    if proc.returncode == 0:
+        procs = json.loads(proc.stdout)
+        pm = {}
+        for item in procs if isinstance(procs, list) else []:
+            if not isinstance(item, dict) or not item.get("name"):
+                continue
+            env = item.get("pm2_env") or {}
+            pm[str(item["name"])] = {
+                "status": env.get("status"),
+                "pm_uptime": env.get("pm_uptime"),
+                "cron_restart": env.get("cron_restart"),
+                "hostname": env.get("hostname"),
+            }
+        res["pm2"] = pm
+except Exception:
+    pass
+for item in req.get("cron_files") or []:
+    if not isinstance(item, (list, tuple)) or len(item) != 2:
+        continue
+    path, key = str(item[0]), str(item[1])
+    try:
+        st = os.stat(path)
+        ent = {"mtime": float(st.st_mtime), "size": int(st.st_size),
+               "key_found": None}
+        try:
+            with open(path, "rb") as fh:
+                fh.seek(0, 2)
+                size = fh.tell()
+                fh.seek(max(0, size - 131072))
+                tail = fh.read().decode("utf-8", "replace")
+            ent["key_found"] = key in tail
+        except OSError:
+            pass
+        res["cron_files"][path] = ent
+    except OSError:
+        res["cron_files"][path] = None
+def _git(dirpath, *args):
+    try:
+        p = subprocess.run(["git", "-C", dirpath, *args],
+                           capture_output=True, text=True, timeout=15)
+        return p.stdout.strip() if p.returncode == 0 else None
+    except Exception:
+        return None
+for d in req.get("git_dirs") or []:
+    try:
+        top = _git(d, "rev-parse", "--show-toplevel")
+        if not top:
+            continue
+        head = _git(top, "rev-parse", "HEAD")
+        branch = _git(top, "rev-parse", "--abbrev-ref", "HEAD")
+        up = (_git(top, "rev-parse", "--verify", "origin/main")
+              or _git(top, "rev-parse", "--verify", "origin/HEAD"))
+        behind = ahead = None
+        if head and up:
+            counts = _git(top, "rev-list", "--count", "--left-right",
+                          head + "..." + up)
+            if counts:
+                parts = counts.split()
+                if len(parts) == 2 and all(x.isdigit() for x in parts):
+                    ahead, behind = int(parts[0]), int(parts[1])
+        res["git"][d] = {"toplevel": top, "head": head, "branch": branch,
+                         "upstream": up, "ahead": ahead, "behind": behind}
+    except Exception:
+        continue
+try:
+    proc = subprocess.run(
+        ["journalctl", "-u", "cron", "--since",
+         str(req.get("cron_since") or "45 days ago"),
+         "--no-pager", "-o", "short-iso", "-q"],
+        capture_output=True, text=True, timeout=40)
+    lines = proc.stdout.splitlines() if proc.returncode == 0 else []
+except Exception:
+    lines = []
+hits = {}
+for key in req.get("cron_keys") or []:
+    newest = None
+    for line in lines:
+        if "CMD" not in line or key not in line:
+            continue
+        ts = line[:32]
+        if newest is None or ts > newest:
+            newest = ts
+    hits[key] = newest
+res["cron_journal"] = hits
+print(json.dumps(res))
+'''
+
+
+def _parse_max_age(value: object) -> float | None:
+    """``max_age`` strings (``30min``, ``1h``, ``7d``) -> seconds, else None."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value) if value > 0 else None
+    match = re.match(
+        r"^\s*(\d+(?:\.\d+)?)\s*"
+        r"(min|mins|m|h|hr|hrs|d|day|days|w|week|s|sec|secs)?\s*$",
+        str(value or "").lower())
+    if not match:
+        return None
+    units = {"s": 1, "sec": 1, "secs": 1, "m": 60, "min": 60, "mins": 60,
+             "h": 3600, "hr": 3600, "hrs": 3600, "d": 86400, "day": 86400,
+             "days": 86400, "w": 604800, "week": 604800}
+    mult = units.get(match.group(2) or "s")
+    return float(match.group(1)) * mult if mult else None
+
+
+def _runtime_registry_text(explicit: str | None, pas_dir: str | None,
+                           timeout: int) -> str:
+    """Raw runtime-registry.json text.
+
+    Resolution order: explicit path (``--runtime-registry`` /
+    ``$RUNTIME_REGISTRY``) -> ``git show origin/main:`` inside the PAS
+    checkout (fresh published truth, best-effort fetch first) -> the
+    working-tree file as fallback."""
+    if explicit:
+        return Path(explicit).expanduser().read_text(encoding="utf-8")
+    pas = (Path(pas_dir).expanduser() if pas_dir
+           else Path(os.environ.get("PAS_DIR") or DEFAULT_PAS_DIR
+                     ).expanduser())
+    env = dict(os.environ, GIT_TERMINAL_PROMPT="0",
+               GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=8")
+    try:  # refresh origin/main when possible; the ref alone is acceptable
+        subprocess.run(
+            ["git", "-C", str(pas), "fetch", "--quiet", "origin", "main"],
+            capture_output=True, timeout=min(timeout + 5, 20), env=env)
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(pas), "show",
+             "origin/main:runtime-registry.json"],
+            capture_output=True, text=True, timeout=timeout + 5, env=env)
+        if proc.returncode == 0 and proc.stdout.strip():
+            return proc.stdout
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    return (pas / "runtime-registry.json").read_text(encoding="utf-8")
+
+
+def load_runtime_registry(path: str | None = None,
+                          pas_dir: str | None = None,
+                          timeout: int = DEFAULT_TIMEOUT) -> dict:
+    """runtime-registry.json -> validated dict.
+
+    ``path`` short-circuits resolution (arg or ``$RUNTIME_REGISTRY``);
+    otherwise the PAS checkout (``pas_dir`` arg, ``$PAS_DIR`` or
+    ``~/devin/personal-agent-system``) is read via ``git show
+    origin/main:`` with a working-tree fallback. Raises
+    ``ValueError``/``OSError`` on malformed input — the caller maps that
+    to rc 2 (the only FAIL this sweep produces)."""
+    raw = _runtime_registry_text(
+        path or os.environ.get("RUNTIME_REGISTRY"), pas_dir, timeout)
+    try:
+        data = json.loads(raw)
+    except ValueError as exc:
+        raise ValueError(f"runtime-registry.json: invalid JSON: {exc}")
+    if not isinstance(data, dict):
+        raise ValueError("runtime-registry.json: top level must be an object")
+    comps = data.get("components")
+    if not isinstance(comps, list) or not comps:
+        raise ValueError("runtime-registry.json: 'components' must be a "
+                         "non-empty list")
+    seen: set[str] = set()
+    for i, comp in enumerate(comps):
+        if not isinstance(comp, dict):
+            raise ValueError(f"runtime-registry.json: components[{i}] "
+                             "must be an object")
+        name = comp.get("name")
+        host = comp.get("host")
+        hb = comp.get("heartbeat")
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError(f"components[{i}]: 'name' must be a "
+                             "non-empty string")
+        if not isinstance(host, str) or not host.strip():
+            raise ValueError(f"components[{i}] ({name}): 'host' must be a "
+                             "non-empty string")
+        if name in seen:
+            raise ValueError(f"components[{i}]: duplicate name {name!r}")
+        seen.add(name)
+        if (not isinstance(hb, dict)
+                or not isinstance(hb.get("source"), str)
+                or not hb["source"].strip()):
+            raise ValueError(f"components[{i}] ({name}): "
+                             "heartbeat.source must be a non-empty string")
+        for field_name in ("deploy", "staleness_policy", "deploy_path"):
+            if not isinstance(comp.get(field_name), str):
+                raise ValueError(f"components[{i}] ({name}): "
+                                 f"'{field_name}' must be a string")
+    return data
+
+
+def _runtime_probe_run(request: dict, timeout: int) -> dict | None:
+    """Run ``_VM_PROBE_SCRIPT`` — over ssh to ``devin-vm``, or locally when
+    the sync itself runs on the VM (``_this_host() == 'vm'``). ``None`` on
+    any transport/parse failure — callers mark components warn, never
+    crash."""
+    payload = json.dumps(request)
+    if _this_host() == "vm":
+        cmd = ["python3", "-c", _VM_PROBE_SCRIPT, payload]
+    else:
+        # ssh joins trailing args with spaces and the REMOTE shell
+        # re-parses them — a bare list would shatter the -c script and
+        # the JSON payload. Quote each arg for the remote shell and
+        # hand ssh one command string.
+        remote = " ".join(shlex.quote(a) for a in
+                          ["python3", "-c", _VM_PROBE_SCRIPT, payload])
+        cmd = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=8",
+               RUNTIME_VM_SSH, remote]
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True,
+                              timeout=timeout + 45)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if proc.returncode != 0:
+        return None
+    for line in reversed(proc.stdout.splitlines()):
+        line = line.strip()
+        if line.startswith("{"):
+            try:
+                data = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(data, dict):
+                return data
+    return None
+
+
+def _hb_key(comp: dict) -> str:
+    """Heartbeat lookup key: ``heartbeat.key`` else the component name."""
+    hb = comp.get("heartbeat") or {}
+    key = hb.get("key")
+    return str(key).strip() if key else str(comp.get("name") or "")
+
+
+def _hb_max_age(comp: dict) -> tuple[float | None, str]:
+    """(max_age seconds, display) — display ``<=Xh`` via _fmt_threshold."""
+    max_age = _parse_max_age((comp.get("heartbeat") or {}).get("max_age"))
+    remote = (_fmt_threshold(max_age / 3600.0)
+              if max_age else "—")
+    return max_age, remote
+
+
+def _cron_log_candidates(comp: dict, key: str,
+                         home: Path) -> list[Path]:
+    """Per-job cron log guesses: ``<home>/logs/<key>.log`` plus
+    ``<deploy_dir>/logs/<key>.log`` and ``<deploy_dir>/<key>.log`` —
+    covers ~/logs (laptop), /root/logs (VM) and bridge-style dirs."""
+    cands = [home / "logs" / f"{key}.log"]
+    deploy_path = comp.get("deploy_path") or ""
+    if deploy_path:
+        deploy_dir = Path(deploy_path).expanduser().parent
+        cands += [deploy_dir / "logs" / f"{key}.log",
+                  deploy_dir / f"{key}.log"]
+    out: list[Path] = []
+    for cand in cands:
+        if cand not in out:
+            out.append(cand)
+    return out
+
+
+def _cron_file_entry(path: Path, key: str) -> dict | None:
+    """Local cron-log candidate -> {mtime, size, key_found} or None."""
+    try:
+        st = path.stat()
+    except OSError:
+        return None
+    ent = {"mtime": float(st.st_mtime), "size": int(st.st_size),
+           "key_found": None}
+    try:
+        with open(path, "rb") as fh:
+            fh.seek(0, 2)
+            size = fh.tell()
+            fh.seek(max(0, size - 131072))
+            tail = fh.read().decode("utf-8", "replace")
+        ent["key_found"] = key in tail
+    except OSError:
+        pass
+    return ent
+
+
+def _cron_journal_hits(keys: list[str], since_iso: str,
+                       timeout: int) -> dict[str, str | None]:
+    """{key: newest cron ``CMD`` ISO ts containing key} from the local
+    cron journal. Empty dict when journalctl is missing or fails —
+    cron-log components then fall back to file evidence alone."""
+    if not keys or shutil.which("journalctl") is None:
+        return {}
+    hits: dict[str, str | None] = {}
+    for unit in ("cron", "crond"):
+        try:
+            proc = subprocess.run(
+                ["journalctl", "-u", unit, "--since", since_iso,
+                 "--no-pager", "-o", "short-iso", "-q"],
+                capture_output=True, text=True, timeout=timeout + 20)
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+        if proc.returncode != 0:
+            continue
+        for line in proc.stdout.splitlines():
+            if "CMD" not in line:
+                continue
+            for key in keys:
+                if key in line:
+                    ts = line[:32]
+                    if hits.get(key) is None or ts > hits[key]:
+                        hits[key] = ts
+        if hits:
+            break
+    return hits
+
+
+def _cron_lookback_iso(comps: list[dict], now: float) -> str:
+    """``--since`` ISO for cron journal greps: ~3x the widest max_age,
+    floored at 2h past it, capped at 45d."""
+    lookbacks = []
+    for comp in comps:
+        max_age = _parse_max_age((comp.get("heartbeat") or {})
+                                 .get("max_age"))
+        if max_age:
+            lookbacks.append(min(max(3 * max_age, max_age + 7200),
+                                 45 * 86400))
+    secs = max(lookbacks) if lookbacks else 3 * 86400
+    return datetime.fromtimestamp(now - secs,
+                                  timezone.utc).isoformat()
+
+
+def _vm_probe_request(comps: list[dict], now: float) -> dict:
+    """Payload for ``_VM_PROBE_SCRIPT``: cron log candidates, git deploy
+    dirs and journal keys for every vm-qwenpaw component."""
+    cron_files: list[list[str]] = []
+    git_dirs: list[str] = []
+    cron_keys: list[str] = []
+    for comp in comps:
+        hb = comp.get("heartbeat") or {}
+        if str(hb.get("source") or "") == "cron-log":
+            key = _hb_key(comp)
+            cron_keys.append(key)
+            for cand in _cron_log_candidates(comp, key, Path("/root")):
+                pair = [str(cand), key]
+                if pair not in cron_files:
+                    cron_files.append(pair)
+        if (comp.get("deploy") in RUNTIME_GIT_DEPLOYS
+                and comp.get("deploy_path")):
+            git_dirs.append(str(comp["deploy_path"]))
+    return {"cron_files": cron_files,
+            "git_dirs": list(dict.fromkeys(git_dirs)),
+            "cron_keys": sorted(set(cron_keys)),
+            "cron_since": _cron_lookback_iso(comps, now)}
+
+
+def _runtime_git_state(path: str, timeout: int,
+                       cache: dict) -> dict | None:
+    """HEAD/branch vs origin/main for the repo containing ``path``.
+
+    No devin-root restriction (unlike ``_cron_repo_root``) — deploy paths
+    may live anywhere (``/root/...`` on the VM, ``~/.local/bin`` is NOT a
+    repo and simply returns None). Cached per toplevel."""
+    cand = Path(path).expanduser()
+    probe = cand if cand.is_dir() else cand.parent
+    while not probe.is_dir() and probe != probe.parent:
+        probe = probe.parent
+    if not probe.is_dir():
+        return None
+    cursor = probe
+    top = None
+    for _ in range(8):
+        proc = _git(cursor, "rev-parse", "--show-toplevel",
+                   timeout=timeout)
+        if proc is not None and proc.returncode == 0 \
+                and proc.stdout.strip():
+            top = proc.stdout.strip()
+            break
+        if cursor == cursor.parent:
+            break
+        cursor = cursor.parent
+    if not top:
+        return None
+    if top in cache:
+        return cache[top]
+    state = {"toplevel": top, "head": None, "branch": None,
+             "upstream": None, "ahead": None, "behind": None}
+    head = _git(top, "rev-parse", "HEAD", timeout=timeout)
+    if head is not None and head.returncode == 0:
+        state["head"] = head.stdout.strip() or None
+    branch = _git(top, "rev-parse", "--abbrev-ref", "HEAD",
+                  timeout=timeout)
+    if branch is not None and branch.returncode == 0:
+        name = branch.stdout.strip()
+        state["branch"] = name if name and name != "HEAD" else None
+    up = _git(top, "rev-parse", "--verify", "origin/main",
+              timeout=timeout)
+    if up is None or up.returncode != 0:
+        up = _git(top, "rev-parse", "--verify", "origin/HEAD",
+                  timeout=timeout)
+    if up is not None and up.returncode == 0:
+        state["upstream"] = up.stdout.strip() or None
+    if state["head"] and state["upstream"]:
+        counts = _git(top, "rev-list", "--count", "--left-right",
+                      f"{state['head']}...{state['upstream']}",
+                      timeout=timeout)
+        if counts is not None and counts.returncode == 0:
+            parts = counts.stdout.split()
+            if len(parts) == 2 and all(x.isdigit() for x in parts):
+                # --left-right: left = HEAD-only (ahead), right =
+                # upstream-only (behind)
+                state["ahead"], state["behind"] = (int(parts[0]),
+                                                 int(parts[1]))
+    cache[top] = state
+    return state
+
+
+def _deploy_state_row(g: dict, policy: str) -> tuple[str, str]:
+    """Git state dict -> (level, summary) per staleness_policy."""
+    branch = g.get("branch") or (g.get("head") or "?")[:7]
+    behind, ahead = g.get("behind"), g.get("ahead")
+    if behind is None or ahead is None:
+        return ("warn", f"{branch}: HEAD vs origin/main undetermined")
+    if behind == 0 and ahead == 0:
+        return ("ok", f"{branch} == origin/main")
+    div = ", ".join(p for p in (
+        f"{behind} behind" if behind else "",
+        f"{ahead} ahead" if ahead else "") if p)
+    if policy == "accepted":
+        return ("ok", f"{branch}: {div} origin/main "
+                      "(staleness accepted)")
+    return ("warn", f"{branch}: {div} origin/main ({policy})")
+
+
+def _runtime_deploy_eval(comp: dict, host: str,
+                         ctx: dict) -> tuple[str, str]:
+    """Deploy-freshness check -> (level, summary); ``skip``+"" when the
+    deploy type is not git-managed or has no staleness concept."""
+    deploy = comp.get("deploy") or ""
+    policy = comp.get("staleness_policy") or ""
+    if deploy not in RUNTIME_GIT_DEPLOYS:
+        return ("skip", "")
+    if policy == "none":
+        return ("skip", "staleness_policy=none")
+    path = comp.get("deploy_path") or ""
+    if not path:
+        return ("skip", "no deploy_path")
+    if host == RUNTIME_VM_HOST:
+        if ctx["vm"] is None:
+            if ctx["offline"]:
+                return ("skip", "offline")
+            return ("warn", "vm unreachable — deploy state unknown")
+        g = (ctx["vm"].get("git") or {}).get(path)
+        if g is None:
+            return ("skip", "deploy_path not inside a git repo on VM")
+        return _deploy_state_row(g, policy)
+    if host == "github-actions":
+        return ("skip", "github-hosted deploy")
+    state = _runtime_git_state(path, ctx["timeout"], ctx["git_cache"])
+    if state is None:
+        return ("skip", "deploy_path not inside a git repo")
+    return _deploy_state_row(state, policy)
+
+
+def _hb_jsonl_eval(comp: dict, host: str, key: str, max_age: float | None,
+                   remote: str, ctx: dict, now: float) -> tuple[str, str, str]:
+    """heartbeats.jsonl check -> (level, local, note)."""
+    if host == RUNTIME_VM_HOST:
+        vm_hb = (ctx["vm"] or {}).get("heartbeats") or {}
+        entry = vm_hb.get(key)
+        foreign = ctx["laptop_hb"].get(key)
+        foreign_host = "laptop"
+    elif host == "laptop":
+        entry = ctx["laptop_hb"].get(key)
+        vm_hb = (ctx["vm"] or {}).get("heartbeats") or {}
+        foreign = vm_hb.get(key)
+        foreign_host = RUNTIME_VM_HOST
+    else:
+        entry = foreign = None
+        foreign_host = host
+    if host == RUNTIME_VM_HOST and ctx["vm"] is None:
+        if ctx["offline"]:
+            return ("skip", "—", "offline")
+        return ("warn", "—", "vm unreachable — heartbeat ledger unknown")
+    if entry is None:
+        if foreign is not None:
+            return ("warn", "never",
+                    f"'{key}' only on {foreign_host} ledger — host drift")
+        return ("warn", "never", f"no '{key}' heartbeat entries")
+    last_ok = entry.get("last_success_at")
+    last_fail = entry.get("last_failure_at")
+    detail = str(entry.get("last_detail") or "")
+    ehost = entry.get("last_host")
+    notes: list[str] = []
+    level = "ok"
+    if last_ok is None:
+        level = "warn"
+        local = "never"
+        if last_fail is not None:
+            notes.append(f"only failure events (last "
+                         f"{_fmt_age(now - last_fail)} ago)")
+        else:
+            notes.append("entries without usable timestamps")
+    else:
+        age = max(0.0, now - last_ok)
+        local = _fmt_age(age)
+        if max_age and age > max_age:
+            level = "warn"
+            notes.append(f"stale: last success {local} ago > {remote}")
+        else:
+            notes.append(f"last success {local} ago")
+        if last_fail is not None and last_fail > last_ok:
+            level = "warn"
+            notes.append(f"err streak: last failure "
+                         f"{_fmt_age(now - last_fail)} ago")
+    if isinstance(ehost, str) and ehost in _LOGICAL_HOSTS \
+            and ehost != host:
+        level = "warn"
+        notes.append(f"ledger host={ehost} != component host={host}")
+    if detail:
+        notes.append(detail[:80])
+    return (level, local, "; ".join(notes)[:180])
+
+
+def _local_pm2(timeout: int) -> dict | None:
+    """Local ``pm2 jlist`` -> {name: {status, pm_uptime, cron_restart}},
+    same shape as the VM probe's ``pm2`` block. None on failure."""
+    if shutil.which("pm2") is None:
+        return None
+    try:
+        proc = subprocess.run(["pm2", "jlist"], capture_output=True,
+                              text=True, timeout=timeout + 15)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if proc.returncode != 0:
+        return None
+    try:
+        procs = json.loads(proc.stdout)
+    except ValueError:
+        return None
+    out = {}
+    for item in procs if isinstance(procs, list) else []:
+        if not isinstance(item, dict) or not item.get("name"):
+            continue
+        env = item.get("pm2_env") or {}
+        out[str(item["name"])] = {
+            "status": env.get("status"),
+            "pm_uptime": env.get("pm_uptime"),
+            "cron_restart": env.get("cron_restart"),
+            "hostname": env.get("hostname"),
+        }
+    return out
+
+
+def _pm2_uptime_seconds(proc: dict) -> float | None:
+    """``pm_uptime`` is ms epoch (tolerate s) -> epoch seconds."""
+    up = proc.get("pm_uptime")
+    if not isinstance(up, (int, float)) or isinstance(up, bool):
+        return None
+    return up / 1000.0 if up > 1e12 else float(up)
+
+
+def _hb_pm2_eval(comp: dict, host: str, key: str, max_age: float | None,
+                 remote: str, ctx: dict, now: float) -> tuple[str, str, str]:
+    """pm2 check -> (level, local, note)."""
+    if host == RUNTIME_VM_HOST:
+        if ctx["vm"] is None:
+            if ctx["offline"]:
+                return ("skip", "—", "offline")
+            return ("warn", "—", "vm unreachable — pm2 state unknown")
+        procs = ctx["vm"].get("pm2") or {}
+    else:
+        if ctx["local_pm2"] is None:
+            ctx["local_pm2"] = _local_pm2(ctx["timeout"])
+        if ctx["local_pm2"] is None:
+            return ("warn", "—", "pm2 probe unavailable on this host")
+        procs = ctx["local_pm2"]
+    proc = procs.get(key)
+    if proc is None:
+        return ("warn", "absent", f"'{key}' not in pm2")
+    status = str(proc.get("status") or "unknown")
+    cron = proc.get("cron_restart")
+    up_s = _pm2_uptime_seconds(proc)
+    if cron:
+        # cron_restart jobs sit 'stopped' between ticks by design —
+        # freshness is the last scheduled start (pm_uptime) vs max_age.
+        if up_s and max_age:
+            age = max(0.0, now - up_s)
+            if age > max_age:
+                return ("warn", _fmt_age(age),
+                        f"cron_restart '{cron}' last start "
+                        f"{_fmt_age(age)} ago > {remote} "
+                        f"(status={status})")
+            return ("ok", _fmt_age(age),
+                    f"cron_restart '{cron}' (status={status})")
+        return ("ok", "present",
+                f"cron_restart '{cron}' (status={status})")
+    if status == "online":
+        upnote = (f", up {_fmt_age(now - up_s)}" if up_s else "")
+        return ("ok", "online", f"pm2 online{upnote}")
+    return ("warn", status, f"pm2 status={status}")
+
+
+def _hb_cronlog_eval(comp: dict, host: str, key: str,
+                     max_age: float | None, remote: str, ctx: dict,
+                     now: float) -> tuple[str, str, str]:
+    """cron-log check -> (level, local, note)."""
+    candidates = _cron_log_candidates(
+        comp, key, Path("/root") if host == RUNTIME_VM_HOST
+        else ctx["home"])
+    journal_ts: str | None = None
+    file_entries: list[tuple[Path, dict | None]] = []
+    if host == RUNTIME_VM_HOST:
+        if ctx["vm"] is None:
+            if ctx["offline"]:
+                return ("skip", "—", "offline")
+            return ("warn", "—",
+                    "vm unreachable — cron log state unknown")
+        journal_ts = (ctx["vm"].get("cron_journal") or {}).get(key)
+        vm_files = ctx["vm"].get("cron_files") or {}
+        file_entries = [(c, vm_files.get(str(c))) for c in candidates]
+    elif host == "laptop":
+        journal_ts = (ctx["journal"] or {}).get(key)
+        file_entries = [(c, _cron_file_entry(c, key)) for c in candidates]
+    else:
+        return ("skip", "—", "cron-log n/a on this host")
+    evidence: list[float] = []
+    jepoch = _parse_timestamp(journal_ts) if journal_ts else None
+    if jepoch is not None:
+        evidence.append(jepoch)
+    for path, ent in file_entries:
+        if not ent:
+            continue
+        mtime = ent.get("mtime")
+        if not mtime:
+            continue
+        dedicated = path.name == f"{key}.log" or key in path.name
+        if dedicated or ent.get("key_found"):
+            evidence.append(float(mtime))
+    if not evidence:
+        return ("warn", "never",
+                f"no cron-log evidence for '{key}' "
+                "(journal + log files)")
+    newest = max(evidence)
+    age = max(0.0, now - newest)
+    local = _fmt_age(age)
+    if max_age and age > max_age:
+        return ("warn", local,
+                f"last cron-log activity {local} ago > {remote}")
+    return ("ok", local, f"last cron-log activity {local} ago")
+
+
+def _systemctl_is_active(base: list[str], unit: str,
+                         timeout: int) -> str:
+    """``systemctl [--user] is-active <unit>`` -> state string."""
+    if shutil.which("systemctl") is None:
+        return "n/a"
+    try:
+        proc = subprocess.run(base + ["is-active", unit],
+                              capture_output=True, text=True,
+                              timeout=timeout)
+    except (OSError, subprocess.TimeoutExpired):
+        return "error"
+    return proc.stdout.strip() or "unknown"
+
+
+def _timer_last_trigger(base: list[str], timer: str,
+                        timeout: int) -> float | None:
+    """``LastTriggerUSec`` of a .timer -> epoch seconds.
+
+    systemctl renders it humanized (``Wed 2026-11-11 05:30:01 WET``) in
+    LOCAL time — the datetime part is parsed and interpreted as local."""
+    try:
+        proc = subprocess.run(base + ["show", timer, "-p",
+                                      "LastTriggerUSec"],
+                              capture_output=True, text=True,
+                              timeout=timeout)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if proc.returncode != 0:
+        return None
+    match = re.search(r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})",
+                      proc.stdout)
+    if not match:
+        return None
+    try:
+        dt = datetime.strptime(match.group(1), "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        return None
+    return dt.replace(
+        tzinfo=datetime.now().astimezone().tzinfo).timestamp()
+
+
+def _hb_systemd_eval(comp: dict, host: str, key: str,
+                     max_age: float | None, remote: str, ctx: dict,
+                     now: float) -> tuple[str, str, str]:
+    """systemd check -> (level, local, note)."""
+    if host != "laptop":
+        return ("skip", "—", "systemd check is laptop-local")
+    system = (comp.get("deploy") or "") == "systemd-system"
+    base = ["systemctl"] + ([] if system else ["--user"])
+    state = _systemctl_is_active(base, key, ctx["timeout"])
+    if state == "n/a":
+        return ("warn", "—", "systemctl unavailable")
+    if state == "active":
+        return ("ok", "active", f"systemd {key} active")
+    # Oneshot/timer units sit 'inactive' between runs — the .timer's last
+    # trigger is the real heartbeat.
+    timer = (re.sub(r"\.(service|timer|socket)$", ".timer", key)
+             if key.endswith((".service", ".timer", ".socket"))
+             else key + ".timer")
+    tstate = (_systemctl_is_active(base, timer, ctx["timeout"])
+              if timer != key else "unknown")
+    if tstate == "active":
+        last = _timer_last_trigger(base, timer, ctx["timeout"])
+        if last is not None and max_age:
+            age = max(0.0, now - last)
+            if age <= max_age:
+                if state == "failed":
+                    return ("warn", "failed",
+                            f"timer-driven; last trigger "
+                            f"{_fmt_age(age)} ago but {key} "
+                            "state=failed")
+                return ("ok", "timer",
+                        f"timer-driven; last trigger "
+                        f"{_fmt_age(age)} ago")
+            return ("warn", _fmt_age(age),
+                    f"timer stale: last trigger {_fmt_age(age)} ago "
+                    f"> {remote}")
+        if state == "failed":
+            return ("warn", "failed",
+                    f"{key} state=failed (timer active, "
+                    "trigger unknown)")
+        return ("ok", "timer",
+                "timer-driven unit; last trigger unknown")
+    return ("warn", state,
+            f"systemd {key} state={state or 'unknown'}")
+
+
+def _repo_for_deploy_path(deploy_path: str, roots: list[Path],
+                          owners: dict[str, str]
+                          ) -> tuple[str, str] | None:
+    """(owner, name) of the git repo containing ``deploy_path``.
+
+    Walks the path relative to each root and keeps the DEEPEST dir with a
+    ``.git`` — deploy_path's own repo, not an ancestor container."""
+    try:
+        p = Path(deploy_path).expanduser().resolve()
+    except OSError:
+        return None
+    for root in roots:
+        try:
+            root_r = Path(root).expanduser().resolve()
+            rel = p.relative_to(root_r)
+        except (OSError, ValueError):
+            continue
+        cur = root_r
+        found = None
+        for part in rel.parts:
+            cur = cur / part
+            if (cur / ".git").exists():
+                found = cur
+        if found is not None:
+            return (owners.get(found.name, "Icaro0310"), found.name)
+    return None
+
+
+def _local_workflow_files(repo_name: str, key: str,
+                          roots: list[Path]) -> list[str]:
+    """Workflow file names under any local checkout of ``repo_name``
+    whose stem matches ``key`` — same exact/bounded-suffix rule as
+    ``_wf_key_match``. ``release-qa-pack`` does NOT match key
+    ``release``; ``ai-review-fallback`` DOES match ``review-fallback``."""
+    k = key.lower()
+    found: set[str] = set()
+    for root in roots:
+        wf_dir = Path(root) / repo_name / ".github" / "workflows"
+        try:
+            if not wf_dir.is_dir():
+                continue
+            for f in wf_dir.iterdir():
+                if f.suffix not in (".yml", ".yaml"):
+                    continue
+                stem = f.stem.lower()
+                if stem == k or (len(stem) > len(k)
+                                 and stem.endswith(k)
+                                 and stem[-len(k) - 1] in "-_ "):
+                    found.add(f.name)
+        except OSError:
+            continue
+    return sorted(found)
+
+
+def _fleet_workflow_repos(key: str, roots: list[Path],
+                          owners: dict[str, str],
+                          deploy_repo: tuple[str, str] | None
+                          ) -> list[tuple[str, str]]:
+    """Repos to scan for ``<key>`` runs: the deploy repo plus every known
+    checkout carrying a matching caller workflow — reusable-workflow
+    heartbeats live in callers, not in the reusable's own repo."""
+    repos: dict[str, tuple[str, str]] = {}
+    if deploy_repo is not None:
+        repos[deploy_repo[1]] = deploy_repo
+    for name in sorted(set(owners) | set(EXTRA_REPOS)):
+        if name in repos:
+            continue
+        if _local_workflow_files(name, key, roots):
+            repos[name] = (owners.get(name, "Icaro0310"), name)
+    return sorted(repos.values())
+
+
+def _wf_key_match(run: dict, key: str) -> bool:
+    """Workflow path-stem or display name matches ``key`` — exact, or a
+    ``-``/``_``/space-bounded suffix (``ai-review-fallback`` matches
+    ``review-fallback``, ``registry-refresh`` matches its ``(weekly)``
+    display name via the path stem)."""
+    k = key.lower()
+    stem = Path(str(run.get("path") or "")).stem.lower()
+    name = str(run.get("name") or "").lower()
+    for cand in (stem, name):
+        if not cand:
+            continue
+        if cand == k:
+            return True
+        if len(cand) > len(k) and cand.endswith(k) \
+                and cand[-len(k) - 1] in "-_ ":
+            return True
+    return False
+
+
+def _gh_workflow_file_runs(owner: str, name: str, wf_file: str,
+                           timeout: int,
+                           cache: dict) -> list | None:
+    """Recent runs of ONE workflow file, newest first (cached per
+    repo+file). ``/actions/runs?per_page=100`` is unusable here: PR-bot
+    workflows flood the page and scheduled jobs fall outside it — the
+    per-workflow endpoint is the only precise source. ``[]`` when the
+    workflow does not exist (404) or has no runs; ``None`` on gh
+    failure."""
+    k = (owner, name, wf_file)
+    if k in cache:
+        return cache[k]
+    quoted = urllib.parse.quote(wf_file, safe="")
+    try:
+        data = _gh_api(owner, name,
+                       f"/actions/workflows/{quoted}/runs?per_page=5",
+                       timeout)
+        runs = data.get("workflow_runs") if isinstance(data, dict) \
+            else None
+        cache[k] = runs if isinstance(runs, list) else []
+    except Exception as exc:
+        msg = str(exc)
+        cache[k] = [] if ("404" in msg or "Not Found" in msg) else None
+    return cache[k]
+
+
+def _hb_ghrun_eval(comp: dict, key: str, max_age: float | None,
+                   remote: str, ctx: dict, now: float) -> tuple[str, str, str]:
+    """gh-run check -> (level, local, note).
+
+    Targets are (owner, repo, workflow_file) triples discovered from
+    LOCAL checkouts: ``github-actions`` deploys point at their own
+    workflow file (``deploy_path`` basename); ``github-reusable``
+    heartbeats live in CALLER workflows, so every checkout carrying a
+    ``*<key>*`` file contributes its matching files."""
+    if ctx["offline"]:
+        return ("skip", "—", "offline")
+    deploy = comp.get("deploy") or ""
+    deploy_path = comp.get("deploy_path") or ""
+    deploy_repo = _repo_for_deploy_path(deploy_path, ctx["roots"],
+                                        ctx["owners"])
+    targets: list[tuple[str, str, str]] = []
+    seen: set[tuple[str, str, str]] = set()
+
+    def add(repo: tuple[str, str] | None, wf_file: str | None) -> None:
+        if repo is None or not wf_file:
+            return
+        t = (repo[0], repo[1], wf_file)
+        if t not in seen:
+            seen.add(t)
+            targets.append(t)
+
+    def add_fleet() -> None:
+        for owner, name in _fleet_workflow_repos(
+                key, ctx["roots"], ctx["owners"], deploy_repo):
+            for wf in _local_workflow_files(name, key, ctx["roots"]):
+                add((owner, name), wf)
+
+    if deploy == "github-actions" and deploy_repo is not None:
+        base = Path(deploy_path).name
+        if base.endswith((".yml", ".yaml")):
+            add(deploy_repo, base)
+        if not targets:
+            add_fleet()
+    else:
+        add_fleet()
+    if not targets:
+        return ("warn", "—",
+                f"cannot map '{key}' to any workflow")
+    newest: tuple[float, str, dict] | None = None
+    failures = 0
+    checked = 0
+    for owner, name, wf_file in targets:
+        runs = _gh_workflow_file_runs(owner, name, wf_file,
+                                      ctx["timeout"], ctx["gh_cache"])
+        if runs is None:
+            failures += 1
+            continue
+        checked += 1
+        for run in runs:
+            if not isinstance(run, dict) or not _wf_key_match(run, key):
+                continue
+            ts = _parse_timestamp(run.get("created_at"))
+            if ts is None:
+                continue
+            if newest is None or ts > newest[0]:
+                newest = (ts, f"{owner}/{name}:{wf_file}", run)
+    if newest is None:
+        if checked == 0 and failures:
+            return ("warn", "—",
+                    "gh api unreachable for all candidate repos")
+        return ("warn", "never",
+                f"no '{key}' workflow runs in last 5 runs/workflow")
+    ts, where, run = newest
+    age = max(0.0, now - ts)
+    local = _fmt_age(age)
+    concl = str(run.get("conclusion") or run.get("status") or "")
+    if max_age and age > max_age:
+        return ("warn", local,
+                f"last '{key}' run {local} ago > {remote} "
+                f"({where}{', ' + concl if concl else ''})")
+    return ("ok", local,
+            f"last '{key}' run {local} ago "
+            f"({where}{', ' + concl if concl else ''})")
+
+
+def _runtime_component_row(comp: dict, ctx: dict) -> Row:
+    """One runtime Row per registry component (channel ``runtime``)."""
+    name = str(comp.get("name") or "?")
+    host = str(comp.get("host") or "")
+    hb = comp.get("heartbeat") or {}
+    source = str(hb.get("source") or "").strip()
+    key = _hb_key(comp)
+    max_age, remote = _hb_max_age(comp)
+    now = ctx["now"]
+    findings: list[tuple[str, str]] = []
+    local = "—"
+
+    foreign = host == "laptop" and _this_host() == "vm"
+    if host not in _LOGICAL_HOSTS:
+        findings.append(("warn", f"unrecognized host {host!r}"))
+    elif foreign:
+        # Running on the VM: laptop-side probes (systemctl --user,
+        # local pm2, ~/logs, local git checkouts) would read the WRONG
+        # host — skip the component entirely, one skip row says why.
+        findings.append(("skip", "foreign host — run on laptop"))
+
+    if not foreign:
+        if source in ("", "none"):
+            findings.append(("skip", "heartbeat.source=none"))
+        elif source == "heartbeats.jsonl":
+            lvl, local, note = _hb_jsonl_eval(comp, host, key, max_age,
+                                              remote, ctx, now)
+            findings.append((lvl, f"heartbeat: {note}"))
+        elif source == "pm2":
+            lvl, local, note = _hb_pm2_eval(comp, host, key, max_age,
+                                            remote, ctx, now)
+            findings.append((lvl, f"heartbeat: {note}"))
+        elif source == "cron-log":
+            lvl, local, note = _hb_cronlog_eval(comp, host, key, max_age,
+                                                remote, ctx, now)
+            findings.append((lvl, f"heartbeat: {note}"))
+        elif source == "gh-run":
+            lvl, local, note = _hb_ghrun_eval(comp, key, max_age, remote,
+                                              ctx, now)
+            findings.append((lvl, f"heartbeat: {note}"))
+        elif source == "systemd":
+            lvl, local, note = _hb_systemd_eval(comp, host, key, max_age,
+                                                remote, ctx, now)
+            findings.append((lvl, f"heartbeat: {note}"))
+        else:
+            findings.append(("warn",
+                             f"unknown heartbeat.source {source!r}"))
+
+        lvl, summary = _runtime_deploy_eval(comp, host, ctx)
+        if lvl != "skip" or summary:
+            findings.append((lvl, f"deploy: {summary or 'n/a'}"))
+
+    if any(l == "warn" for l, _ in findings):
+        state = "warn"
+    elif any(l == "ok" for l, _ in findings):
+        state = "ok"
+    else:
+        state = "skip"
+    note = "; ".join(t for _, t in findings if t)[:220]
+    return Row(name, "runtime", local, remote, state, "", note)
+
+
+def collect_runtime(registry: dict, owners: dict[str, str],
+                    roots: list[Path], timeout: int = DEFAULT_TIMEOUT,
+                    now: float | None = None, offline: bool = False,
+                    home: Path | None = None,
+                    vm_probe=None) -> list[Row]:
+    """Runtime-registry drift rows — one per component, channel
+    ``runtime``.
+
+    ``registry`` is the validated dict from ``load_runtime_registry()``;
+    ``owners`` maps repo name -> owner (same shape the other collectors
+    take) for gh-run repo resolution; ``now`` is injectable epoch seconds
+    for tests; ``vm_probe`` is injectable ``(request, timeout) ->
+    dict | None`` replacing the ssh/local probe."""
+    now = time.time() if now is None else now
+    home_path = (Path(home).expanduser() if home is not None
+                 else Path.home())
+    components = [c for c in (registry.get("components") or [])
+                  if isinstance(c, dict)]
+    on_vm = _this_host() == "vm"
+    ctx: dict = {
+        "now": now, "timeout": timeout, "offline": offline,
+        "roots": roots, "owners": owners, "home": home_path,
+        "git_cache": {}, "gh_cache": {}, "journal": {},
+        "laptop_hb": {}, "vm": None, "local_pm2": None,
+    }
+    vm_comps = [c for c in components
+                if c.get("host") == RUNTIME_VM_HOST]
+    # The VM probe also serves host-drift detection for LAPTOP
+    # heartbeats.jsonl components (a key found only on the VM ledger
+    # means the component migrated hosts) — one batched ssh call either
+    # way, so probe whenever either side needs it.
+    needs_vm_probe = bool(vm_comps) or any(
+        c.get("host") == "laptop"
+        and str((c.get("heartbeat") or {}).get("source") or "")
+            == "heartbeats.jsonl"
+        for c in components)
+    if needs_vm_probe and not offline:
+        request = _vm_probe_request(vm_comps, now)
+        probe = vm_probe or _runtime_probe_run
+        ctx["vm"] = probe(request, timeout)
+    laptop_comps = [c for c in components
+                    if c.get("host") == "laptop" and not on_vm]
+    # Load the laptop ledger whenever ANY heartbeats.jsonl component
+    # exists — VM components also consult it for host-drift detection.
+    if not on_vm and any(
+            str((c.get("heartbeat") or {}).get("source") or "")
+            == "heartbeats.jsonl" for c in components):
+        ctx["laptop_hb"] = _read_heartbeats()
+    cron_keys = sorted({_hb_key(c) for c in laptop_comps
+                        if str((c.get("heartbeat") or {})
+                               .get("source") or "") == "cron-log"})
+    if cron_keys:
+        cron_comps = [c for c in laptop_comps
+                      if str((c.get("heartbeat") or {})
+                             .get("source") or "") == "cron-log"]
+        ctx["journal"] = _cron_journal_hits(
+            cron_keys, _cron_lookback_iso(cron_comps, now), timeout)
+    return [_runtime_component_row(comp, ctx) for comp in components]
+
+
 def main(argv: list[str] | None = None) -> int:
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
@@ -2452,6 +3624,20 @@ def main(argv: list[str] | None = None) -> int:
                         help="silence-sensor sweep only: skip version/channel "
                              "probes, run freshness rows + health + alerts "
                              "(cheap enough for hourly cron)")
+    parser.add_argument("--runtime", action="store_true",
+                        help="runtime-registry sweep only: skip "
+                             "version/channel probes and the freshness "
+                             "sweep, check runtime-registry.json "
+                             "components (heartbeat/host/deploy drift) "
+                             "+ health; combine with --freshness for "
+                             "both sweeps")
+    parser.add_argument("--runtime-registry", metavar="PATH",
+                        help="runtime-registry.json path (default: "
+                             "$RUNTIME_REGISTRY, else git show "
+                             "origin/main:runtime-registry.json in the "
+                             "PAS checkout — $PAS_DIR or "
+                             "~/devin/personal-agent-system — with "
+                             "working-tree fallback)")
     parser.add_argument("--json", action="store_true", help="machine-readable output")
     parser.add_argument("--state-md", metavar="PATH",
                         help="write a markdown state snapshot (agent push-memory)")
@@ -2476,35 +3662,55 @@ def main(argv: list[str] | None = None) -> int:
         print(f"::error::registry problem: {exc}", file=sys.stderr)
         return 2
 
+    sweep = args.freshness or args.runtime
     repo_names = {_repo_basename(e["url"])[1] for e in entries}
-    products = [] if args.freshness else resolve_products(entries, roots)
-    extensions = [] if args.freshness else scan_vscode_extensions(roots, repo_names)
+    products = [] if sweep else resolve_products(entries, roots)
+    extensions = [] if sweep else scan_vscode_extensions(roots, repo_names)
 
     website_html: str | None = None
-    if not args.offline and not args.freshness:
+    if not args.offline and not sweep:
         try:
             website_html = fetch_website(args.timeout)
         except (urllib.error.URLError, OSError, ValueError) as exc:
             print(f"::warning::website fetch failed: {exc}", file=sys.stderr)
 
-    rows = [] if args.freshness else build_rows(
+    rows = [] if sweep else build_rows(
         products, extensions, website_html,
         timeout=args.timeout, offline=args.offline)
     owners = {name: owner for owner, name in
               (_repo_basename(e["url"]) for e in entries)}
     if not args.offline:
-        if not args.freshness:
+        if not sweep:
             rows += collect_ci_config({**owners, **EXTRA_REPOS}, args.timeout)
             rows += collect_repo_settings({**owners, **EXTRA_REPOS},
                                           args.timeout)
-        # pr-merge runs in BOTH modes: the hourly --freshness sweeps are
-        # the only automated callers, so gating it behind the full sync
-        # would leave stuck approved PRs unsensed. ~1 gh call per repo,
-        # same cost class as the freshness workflow roll-up.
-        rows += collect_pr_ready_not_merged({**owners, **EXTRA_REPOS},
-                                            args.timeout)
-        rows += collect_freshness(roots, {**owners, **EXTRA_REPOS},
-                                  args.timeout)
+        # pr-merge + the freshness sweep run in full mode and --freshness;
+        # a runtime-only sweep skips them — compose --freshness --runtime
+        # for both. They stay out of --runtime so the sweep stays cheap
+        # and focused on the registry.
+        if args.freshness or not args.runtime:
+            # pr-merge runs in BOTH modes: the hourly --freshness sweeps
+            # are the only automated callers, so gating it behind the
+            # full sync would leave stuck approved PRs unsensed. ~1 gh
+            # call per repo, same cost class as the freshness roll-up.
+            rows += collect_pr_ready_not_merged({**owners, **EXTRA_REPOS},
+                                                args.timeout)
+            rows += collect_freshness(roots, {**owners, **EXTRA_REPOS},
+                                      args.timeout)
+    if args.runtime:
+        # Runs even under --offline: local probes (ledgers, systemd, git,
+        # cron journal) still work; ssh/gh parts self-skip inside.
+        try:
+            runtime_registry = load_runtime_registry(
+                args.runtime_registry, timeout=args.timeout)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            print(f"::error::runtime registry problem: {exc}",
+                  file=sys.stderr)
+            return 2
+        rows += collect_runtime(runtime_registry,
+                                {**owners, **EXTRA_REPOS}, roots,
+                                timeout=args.timeout,
+                                offline=args.offline)
     # cron_branch_stale is pure-local (crontab -l + git) — like a health
     # probe it runs in every mode, including --freshness and --offline.
     rows += collect_cron_branch_stale(timeout=args.timeout)
