@@ -610,7 +610,7 @@ class WorkflowFreshnessTests(unittest.TestCase):
         self.assertTrue(all(r.state == "unavailable" for r in rows))
 
     def test_threshold_boundary_7d(self):
-        runs = {("o/repo-a", "ai-review-fallback.yml"): [
+        runs = {("o/repo-a", "review-fallback.yml"): [
             {"createdAt": self._iso(NOW - 8 * 24 * 3600),
              "conclusion": "success"}]}
         with mock.patch.object(es.subprocess, "run",
