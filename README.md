@@ -37,6 +37,7 @@ distribution; this hub is not needed at runtime.
 | `tools/repo-seo-audit.py` | Read-only discoverability audit of the owner's public GitHub repos via `gh repo list`: flags missing description, topics or homepage (the `--json` output carries the per-field findings). Port of the PAS `repo_seo_audit.py` script. |
 | `tools/weekly_repo_report.py` | Reads public GitHub commit metadata from the registry and writes a standalone HTML report. Email delivery is optional. |
 | `tools/validate_registry.py` | Validates `registry.json` against `registry.schema.json` and the cross-entry rules (dependency-free). Exits 1 on violations and 2 when the schema uses a keyword the validator cannot enforce. |
+| `tools/check_dist_status.py` | Enforces the DIST-STATUS banner contract: entries marked `published` must not carry a `<!-- DIST-STATUS:BEGIN/END -->` marker in their package README (and `source_only` entries must carry the correct clone-URL banner). Run with `--root <ecosystem dir>`. |
 | `tools/reconcile_registry.py` | Reconciles the registry against the GitHub account and local clones: missing entries, missing repos, stale version/tag fields. Read-only. |
 | `tools/export_devkit_manifest.py` | Exports the public, profile-based DevKit manifest; rejects private or unknown repositories. |
 | `tools/render_catalog.py` | Renders the profile README catalog and count from the same registry. |
