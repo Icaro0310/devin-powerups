@@ -1775,13 +1775,19 @@ def _tool_is_installed(tool: str, roots: list[Path], evidence: str) -> bool:
     return False
 
 
-# (workflow file, threshold_days, kind) — kind routes silence issues:
-# "ecosystem" -> devin-powerups, "ops" -> personal-agent-system.
+# (workflow file, threshold_days, kind, product) — kind routes silence
+# issues: "ecosystem" -> devin-powerups, "ops" -> personal-agent-system.
+# product is the pipeline name reported; it can differ from the queried
+# file when the pipeline is dispatched through a differently-named
+# caller — ai-review-fallback is a reusable workflow that runs under
+# each repo's review-fallback.yml caller (the vendored per-repo copies
+# were retired 2026-11; their deleted workflow entries keep answering
+# `gh run list` with stale historical runs, which reads as silence).
 WORKFLOW_CHECKS = (
-    ("ai-review-fallback.yml", 7, "ecosystem"),
-    ("ci.yml", 14, "ecosystem"),
-    ("pypi-publish.yml", 30, "ecosystem"),
-    ("release.yml", 30, "ecosystem"),
+    ("review-fallback.yml", 7, "ecosystem", "ai-review-fallback"),
+    ("ci.yml", 14, "ecosystem", "ci"),
+    ("pypi-publish.yml", 30, "ecosystem", "pypi-publish"),
+    ("release.yml", 30, "ecosystem", "release"),
 )
 WORKFLOW_KIND_REPOS = {
     "ecosystem": SILENCE_REPO_HUB,
@@ -1814,10 +1820,9 @@ def _workflow_freshness(owners: dict[str, str], timeout: int,
     """
     now = time.time() if now is None else now
     rows: list[Row] = []
-    for workflow_file, threshold_d, kind in WORKFLOW_CHECKS:
+    for workflow_file, threshold_d, kind, product in WORKFLOW_CHECKS:
         threshold_h = threshold_d * 24.0
         repo = WORKFLOW_KIND_REPOS.get(kind, SILENCE_REPO_HUB)
-        product = Path(workflow_file).stem
         newest_completed: tuple[float, str] | None = None
         newest_success: float | None = None
         significant: list[tuple[float, str]] = []
