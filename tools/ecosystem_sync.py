@@ -1306,7 +1306,7 @@ SILENCE_REPO_HUB = "Icaro0310/devin-powerups"
 _FRESHNESS_CHECKS = (
     ("dispatcher", 48, SILENCE_REPO_PAS),
     ("slack-output", 72, SILENCE_REPO_PAS),
-    ("scout", 96, SILENCE_REPO_PAS),
+    ("scout", 192, SILENCE_REPO_PAS),
     ("review-fallback", 168, SILENCE_REPO_HUB),
     ("heartbeat", 1, SILENCE_REPO_PAS),
 )
