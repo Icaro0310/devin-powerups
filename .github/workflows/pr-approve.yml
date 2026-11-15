@@ -1,6 +1,17 @@
 name: pr-approve
 
-# Version: v1.16 (D-2026-11-10: arm job split — owner review on v1.15:
+# Version: v1.17 (D-2026-11-15: status-event storm fix — DL-88ae.
+# Qualifying status events (Devin Review, devin-judge/review,
+# Review Coverage) all keyed by bare head sha landed on ONE
+# concurrency group, so each new context cancelled the complementary
+# run mid-wait — the "approve/approve cancelled" noise on every PR.
+# The status branch now keys by {context}-{sha}: complementary
+# contexts coexist and run the gate in parallel (the dedupe check
+# still prevents duplicate reviews), while the SAME context re-posting
+# on the SAME sha keeps superseding. pull_request_review keys are
+# unchanged.)
+#
+# v1.16 (D-2026-11-10: arm job split — owner review on v1.15:
 # contents:write is the most elevated permission (it can edit
 # workflows), so the auto-merge arm no longer sits inside the approve
 # job. approve returns to contents:read + pull-requests:write +
@@ -237,8 +248,11 @@ on:
 concurrency:
   # Only events that can actually launch the approval job share the
   # serialization key. PR events key by number, a QUALIFYING status
-  # (Devin Review success posted by the devin app) keys by head sha,
-  # and every other trigger falls through to a unique run_id group so
+  # (Devin Review success posted by the devin app) keys by
+  # {context}-{head sha} — v1.17: bare sha let complementary contexts
+  # cancel each other (DL-88ae storm); same context+sha still
+  # supersedes — and every other trigger falls through to a unique
+  # run_id group so
   # it can never cancel a gate run mid-approval — a random CI
   # `build: pending` status on the same sha would otherwise kill the
   # waiting Devin-status run while its own job skips on `if:` (PR #217
@@ -258,7 +272,7 @@ concurrency:
               || github.event.context == 'devin-judge/review'
               || (github.event.context == 'Devin Review'
                   && contains(github.event.avatar_url || '', '/in/811515')))
-          && github.event.sha)
+          && format('{0}-{1}', github.event.context, github.event.sha))
       || github.run_id }}
   # cancel-in-progress stays on for stale-head supersede (a push during
   # the wait must kill the old-head run instantly). What changed is the
