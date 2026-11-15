@@ -1456,3 +1456,62 @@ class CollectCronBranchStaleTests(unittest.TestCase):
         self.assertIn(("cron-branch-stale", "unavailable"), states)
         unavail = next(r for r in rows if r.state == "unavailable")
         self.assertIn("could not be classified", unavail.note)
+
+
+class _FakeCon:
+    def close(self):
+        pass
+
+
+class _FakeQueueDb:
+    """Stand-in for devin_orchestrator.queue_db — records submit calls."""
+
+    def __init__(self):
+        self.submitted = []
+
+    def default_queue_path(self):
+        return Path("/tmp/fake-task-queue.db")
+
+    def connect(self, _path):
+        return _FakeCon()
+
+    def submit(self, con, payload, kind=None, repo=None, batch=None,
+               idempotency_key=None, max_attempts=None):
+        self.submitted.append({"payload": payload, "kind": kind,
+                               "repo": repo, "key": idempotency_key})
+        return {"id": "t1", "deduplicated": False}
+
+
+class EnqueueRemediationsTests(unittest.TestCase):
+    def _rows(self):
+        return [
+            es.Row(product="no-repo", channel="freshness", local="x",
+                   remote="y", state="drift", repo=""),
+            es.Row(product="blank-repo", channel="freshness", local="x",
+                   remote="y", state="drift", repo="   "),
+            es.Row(product="not-drift", channel="pypi", local="1",
+                   remote="2", state="ok", repo="owner/ok"),
+            es.Row(product="real", channel="freshness", local="err",
+                   remote="y", state="drift", repo=" owner/real "),
+        ]
+
+    def test_repo_less_and_blank_rows_never_submitted(self):
+        fake = _FakeQueueDb()
+        with mock.patch.object(es, "_load_orchestrator_queue",
+                               return_value=fake):
+            messages = es.enqueue_remediations(self._rows(), [])
+        self.assertEqual(len(fake.submitted), 1)
+        sub = fake.submitted[0]
+        self.assertEqual(sub["payload"]["repo"], "owner/real")
+        self.assertEqual(sub["repo"], "owner/real")
+        self.assertIn("owner/real", sub["key"])
+        self.assertTrue(any("task t1" in m for m in messages))
+
+    def test_only_repo_less_rows_returns_nothing(self):
+        fake = _FakeQueueDb()
+        rows = [r for r in self._rows() if not str(r.repo).strip()]
+        with mock.patch.object(es, "_load_orchestrator_queue",
+                               return_value=fake):
+            messages = es.enqueue_remediations(rows, [])
+        self.assertEqual(messages, [])
+        self.assertEqual(fake.submitted, [])

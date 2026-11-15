@@ -2355,7 +2355,10 @@ def enqueue_remediations(rows: list["Row"], roots: list[Path],
     the same day. A submit failure never masks the row; it is logged
     and the next run retries."""
     messages: list[str] = []
-    candidates = [r for r in rows if r.state in DRIFT_STATES and r.repo]
+    candidates = [
+        r for r in rows
+        if r.state in DRIFT_STATES and str(r.repo or "").strip()
+    ]
     if not candidates:
         return messages
     now = time.time() if now is None else now
@@ -2376,9 +2379,10 @@ def enqueue_remediations(rows: list["Row"], roots: list[Path],
             sent = {}
     changed = False
     for row in candidates:
+        repo = str(row.repo).strip()
         failure_class = _failure_class(row)
         payload = {
-            "repo": row.repo,
+            "repo": repo,
             "failure_class": failure_class,
             "product": row.product,
             "channel": row.channel,
@@ -2390,31 +2394,31 @@ def enqueue_remediations(rows: list["Row"], roots: list[Path],
             "source": "ecosystem_sync",
         }
         if queue_db is not None:
-            key = f"auto_remediate:{row.repo}:{failure_class}:{day}"
+            key = f"auto_remediate:{repo}:{failure_class}:{day}"
             try:
                 con = queue_db.connect(queue_db.default_queue_path())
                 try:
                     out = queue_db.submit(
                         con, payload, kind="auto_remediate",
-                        repo=row.repo, batch=f"sync-{day}",
+                        repo=repo, batch=f"sync-{day}",
                         idempotency_key=key, max_attempts=3)
                 finally:
                     con.close()
             except Exception as exc:
                 messages.append(
-                    f"remediate: {row.repo} queue submit failed: "
+                    f"remediate: {repo} queue submit failed: "
                     f"{type(exc).__name__}")
                 continue
             if out.get("deduplicated"):
                 messages.append(
-                    f"remediate: {row.repo} {failure_class} already "
+                    f"remediate: {repo} {failure_class} already "
                     f"queued today — dedup")
                 continue
             messages.append(
-                f"remediate: {row.repo} {failure_class} -> task "
+                f"remediate: {repo} {failure_class} -> task "
                 f"{out.get('id')}")
             continue
-        key = f"{row.product}|{row.channel}|{row.repo}"
+        key = f"{row.product}|{row.channel}|{repo}"
         last = sent.get(key)
         if isinstance(last, (int, float)) and now - last < _REMEDIATE_TTL_S:
             messages.append(
