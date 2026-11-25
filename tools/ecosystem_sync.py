@@ -2278,6 +2278,61 @@ def open_silence_issues(rows: list[Row], timeout: int) -> list[str]:
     return messages
 
 
+def close_silence_issues(freshness_rows: list[Row], timeout: int) -> list[str]:
+    """Close ``[silence]`` issues whose component has fresh output again.
+
+    ``open_silence_issues`` files one issue per silent component but had
+    no counterpart — recovered components kept their alert open forever
+    (40 stale issues accrued before manual cleanup). A product counts as
+    recovered only on positive evidence: it has freshness rows this run
+    and none of them is in ``DRIFT_STATES``. Products with no row at all
+    keep their issue — a removed tool is not a recovered tool, and a
+    foreign-host tool this machine cannot probe stays silent here."""
+    messages: list[str] = []
+    seen: dict[str, bool] = {}
+    for row in freshness_rows:
+        key = row.product.lower()
+        seen[key] = seen.get(key, True) and row.state not in DRIFT_STATES
+    recovered = {name for name, ok in seen.items() if ok}
+    if not recovered:
+        return messages
+    repos = {SILENCE_REPO_PAS}
+    repos.update(r.repo for r in freshness_rows if r.repo)
+    for repo in sorted(repos):
+        try:
+            proc = subprocess.run(
+                ["gh", "issue", "list", "--repo", repo, "--label",
+                 SILENCE_LABEL, "--state", "open", "--json",
+                 "number,title", "--limit", "100"],
+                capture_output=True, text=True, timeout=timeout + 10,
+            )
+            open_issues = json.loads(proc.stdout) if proc.returncode == 0 else []
+        except (OSError, ValueError, subprocess.TimeoutExpired):
+            continue
+        for issue in open_issues:
+            match = re.match(r"\[silence\]\s+(.+?):", str(issue.get("title", "")))
+            if not match:
+                continue
+            product = match.group(1).strip().lower()
+            if product not in recovered:
+                continue
+            number = issue.get("number")
+            proc = subprocess.run(
+                ["gh", "issue", "close", str(number), "--repo", repo,
+                 "--comment",
+                 f"Recovered: freshness sensor reports `{product}` within "
+                 "its expected interval — closing the silence alert."],
+                capture_output=True, text=True, timeout=timeout + 10,
+            )
+            if proc.returncode == 0:
+                messages.append(f"{repo}: closed silence issue #{number} "
+                                f"({product} recovered)")
+            else:
+                messages.append(f"{repo}: silence close #{number} failed: "
+                                f"{(proc.stderr or proc.stdout).strip()[:160]}")
+    return messages
+
+
 def notify_silence_slack(rows: list[Row], roots: list[Path]) -> bool:
     """Best-effort Slack alert for silent components via the PAS notifier.
 
@@ -3793,10 +3848,14 @@ def main(argv: list[str] | None = None) -> int:
         for message in open_drift_issues(version_drift, args.timeout):
             print(f"issue: {message}")
         silence_rows = [r for r in drift_rows if r.channel == "freshness"]
-        if silence_rows and not args.no_silence_alerts:
-            for message in open_silence_issues(silence_rows, args.timeout):
+        if not args.no_silence_alerts:
+            if silence_rows:
+                for message in open_silence_issues(silence_rows, args.timeout):
+                    print(f"silence: {message}")
+                notify_silence_slack(silence_rows, roots)
+            freshness_rows = [r for r in rows if r.channel == "freshness"]
+            for message in close_silence_issues(freshness_rows, args.timeout):
                 print(f"silence: {message}")
-            notify_silence_slack(silence_rows, roots)
     if args.remediate:
         for message in enqueue_remediations(drift_rows, roots):
             print(message)

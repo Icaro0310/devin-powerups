@@ -289,6 +289,79 @@ class OpenSilenceIssuesTests(unittest.TestCase):
         self.assertIn(("issue", "create"), kinds)
 
 
+class CloseSilenceIssuesTests(unittest.TestCase):
+    def _fake_run(self, calls, open_titles):
+        def fake_run(cmd, **kw):
+            calls.append(cmd)
+            if cmd[1:3] == ["issue", "list"]:
+                repo = cmd[cmd.index("--repo") + 1]
+                titles = open_titles if repo == es.SILENCE_REPO_PAS else []
+                return mock.Mock(returncode=0, stdout=json.dumps(
+                    [{"number": i + 1, "title": t}
+                     for i, t in enumerate(titles)]))
+            return mock.Mock(returncode=0, stdout="closed\n", stderr="")
+        return fake_run
+
+    def test_closes_only_recovered_products(self):
+        calls = []
+        rows = [
+            es.Row("dispatcher", "freshness", "2h", "<=2d", "ok", "o/r"),
+            es.Row("scout", "freshness", "5d", "<=4d", "drift", "o/r"),
+        ]
+        fake = self._fake_run(calls, [
+            "[silence] dispatcher: 60h without output",
+            "[silence] scout: 5d without output",
+        ])
+        with mock.patch.object(es.subprocess, "run", side_effect=fake):
+            messages = es.close_silence_issues(rows, 5)
+        closed = [c for c in calls if c[1:3] == ["issue", "close"]]
+        self.assertEqual(len(closed), 1)
+        self.assertEqual(closed[0][3], "1")  # issue #1 = dispatcher
+        self.assertTrue(any("closed" in m for m in messages))
+
+    def test_keeps_issue_for_product_without_row(self):
+        calls = []
+        rows = [es.Row("dispatcher", "freshness", "2h", "<=2d", "ok", "o/r")]
+        fake = self._fake_run(calls, [
+            "[silence] ghost-tool: 9d without output",
+        ])
+        with mock.patch.object(es.subprocess, "run", side_effect=fake):
+            es.close_silence_issues(rows, 5)
+        self.assertFalse(any(c[1:3] == ["issue", "close"] for c in calls))
+
+    def test_mixed_rows_same_product_stays_open(self):
+        calls = []
+        rows = [
+            es.Row("dispatcher", "freshness", "2h", "<=2d", "ok", "o/r"),
+            es.Row("dispatcher", "freshness", "9d", "<=2d", "drift", "o/vm"),
+        ]
+        fake = self._fake_run(calls, [
+            "[silence] dispatcher: 60h without output",
+        ])
+        with mock.patch.object(es.subprocess, "run", side_effect=fake):
+            es.close_silence_issues(rows, 5)
+        self.assertFalse(any(c[1:3] == ["issue", "close"] for c in calls))
+
+    def test_no_freshness_rows_is_noop(self):
+        calls = []
+        fake = self._fake_run(calls, ["[silence] x: 1d without output"])
+        with mock.patch.object(es.subprocess, "run", side_effect=fake):
+            self.assertEqual(es.close_silence_issues([], 5), [])
+        self.assertEqual(calls, [])
+
+    def test_list_failure_is_skipped(self):
+        calls = []
+
+        def fake_run(cmd, **kw):
+            calls.append(cmd)
+            return mock.Mock(returncode=1, stdout="", stderr="gh down")
+
+        rows = [es.Row("dispatcher", "freshness", "2h", "<=2d", "ok", "o/r")]
+        with mock.patch.object(es.subprocess, "run", side_effect=fake_run):
+            self.assertEqual(es.close_silence_issues(rows, 5), [])
+        self.assertFalse(any(c[1:3] == ["issue", "close"] for c in calls))
+
+
 class OpenDriftIssuesTests(unittest.TestCase):
     def test_comment_timeout_does_not_abort_other_repos(self):
         # A gh issue comment that raises (timeout/OSError) must be
