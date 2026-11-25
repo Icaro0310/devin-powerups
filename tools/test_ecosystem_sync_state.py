@@ -349,6 +349,67 @@ class CloseSilenceIssuesTests(unittest.TestCase):
             self.assertEqual(es.close_silence_issues([], 5), [])
         self.assertEqual(calls, [])
 
+    def test_unavailable_row_is_not_recovery(self):
+        # A probe that cannot see the channel (unavailable/absent) must
+        # not close the alert — only an explicit ok row is evidence.
+        calls = []
+        rows = [
+            es.Row("dispatcher", "freshness", "—", "<=2d", "unavailable", "o/r"),
+        ]
+        fake = self._fake_run(calls, [
+            "[silence] dispatcher: 60h without output",
+        ])
+        with mock.patch.object(es.subprocess, "run", side_effect=fake):
+            es.close_silence_issues(rows, 5)
+        self.assertFalse(any(c[1:3] == ["issue", "close"] for c in calls))
+
+    def test_inconclusive_errors_row_keeps_issue_open(self):
+        # Base recovered but the (errors) streak is unproven —
+        # inconclusive is not DRIFT_STATES yet still unresolved
+        # evidence, so the alert must stay open.
+        calls = []
+        rows = [
+            es.Row("ci", "freshness", "2h", "<=7d", "ok", "o/r"),
+            es.Row("ci (errors)", "freshness", "err streak", "<=7d",
+                   "inconclusive", "o/r"),
+        ]
+        fake = self._fake_run(calls, [
+            "[silence] ci (errors): err streak",
+        ])
+        with mock.patch.object(es.subprocess, "run", side_effect=fake):
+            es.close_silence_issues(rows, 5)
+        self.assertFalse(any(c[1:3] == ["issue", "close"] for c in calls))
+
+    def test_errors_alert_closes_when_streak_ends(self):
+        # Collectors stop emitting "<tool> (errors)" once the streak
+        # ends — base ok + no (errors) drift row IS the recovery.
+        calls = []
+        rows = [
+            es.Row("ecosystem-health", "freshness", "10m", "<=1h", "ok", "o/r"),
+        ]
+        fake = self._fake_run(calls, [
+            "[silence] ecosystem-health (errors): err streak without output",
+        ])
+        with mock.patch.object(es.subprocess, "run", side_effect=fake):
+            messages = es.close_silence_issues(rows, 5)
+        closed = [c for c in calls if c[1:3] == ["issue", "close"]]
+        self.assertEqual(len(closed), 1)
+        self.assertTrue(any("closed" in m for m in messages))
+
+    def test_errors_alert_stays_while_streak_drifts(self):
+        calls = []
+        rows = [
+            es.Row("ecosystem-health", "freshness", "10m", "<=1h", "ok", "o/r"),
+            es.Row("ecosystem-health (errors)", "freshness", "err streak",
+                  "<=1h", "drift", "o/r"),
+        ]
+        fake = self._fake_run(calls, [
+            "[silence] ecosystem-health (errors): err streak without output",
+        ])
+        with mock.patch.object(es.subprocess, "run", side_effect=fake):
+            es.close_silence_issues(rows, 5)
+        self.assertFalse(any(c[1:3] == ["issue", "close"] for c in calls))
+
     def test_list_failure_is_skipped(self):
         calls = []
 
@@ -799,6 +860,54 @@ class WorkflowFreshnessTests(unittest.TestCase):
                     es._workflow_freshness(self.OWNERS, 5, now=NOW)}
         self.assertEqual(rows["release"].state, "ok")
         self.assertNotIn("release (errors)", rows)
+
+    def _gh_limits(self, runs_by_key):
+        limits = []
+        base = self._gh(runs_by_key)
+
+        def fake(cmd, **kw):
+            if "--limit" in cmd:
+                limits.append(cmd[cmd.index("--limit") + 1])
+            return base(cmd, **kw)
+        return fake, limits
+
+    def test_full_page_cancelled_runs_inconclusive_not_drift(self):
+        # 8 cancelled + 2 failures fill the page: the 3rd failure — or a
+        # success that ended the streak — may sit beyond the window.
+        # Inconclusive must not open a new alert (not DRIFT_STATES) but
+        # must still block closing an existing (errors) issue.
+        runs = {("o/repo-a", "release.yml"): [
+            {"createdAt": self._iso(NOW - i * 600),
+             "conclusion": c}
+            for i, c in enumerate(
+                ["cancelled"] * 4 + ["failure"] * 2
+                + ["cancelled"] * 4, start=1)]}
+        fake, limits = self._gh_limits(runs)
+        with mock.patch.object(es.subprocess, "run", side_effect=fake):
+            rows = {r.product: r for r in
+                    es._workflow_freshness(self.OWNERS, 5, now=NOW)}
+        row = rows["release (errors)"]
+        self.assertEqual(row.state, "inconclusive")
+        self.assertNotIn(row.state, es.DRIFT_STATES)
+        self.assertTrue(limits)
+        self.assertEqual(set(limits), {str(es._WORKFLOW_RUN_PAGE)})
+
+    def test_full_page_with_success_clears_errors_row(self):
+        # Same full page but a success is visible: the streak is proven
+        # ended, so no errors row and the close logic may proceed.
+        runs = {("o/repo-a", "release.yml"): [
+            {"createdAt": self._iso(NOW - i * 600),
+             "conclusion": c}
+            for i, c in enumerate(
+                ["cancelled"] * 4 + ["success", "failure"]
+                + ["cancelled"] * 4, start=1)]}
+        fake, limits = self._gh_limits(runs)
+        with mock.patch.object(es.subprocess, "run", side_effect=fake):
+            rows = {r.product: r for r in
+                    es._workflow_freshness(self.OWNERS, 5, now=NOW)}
+        self.assertNotIn("release (errors)", rows)
+        self.assertTrue(limits)
+        self.assertEqual(set(limits), {str(es._WORKFLOW_RUN_PAGE)})
 
     def test_all_repos_fail_is_unavailable(self):
         with mock.patch.object(es.subprocess, "run",

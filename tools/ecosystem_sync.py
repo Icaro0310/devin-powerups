@@ -1828,6 +1828,11 @@ WORKFLOW_KIND_REPOS = {
     "ecosystem": SILENCE_REPO_HUB,
     "ops": SILENCE_REPO_PAS,
 }
+# Runs fetched per repo per workflow. Cancelled/skipped runs occupy page
+# slots without breaking a failure streak — a small page lets them evict
+# the 3rd failure AND any success that ended it, which
+# close_silence_issues would misread as recovery.
+_WORKFLOW_RUN_PAGE = 10
 # Conclusions that count toward an err streak or break it; cancelled /
 # skipped / neutral are neither failure nor success for this purpose.
 _WORKFLOW_SIG_CONCLUSIONS = {
@@ -1862,11 +1867,13 @@ def _workflow_freshness(owners: dict[str, str], timeout: int,
         newest_success: float | None = None
         significant: list[tuple[float, str]] = []
         queried = 0
+        window_full = False
         for name, owner in sorted(owners.items()):
             try:
                 proc = subprocess.run(
                     ["gh", "run", "list", "--repo", f"{owner}/{name}",
-                     "--workflow", workflow_file, "--limit", "3",
+                     "--workflow", workflow_file,
+                     "--limit", str(_WORKFLOW_RUN_PAGE),
                      "--json", "createdAt,conclusion"],
                     capture_output=True, text=True, timeout=timeout + 5)
             except (OSError, subprocess.TimeoutExpired):
@@ -1886,6 +1893,8 @@ def _workflow_freshness(owners: dict[str, str], timeout: int,
                 runs = json.loads(proc.stdout)
             except ValueError:
                 continue
+            if isinstance(runs, list) and len(runs) >= _WORKFLOW_RUN_PAGE:
+                window_full = True
             for run in runs if isinstance(runs, list) else []:
                 if not isinstance(run, dict):
                     continue
@@ -1917,13 +1926,35 @@ def _workflow_freshness(owners: dict[str, str], timeout: int,
         # red PR run or a cancelled duplicate is not pipeline death.
         significant.sort(reverse=True)
         streak = significant[:3]
-        if len(streak) == 3 and all(
-                c != "success" for _, c in streak):
+        confirmed = len(streak) == 3 and all(
+            c != "success" for _, c in streak)
+        # Cancelled/skipped runs occupy page slots without breaking a
+        # failure streak: on a full page we may see <3 significant runs
+        # while a success beyond the window already ended it — or while
+        # the 3rd failure is hidden. All-visible-failures on a truncated
+        # window is inconclusive, so keep alerting instead of letting
+        # close_silence_issues read the missing row as recovery.
+        inconclusive = (
+            window_full
+            and 0 < len(significant) < 3
+            and all(c != "success" for _, c in significant)
+        )
+        if confirmed:
             rows.append(Row(
                 f"{product} (errors)", "freshness", "err streak",
                 remote, "drift", repo,
-                f"3 consecutive non-success conclusions "
+                f"{len(streak)} consecutive non-success conclusions "
                 f"(newest={streak[0][1]})"))
+        elif inconclusive:
+            # Not in DRIFT_STATES: unproven history must not open a new
+            # alert, but close_silence_issues still treats it as
+            # unresolved evidence so an existing (errors) issue stays.
+            rows.append(Row(
+                f"{product} (errors)", "freshness", "err streak",
+                remote, "inconclusive", repo,
+                f"full run page shows {len(significant)} significant "
+                f"conclusions, all non-success — streak unproven "
+                f"(newest={significant[0][1]})"))
     return rows
 
 
@@ -2331,16 +2362,26 @@ def close_silence_issues(freshness_rows: list[Row], timeout: int) -> list[str]:
     ``open_silence_issues`` files one issue per silent component but had
     no counterpart — recovered components kept their alert open forever
     (40 stale issues accrued before manual cleanup). A product counts as
-    recovered only on positive evidence: it has freshness rows this run
-    and none of them is in ``DRIFT_STATES``. Products with no row at all
-    keep their issue — a removed tool is not a recovered tool, and a
-    foreign-host tool this machine cannot probe stays silent here."""
+    recovered only on positive evidence: every freshness row it emitted
+    this run is ``ok``. ``unavailable``/``absent``/no-row products keep
+    their issue — a probe that cannot see the channel is not proof of
+    recovery, and a removed tool is not a recovered tool. ``(errors)``
+    alerts close when the base product recovered and the streak row is
+    gone — collectors stop emitting ``<tool> (errors)`` once the streak
+    ends, so its absence plus base-``ok`` IS the recovery signal."""
     messages: list[str] = []
     seen: dict[str, bool] = {}
     for row in freshness_rows:
         key = row.product.lower()
-        seen[key] = seen.get(key, True) and row.state not in DRIFT_STATES
+        seen[key] = seen.get(key, True) and row.state == "ok"
     recovered = {name for name, ok in seen.items() if ok}
+    # ``inconclusive`` rows are unresolved evidence, not recovery — an
+    # (errors) alert must stay open while the streak is unproven.
+    drifting = {
+        row.product.lower()
+        for row in freshness_rows
+        if row.state in DRIFT_STATES or row.state == "inconclusive"
+    }
     if not recovered:
         return messages
     repos = {SILENCE_REPO_PAS}
@@ -2361,7 +2402,11 @@ def close_silence_issues(freshness_rows: list[Row], timeout: int) -> list[str]:
             if not match:
                 continue
             product = match.group(1).strip().lower()
-            if product not in recovered:
+            close = product in recovered
+            if not close and product.endswith(" (errors)"):
+                base = product[: -len(" (errors)")]
+                close = base in recovered and product not in drifting
+            if not close:
                 continue
             number = issue.get("number")
             proc = subprocess.run(
