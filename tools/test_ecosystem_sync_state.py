@@ -76,11 +76,23 @@ if __name__ == "__main__":
 
 
 class CollectCiConfigTests(unittest.TestCase):
+    _CALLER = (
+        "uses: Icaro0310/devin-review-fallback/.github/workflows/"
+        "ai-review-fallback.yml@main"
+    )
+
     def _gh(self, owner, repo, path, timeout):
-        self.assertEqual(path, "/contents/.github/workflows")
-        if repo in ("no-wf", "bare"):
-            return [{"name": "test.yml"}]
-        return [{"name": "review-fallback.yml"}, {"name": "test.yml"}]
+        import base64
+        if path == "/contents/.github/workflows":
+            if repo in ("no-wf", "bare"):
+                return [{"name": "test.yml"}]
+            if repo == "txt-only":
+                return [{"name": "fallback-notes.txt"}]
+            return [{"name": "review-fallback.yml"}, {"name": "test.yml"}]
+        if path == "/contents/.github/workflows/review-fallback.yml":
+            body = self._CALLER if repo != "name-only" else "name: x\n"
+            return {"content": base64.b64encode(body.encode()).decode()}
+        raise AssertionError(f"unexpected gh api path: {path}")
 
     def test_states(self):
         repos = {"ok-r": "o", "no-wf": "o", "bare": "o"}
@@ -101,6 +113,31 @@ class CollectCiConfigTests(unittest.TestCase):
             rows = {r.product: r for r in es.collect_ci_config({"x": "o"}, 10)}
         self.assertEqual(rows["x"].state, "unavailable")
         self.assertEqual(rows["x"].note, "api down")
+
+    def test_missing_workflows_dir_is_drift(self):
+        """404 na listagem -> zero workflows -> drift accionável, não
+        'unavailable' (que ficava fora dos alertas de --issue)."""
+        def _gh(owner, repo, path, timeout):
+            raise RuntimeError("gh: Not Found (HTTP 404)")
+
+        with mock.patch.object(es, "_gh_api", side_effect=_gh):
+            rows = {r.product: r for r in es.collect_ci_config({"gone": "o"}, 10)}
+        self.assertEqual(rows["gone"].state, "drift")
+
+    def test_non_yaml_name_does_not_count(self):
+        """'fallback-notes.txt' tem o nome mas não é workflow — drift."""
+        with mock.patch.object(es, "_gh_api", side_effect=self._gh):
+            rows = {r.product: r for r in
+                    es.collect_ci_config({"txt-only": "o"}, 10)}
+        self.assertEqual(rows["txt-only"].state, "drift")
+
+    def test_yaml_without_shared_caller_is_drift(self):
+        """review-fallback.yml que não chama ai-review-fallback não
+        cobre o gate — nome não é prova (#296 re-review)."""
+        with mock.patch.object(es, "_gh_api", side_effect=self._gh):
+            rows = {r.product: r for r in
+                    es.collect_ci_config({"name-only": "o"}, 10)}
+        self.assertEqual(rows["name-only"].state, "drift")
 
 
 NOW = 1_800_000_000.0  # fixed epoch for freshness age math
