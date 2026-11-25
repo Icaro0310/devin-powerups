@@ -2284,16 +2284,24 @@ def close_silence_issues(freshness_rows: list[Row], timeout: int) -> list[str]:
     ``open_silence_issues`` files one issue per silent component but had
     no counterpart — recovered components kept their alert open forever
     (40 stale issues accrued before manual cleanup). A product counts as
-    recovered only on positive evidence: it has freshness rows this run
-    and none of them is in ``DRIFT_STATES``. Products with no row at all
-    keep their issue — a removed tool is not a recovered tool, and a
-    foreign-host tool this machine cannot probe stays silent here."""
+    recovered only on positive evidence: every freshness row it emitted
+    this run is ``ok``. ``unavailable``/``absent``/no-row products keep
+    their issue — a probe that cannot see the channel is not proof of
+    recovery, and a removed tool is not a recovered tool. ``(errors)``
+    alerts close when the base product recovered and the streak row is
+    gone — collectors stop emitting ``<tool> (errors)`` once the streak
+    ends, so its absence plus base-``ok`` IS the recovery signal."""
     messages: list[str] = []
     seen: dict[str, bool] = {}
     for row in freshness_rows:
         key = row.product.lower()
-        seen[key] = seen.get(key, True) and row.state not in DRIFT_STATES
+        seen[key] = seen.get(key, True) and row.state == "ok"
     recovered = {name for name, ok in seen.items() if ok}
+    drifting = {
+        row.product.lower()
+        for row in freshness_rows
+        if row.state in DRIFT_STATES
+    }
     if not recovered:
         return messages
     repos = {SILENCE_REPO_PAS}
@@ -2314,7 +2322,11 @@ def close_silence_issues(freshness_rows: list[Row], timeout: int) -> list[str]:
             if not match:
                 continue
             product = match.group(1).strip().lower()
-            if product not in recovered:
+            close = product in recovered
+            if not close and product.endswith(" (errors)"):
+                base = product[: -len(" (errors)")]
+                close = base in recovered and product not in drifting
+            if not close:
                 continue
             number = issue.get("number")
             proc = subprocess.run(

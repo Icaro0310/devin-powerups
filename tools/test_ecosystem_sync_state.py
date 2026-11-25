@@ -349,6 +349,50 @@ class CloseSilenceIssuesTests(unittest.TestCase):
             self.assertEqual(es.close_silence_issues([], 5), [])
         self.assertEqual(calls, [])
 
+    def test_unavailable_row_is_not_recovery(self):
+        # A probe that cannot see the channel (unavailable/absent) must
+        # not close the alert — only an explicit ok row is evidence.
+        calls = []
+        rows = [
+            es.Row("dispatcher", "freshness", "—", "<=2d", "unavailable", "o/r"),
+        ]
+        fake = self._fake_run(calls, [
+            "[silence] dispatcher: 60h without output",
+        ])
+        with mock.patch.object(es.subprocess, "run", side_effect=fake):
+            es.close_silence_issues(rows, 5)
+        self.assertFalse(any(c[1:3] == ["issue", "close"] for c in calls))
+
+    def test_errors_alert_closes_when_streak_ends(self):
+        # Collectors stop emitting "<tool> (errors)" once the streak
+        # ends — base ok + no (errors) drift row IS the recovery.
+        calls = []
+        rows = [
+            es.Row("ecosystem-health", "freshness", "10m", "<=1h", "ok", "o/r"),
+        ]
+        fake = self._fake_run(calls, [
+            "[silence] ecosystem-health (errors): err streak without output",
+        ])
+        with mock.patch.object(es.subprocess, "run", side_effect=fake):
+            messages = es.close_silence_issues(rows, 5)
+        closed = [c for c in calls if c[1:3] == ["issue", "close"]]
+        self.assertEqual(len(closed), 1)
+        self.assertTrue(any("closed" in m for m in messages))
+
+    def test_errors_alert_stays_while_streak_drifts(self):
+        calls = []
+        rows = [
+            es.Row("ecosystem-health", "freshness", "10m", "<=1h", "ok", "o/r"),
+            es.Row("ecosystem-health (errors)", "freshness", "err streak",
+                  "<=1h", "drift", "o/r"),
+        ]
+        fake = self._fake_run(calls, [
+            "[silence] ecosystem-health (errors): err streak without output",
+        ])
+        with mock.patch.object(es.subprocess, "run", side_effect=fake):
+            es.close_silence_issues(rows, 5)
+        self.assertFalse(any(c[1:3] == ["issue", "close"] for c in calls))
+
     def test_list_failure_is_skipped(self):
         calls = []
 
