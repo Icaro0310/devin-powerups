@@ -77,25 +77,30 @@ if __name__ == "__main__":
 
 class CollectCiConfigTests(unittest.TestCase):
     def _gh(self, owner, repo, path, timeout):
-        if path == "/actions/secrets":
-            if repo in ("no-secret", "bare"):
-                return {"secrets": []}
-            return {"secrets": [{"name": "TS_AUTHKEY"}]}
-        if repo == "no-secret":
-            return [{"name": "review-fallback.yml"}]
+        self.assertEqual(path, "/contents/.github/workflows")
         if repo in ("no-wf", "bare"):
             return [{"name": "test.yml"}]
         return [{"name": "review-fallback.yml"}, {"name": "test.yml"}]
 
     def test_states(self):
-        repos = {"ok-r": "o", "no-wf": "o", "no-secret": "o", "bare": "o"}
+        repos = {"ok-r": "o", "no-wf": "o", "bare": "o"}
         with mock.patch.object(es, "_gh_api", side_effect=self._gh):
             rows = {r.product: r for r in es.collect_ci_config(repos, 10)}
         self.assertEqual(rows["ok-r"].state, "ok")
+        self.assertEqual(rows["ok-r"].local, "workflow")
+        self.assertEqual(rows["ok-r"].remote, "workflow")
         self.assertEqual(rows["no-wf"].state, "drift")
-        self.assertEqual(rows["no-wf"].local, "secret only")
-        self.assertEqual(rows["no-secret"].local, "workflow only")
-        self.assertEqual(rows["bare"].local, "neither")
+        self.assertEqual(rows["no-wf"].local, "no fallback workflow")
+        self.assertEqual(rows["bare"].local, "no fallback workflow")
+
+    def test_unavailable(self):
+        def _gh(owner, repo, path, timeout):
+            raise RuntimeError("api down")
+
+        with mock.patch.object(es, "_gh_api", side_effect=_gh):
+            rows = {r.product: r for r in es.collect_ci_config({"x": "o"}, 10)}
+        self.assertEqual(rows["x"].state, "unavailable")
+        self.assertEqual(rows["x"].note, "api down")
 
 
 NOW = 1_800_000_000.0  # fixed epoch for freshness age math

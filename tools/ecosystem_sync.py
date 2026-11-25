@@ -958,37 +958,30 @@ def collect_pr_ready_not_merged(repos: dict[str, str], timeout: int,
 
 
 def collect_ci_config(repos: dict[str, str], timeout: int) -> list[Row]:
-    """Half-configured review-fallback detection -> one Row per physical repo.
+    """Review-fallback caller presence -> one Row per physical repo.
 
-    Every registry repo must have BOTH the ``TS_AUTHKEY`` secret AND a
-    ``*fallback*.yml`` caller workflow; secrets provisioned without the
-    workflow (or vice-versa) mean the review gate waits on evidence that
-    can never arrive — exactly the 2026-10-28 incident."""
+    Every registry repo must carry a ``*fallback*.yml`` /
+    ``ai-review*.yml`` caller workflow — it is what wires the review gate
+    to the shared devin-review-fallback pipeline. The caller needs no
+    repo secrets: Lane A (Ollama/Tailscale) was retired 2026-11 and the
+    devin-judge verdict arrives via the laptop-side watcher posting the
+    ``devin-judge/review`` commit status. A missing workflow is the only
+    drift state — the review gate then waits on evidence that can never
+    arrive (the 2026-10-28 incident class)."""
     out: list[Row] = []
     for name, owner in sorted(repos.items()):
         try:
-            secrets = _gh_api(owner, name, "/actions/secrets", timeout)
-            names = {s.get("name") for s in secrets.get("secrets", [])}
+            wf = _gh_api(owner, name, "/contents/.github/workflows", timeout)
+            files = {f.get("name", "") for f in wf if isinstance(f, dict)}
         except RuntimeError as exc:
             out.append(Row(name, "ci-review-fallback", "—", "—",
                            "unavailable", f"{owner}/{name}", str(exc)[:120]))
             continue
-        try:
-            wf = _gh_api(owner, name, "/contents/.github/workflows", timeout)
-            files = {f.get("name", "") for f in wf if isinstance(f, dict)}
-        except RuntimeError:
-            files = set()
-        has_secret = "TS_AUTHKEY" in names
         has_workflow = any("fallback" in f or "ai-review" in f for f in files)
-        if has_secret and has_workflow:
-            state, local = "ok", "workflow+secret"
-        elif has_secret or has_workflow:
-            state = "drift"
-            local = "secret only" if has_secret else "workflow only"
-        else:
-            state, local = "drift", "neither"
+        state = "ok" if has_workflow else "drift"
+        local = "workflow" if has_workflow else "no fallback workflow"
         note = "" if state == "ok" else "review gate cannot produce evidence"
-        out.append(Row(name, "ci-review-fallback", local, "workflow+secret",
+        out.append(Row(name, "ci-review-fallback", local, "workflow",
                        state, f"{owner}/{name}", note))
     return out
 
