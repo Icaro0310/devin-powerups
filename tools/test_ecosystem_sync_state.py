@@ -362,6 +362,89 @@ class CloseSilenceIssuesTests(unittest.TestCase):
         self.assertFalse(any(c[1:3] == ["issue", "close"] for c in calls))
 
 
+class CloseDriftIssuesTests(unittest.TestCase):
+    def _fake_run(self, calls, open_by_repo):
+        def fake_run(cmd, **kw):
+            calls.append(cmd)
+            if cmd[1:3] == ["issue", "list"]:
+                repo = cmd[cmd.index("--repo") + 1]
+                return mock.Mock(returncode=0, stdout=json.dumps(
+                    open_by_repo.get(repo, [])))
+            return mock.Mock(returncode=0, stdout="closed\n", stderr="")
+        return fake_run
+
+    def test_closes_resolved_repo_issue(self):
+        calls = []
+        rows = [
+            es.Row("pkg-a", "pypi", "1.0.0", "1.0.0", "ok", "o/clean"),
+            es.Row("pkg-b", "pypi", "1.0.0", "1.1.0", "drift", "o/drifting"),
+        ]
+        fake = self._fake_run(calls, {
+            "o/clean": [{"number": 7,
+                         "title": "ecosystem_sync: drift detected in clean"}],
+            "o/drifting": [{"number": 9,
+                            "title": "ecosystem_sync: drift detected in drifting"}],
+        })
+        with mock.patch.object(es.subprocess, "run", side_effect=fake):
+            messages = es.close_drift_issues(rows, 5)
+        closed = [c for c in calls if c[1:3] == ["issue", "close"]]
+        self.assertEqual(len(closed), 1)
+        self.assertEqual(closed[0][3], "7")
+        self.assertTrue(any("closed drift issue #7" in m for m in messages))
+
+    def test_ignores_human_filed_drift_issue(self):
+        calls = []
+        rows = [es.Row("pkg-a", "pypi", "1.0.0", "1.0.0", "ok", "o/clean")]
+        fake = self._fake_run(calls, {
+            "o/clean": [{"number": 3, "title": "dependency drift in lockfile"}],
+        })
+        with mock.patch.object(es.subprocess, "run", side_effect=fake):
+            es.close_drift_issues(rows, 5)
+        self.assertFalse(any(c[1:3] == ["issue", "close"] for c in calls))
+
+    def test_repo_absent_from_rows_untouched(self):
+        calls = []
+        rows = [es.Row("pkg-a", "pypi", "1.0.0", "1.0.0", "ok", "o/clean")]
+        fake = self._fake_run(calls, {
+            "o/other": [{"number": 5,
+                        "title": "ecosystem_sync: drift detected in other"}],
+        })
+        with mock.patch.object(es.subprocess, "run", side_effect=fake):
+            es.close_drift_issues(rows, 5)
+        # o/other was never evaluated — its issue list isn't even queried
+        self.assertFalse(any(c[1:3] == ["issue", "close"] for c in calls))
+        self.assertFalse(any(
+            c[1:3] == ["issue", "list"] and "o/other" in c for c in calls))
+
+    def test_freshness_only_drift_still_closes_version_issue(self):
+        # A repo whose only drift is a freshness/silence row has no
+        # version-drift — its version-drift issue closes (silence issues
+        # are handled by close_silence_issues).
+        calls = []
+        rows = [
+            es.Row("tool", "freshness", "9d", "<=1d", "drift", "o/clean"),
+        ]
+        fake = self._fake_run(calls, {
+            "o/clean": [{"number": 4,
+                         "title": "ecosystem_sync: drift detected in clean"}],
+        })
+        with mock.patch.object(es.subprocess, "run", side_effect=fake):
+            es.close_drift_issues(rows, 5)
+        self.assertTrue(any(c[1:3] == ["issue", "close"] for c in calls))
+
+    def test_list_failure_is_skipped(self):
+        calls = []
+
+        def fake_run(cmd, **kw):
+            calls.append(cmd)
+            return mock.Mock(returncode=1, stdout="", stderr="gh down")
+
+        rows = [es.Row("pkg-a", "pypi", "1.0.0", "1.0.0", "ok", "o/clean")]
+        with mock.patch.object(es.subprocess, "run", side_effect=fake_run):
+            self.assertEqual(es.close_drift_issues(rows, 5), [])
+        self.assertFalse(any(c[1:3] == ["issue", "close"] for c in calls))
+
+
 class OpenDriftIssuesTests(unittest.TestCase):
     def test_comment_timeout_does_not_abort_other_repos(self):
         # A gh issue comment that raises (timeout/OSError) must be
