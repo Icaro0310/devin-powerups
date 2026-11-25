@@ -2214,6 +2214,53 @@ def open_drift_issues(rows: list[Row], timeout: int) -> list[str]:
     return messages
 
 
+def close_drift_issues(rows: list[Row], timeout: int) -> list[str]:
+    """Close ``drift``-labeled ecosystem_sync issues whose repo has no
+    remaining non-freshness drift rows — the counterpart
+    ``open_drift_issues`` never had, so resolved drift stayed open
+    forever (devin-powerups#295: 8 stale issues from a one-off run).
+
+    Only repos evaluated in THIS run are candidates: a repo absent from
+    ``rows`` was not checked and keeps its issue. Only issues titled by
+    the sensor itself (``ecosystem_sync``) are closed — a human-filed
+    ``drift``-labeled issue is not ours to close."""
+    messages: list[str] = []
+    drifting = {
+        r.repo
+        for r in rows
+        if r.state in DRIFT_STATES and r.channel != "freshness" and r.repo
+    }
+    evaluated = {r.repo for r in rows if r.repo} - drifting
+    for repo in sorted(evaluated):
+        try:
+            proc = subprocess.run(
+                ["gh", "issue", "list", "--repo", repo, "--label", "drift",
+                 "--state", "open", "--json", "number,title", "--limit", "50"],
+                capture_output=True, text=True, timeout=timeout + 10,
+            )
+            open_issues = json.loads(proc.stdout) if proc.returncode == 0 else []
+        except (OSError, ValueError, subprocess.TimeoutExpired):
+            continue
+        for issue in open_issues:
+            title = str(issue.get("title", ""))
+            if "ecosystem_sync" not in title.lower():
+                continue
+            number = issue.get("number")
+            proc = subprocess.run(
+                ["gh", "issue", "close", str(number), "--repo", repo,
+                 "--comment",
+                 "All drift rows resolved in the latest sweep — closing "
+                 "the drift report."],
+                capture_output=True, text=True, timeout=timeout + 10,
+            )
+            if proc.returncode == 0:
+                messages.append(f"{repo}: closed drift issue #{number}")
+            else:
+                messages.append(f"{repo}: drift close #{number} failed: "
+                                f"{(proc.stderr or proc.stdout).strip()[:160]}")
+    return messages
+
+
 def open_silence_issues(rows: list[Row], timeout: int) -> list[str]:
     """One `silence-alert` issue per silent component, deduped by product name.
 
@@ -3846,6 +3893,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.issue:
         version_drift = [r for r in drift_rows if r.channel != "freshness"]
         for message in open_drift_issues(version_drift, args.timeout):
+            print(f"issue: {message}")
+        for message in close_drift_issues(rows, args.timeout):
             print(f"issue: {message}")
         silence_rows = [r for r in drift_rows if r.channel == "freshness"]
         if not args.no_silence_alerts:
