@@ -349,6 +349,47 @@ class HeartbeatCronLogTests(CollectRuntimeCase):
         self.assertIn("last cron-log activity", rows[0].note)
 
 
+class CronJournalHitsTests(unittest.TestCase):
+    """``_cron_journal_hits`` parses real ``journalctl -o short-iso``
+    output: "<iso-ts> <host> <proc>[pid]: (user) CMD (...)" — the
+    timestamp is the first whitespace token (PAS#187 regression: a
+    fixed-width slice swallowed hostname chars and ``_parse_timestamp``
+    dropped every journal hit)."""
+
+    JOURNAL = "\n".join([
+        "2026-11-25T10:17:01+00:00 icaro-hpeli cron[1001]: "
+        "(root) CMD (/home/ikaros/.local/bin/session-janitor-guard.sh)",
+        "2026-11-25T12:17:01+00:00 icaro-hpeli cron[1001]: "
+        "(root) CMD (/home/ikaros/.local/bin/session-janitor-guard.sh)",
+        "2026-11-25T12:17:02+00:00 icaro-hpeli cron[1001]: "
+        "(root) CMD (/home/ikaros/.local/bin/other-job.sh)",
+        "not-a-journal-line CMD decoy",
+    ])
+
+    def _run(self, keys):
+        proc = mock.Mock(returncode=0, stdout=self.JOURNAL)
+        with mock.patch("shutil.which", return_value="/usr/bin/journalctl"), \
+                mock.patch.object(es.subprocess, "run", return_value=proc):
+            return es._cron_journal_hits(keys, "2026-11-20T00:00:00+00:00", 10)
+
+    def test_newest_hit_per_key(self):
+        hits = self._run(["session-janitor-guard", "other-job"])
+        self.assertEqual(hits["session-janitor-guard"],
+                         "2026-11-25T12:17:01+00:00")
+        self.assertEqual(hits["other-job"], "2026-11-25T12:17:02+00:00")
+
+    def test_hit_timestamp_parses(self):
+        """Regression: the returned ts must survive _parse_timestamp —
+        hostname pollution used to make every journal hit useless."""
+        hits = self._run(["session-janitor-guard"])
+        ts = hits["session-janitor-guard"]
+        self.assertIsNotNone(es._parse_timestamp(ts))
+
+    def test_unmatched_key_absent(self):
+        hits = self._run(["no-such-job"])
+        self.assertNotIn("no-such-job", hits)
+
+
 class HeartbeatGhRunTests(CollectRuntimeCase):
     def setUp(self):
         super().setUp()

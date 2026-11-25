@@ -2631,7 +2631,12 @@ for key in req.get("cron_keys") or []:
     for line in lines:
         if "CMD" not in line or key not in line:
             continue
-        ts = line[:32]
+        # journalctl -o short-iso: "<iso-ts> <host> <proc>[pid]: msg" —
+        # first whitespace token is the timestamp; a fixed-width slice
+        # swallows hostname chars and breaks downstream ISO parsing.
+        ts = line.split(None, 1)[0]
+        if not ts[:4].isdigit():
+            continue
         if newest is None or ts > newest:
             newest = ts
     hits[key] = newest
@@ -2854,9 +2859,14 @@ def _cron_journal_hits(keys: list[str], since_iso: str,
         for line in proc.stdout.splitlines():
             if "CMD" not in line:
                 continue
+            # journalctl -o short-iso: "<iso-ts> <host> <proc>[pid]: msg"
+            # — first whitespace token is the timestamp; line[:32]
+            # swallowed hostname chars and broke ISO parsing downstream.
+            ts = line.split(None, 1)[0]
+            if not ts[:4].isdigit():
+                continue
             for key in keys:
                 if key in line:
-                    ts = line[:32]
                     if hits.get(key) is None or ts > hits[key]:
                         hits[key] = ts
         if hits:
