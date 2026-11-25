@@ -761,6 +761,37 @@ class WorkflowFreshnessTests(unittest.TestCase):
         self.assertEqual(rows["release"].state, "ok")
         self.assertNotIn("release (errors)", rows)
 
+    def test_full_page_cancelled_runs_keep_errors_row(self):
+        # 8 cancelled + 2 failures fill the page: the 3rd failure — or a
+        # success that ended the streak — may sit beyond the window.
+        # Inconclusive must keep alerting, not read as recovery.
+        runs = {("o/repo-a", "release.yml"): [
+            {"createdAt": self._iso(NOW - i * 600),
+             "conclusion": c}
+            for i, c in enumerate(
+                ["cancelled"] * 4 + ["failure"] * 2
+                + ["cancelled"] * 4, start=1)]}
+        with mock.patch.object(es.subprocess, "run",
+                               side_effect=self._gh(runs)):
+            rows = {r.product: r for r in
+                    es._workflow_freshness(self.OWNERS, 5, now=NOW)}
+        self.assertIn("release (errors)", rows)
+
+    def test_full_page_with_success_clears_errors_row(self):
+        # Same full page but a success is visible: the streak is proven
+        # ended, so no errors row and the close logic may proceed.
+        runs = {("o/repo-a", "release.yml"): [
+            {"createdAt": self._iso(NOW - i * 600),
+             "conclusion": c}
+            for i, c in enumerate(
+                ["cancelled"] * 4 + ["success", "failure"]
+                + ["cancelled"] * 4, start=1)]}
+        with mock.patch.object(es.subprocess, "run",
+                               side_effect=self._gh(runs)):
+            rows = {r.product: r for r in
+                    es._workflow_freshness(self.OWNERS, 5, now=NOW)}
+        self.assertNotIn("release (errors)", rows)
+
     def test_all_repos_fail_is_unavailable(self):
         with mock.patch.object(es.subprocess, "run",
                                side_effect=self._gh({}, default=None)):
