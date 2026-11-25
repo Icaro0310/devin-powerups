@@ -363,6 +363,23 @@ class CloseSilenceIssuesTests(unittest.TestCase):
             es.close_silence_issues(rows, 5)
         self.assertFalse(any(c[1:3] == ["issue", "close"] for c in calls))
 
+    def test_inconclusive_errors_row_keeps_issue_open(self):
+        # Base recovered but the (errors) streak is unproven —
+        # inconclusive is not DRIFT_STATES yet still unresolved
+        # evidence, so the alert must stay open.
+        calls = []
+        rows = [
+            es.Row("ci", "freshness", "2h", "<=7d", "ok", "o/r"),
+            es.Row("ci (errors)", "freshness", "err streak", "<=7d",
+                   "inconclusive", "o/r"),
+        ]
+        fake = self._fake_run(calls, [
+            "[silence] ci (errors): err streak",
+        ])
+        with mock.patch.object(es.subprocess, "run", side_effect=fake):
+            es.close_silence_issues(rows, 5)
+        self.assertFalse(any(c[1:3] == ["issue", "close"] for c in calls))
+
     def test_errors_alert_closes_when_streak_ends(self):
         # Collectors stop emitting "<tool> (errors)" once the streak
         # ends — base ok + no (errors) drift row IS the recovery.
@@ -761,21 +778,36 @@ class WorkflowFreshnessTests(unittest.TestCase):
         self.assertEqual(rows["release"].state, "ok")
         self.assertNotIn("release (errors)", rows)
 
-    def test_full_page_cancelled_runs_keep_errors_row(self):
+    def _gh_limits(self, runs_by_key):
+        limits = []
+        base = self._gh(runs_by_key)
+
+        def fake(cmd, **kw):
+            if "--limit" in cmd:
+                limits.append(cmd[cmd.index("--limit") + 1])
+            return base(cmd, **kw)
+        return fake, limits
+
+    def test_full_page_cancelled_runs_inconclusive_not_drift(self):
         # 8 cancelled + 2 failures fill the page: the 3rd failure — or a
         # success that ended the streak — may sit beyond the window.
-        # Inconclusive must keep alerting, not read as recovery.
+        # Inconclusive must not open a new alert (not DRIFT_STATES) but
+        # must still block closing an existing (errors) issue.
         runs = {("o/repo-a", "release.yml"): [
             {"createdAt": self._iso(NOW - i * 600),
              "conclusion": c}
             for i, c in enumerate(
                 ["cancelled"] * 4 + ["failure"] * 2
                 + ["cancelled"] * 4, start=1)]}
-        with mock.patch.object(es.subprocess, "run",
-                               side_effect=self._gh(runs)):
+        fake, limits = self._gh_limits(runs)
+        with mock.patch.object(es.subprocess, "run", side_effect=fake):
             rows = {r.product: r for r in
                     es._workflow_freshness(self.OWNERS, 5, now=NOW)}
-        self.assertIn("release (errors)", rows)
+        row = rows["release (errors)"]
+        self.assertEqual(row.state, "inconclusive")
+        self.assertNotIn(row.state, es.DRIFT_STATES)
+        self.assertTrue(limits)
+        self.assertEqual(set(limits), {str(es._WORKFLOW_RUN_PAGE)})
 
     def test_full_page_with_success_clears_errors_row(self):
         # Same full page but a success is visible: the streak is proven
@@ -786,11 +818,13 @@ class WorkflowFreshnessTests(unittest.TestCase):
             for i, c in enumerate(
                 ["cancelled"] * 4 + ["success", "failure"]
                 + ["cancelled"] * 4, start=1)]}
-        with mock.patch.object(es.subprocess, "run",
-                               side_effect=self._gh(runs)):
+        fake, limits = self._gh_limits(runs)
+        with mock.patch.object(es.subprocess, "run", side_effect=fake):
             rows = {r.product: r for r in
                     es._workflow_freshness(self.OWNERS, 5, now=NOW)}
         self.assertNotIn("release (errors)", rows)
+        self.assertTrue(limits)
+        self.assertEqual(set(limits), {str(es._WORKFLOW_RUN_PAGE)})
 
     def test_all_repos_fail_is_unavailable(self):
         with mock.patch.object(es.subprocess, "run",

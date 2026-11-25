@@ -1939,12 +1939,22 @@ def _workflow_freshness(owners: dict[str, str], timeout: int,
             and 0 < len(significant) < 3
             and all(c != "success" for _, c in significant)
         )
-        if confirmed or inconclusive:
+        if confirmed:
             rows.append(Row(
                 f"{product} (errors)", "freshness", "err streak",
                 remote, "drift", repo,
                 f"{len(streak)} consecutive non-success conclusions "
                 f"(newest={streak[0][1]})"))
+        elif inconclusive:
+            # Not in DRIFT_STATES: unproven history must not open a new
+            # alert, but close_silence_issues still treats it as
+            # unresolved evidence so an existing (errors) issue stays.
+            rows.append(Row(
+                f"{product} (errors)", "freshness", "err streak",
+                remote, "inconclusive", repo,
+                f"full run page shows {len(significant)} significant "
+                f"conclusions, all non-success — streak unproven "
+                f"(newest={significant[0][1]})"))
     return rows
 
 
@@ -2318,10 +2328,12 @@ def close_silence_issues(freshness_rows: list[Row], timeout: int) -> list[str]:
         key = row.product.lower()
         seen[key] = seen.get(key, True) and row.state == "ok"
     recovered = {name for name, ok in seen.items() if ok}
+    # ``inconclusive`` rows are unresolved evidence, not recovery — an
+    # (errors) alert must stay open while the streak is unproven.
     drifting = {
         row.product.lower()
         for row in freshness_rows
-        if row.state in DRIFT_STATES
+        if row.state in DRIFT_STATES or row.state == "inconclusive"
     }
     if not recovered:
         return messages
