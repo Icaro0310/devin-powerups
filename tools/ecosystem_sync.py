@@ -58,6 +58,7 @@ issues first.
 from __future__ import annotations
 
 import argparse
+import base64
 import importlib.util
 import json
 import os
@@ -957,38 +958,72 @@ def collect_pr_ready_not_merged(repos: dict[str, str], timeout: int,
     return rows
 
 
-def collect_ci_config(repos: dict[str, str], timeout: int) -> list[Row]:
-    """Half-configured review-fallback detection -> one Row per physical repo.
+def _calls_review_fallback(doc: object) -> bool:
+    """True when a workflow file's content actually invokes the shared
+    pipeline — a ``uses: …/ai-review-fallback.yml@…`` line (remote or a
+    vendored local path), not merely a suggestive filename."""
+    if not isinstance(doc, dict):
+        return False
+    try:
+        text = base64.b64decode(doc.get("content") or "").decode(
+            "utf-8", "replace")
+    except (ValueError, TypeError):
+        return False
+    return "ai-review-fallback.yml" in text
 
-    Every registry repo must have BOTH the ``TS_AUTHKEY`` secret AND a
-    ``*fallback*.yml`` caller workflow; secrets provisioned without the
-    workflow (or vice-versa) mean the review gate waits on evidence that
-    can never arrive — exactly the 2026-10-28 incident."""
+
+def collect_ci_config(repos: dict[str, str], timeout: int) -> list[Row]:
+    """Review-fallback caller presence -> one Row per physical repo.
+
+    Every registry repo must carry a ``*fallback*.yml`` /
+    ``ai-review*.yml`` caller workflow — it is what wires the review gate
+    to the shared devin-review-fallback pipeline. The caller needs no
+    repo secrets: Lane A (Ollama/Tailscale) was retired 2026-11 and the
+    devin-judge verdict arrives via the laptop-side watcher posting the
+    ``devin-judge/review`` commit status. A missing workflow is the only
+    drift state — the review gate then waits on evidence that can never
+    arrive (the 2026-10-28 incident class)."""
     out: list[Row] = []
     for name, owner in sorted(repos.items()):
         try:
-            secrets = _gh_api(owner, name, "/actions/secrets", timeout)
-            names = {s.get("name") for s in secrets.get("secrets", [])}
-        except RuntimeError as exc:
-            out.append(Row(name, "ci-review-fallback", "—", "—",
-                           "unavailable", f"{owner}/{name}", str(exc)[:120]))
-            continue
-        try:
             wf = _gh_api(owner, name, "/contents/.github/workflows", timeout)
             files = {f.get("name", "") for f in wf if isinstance(f, dict)}
-        except RuntimeError:
-            files = set()
-        has_secret = "TS_AUTHKEY" in names
-        has_workflow = any("fallback" in f or "ai-review" in f for f in files)
-        if has_secret and has_workflow:
-            state, local = "ok", "workflow+secret"
-        elif has_secret or has_workflow:
-            state = "drift"
-            local = "secret only" if has_secret else "workflow only"
-        else:
-            state, local = "drift", "neither"
+        except RuntimeError as exc:
+            if "404" not in str(exc) and "not found" not in str(exc).lower():
+                out.append(Row(name, "ci-review-fallback", "—", "—",
+                               "unavailable", f"{owner}/{name}",
+                               str(exc)[:120]))
+                continue
+            files = set()  # sem .github/workflows — é drift, não falha de API
+        # só YAML conta como caller, e o conteúdo tem de invocar o
+        # pipeline partilhado — um ficheiro chamado 'fallback.md' ou um
+        # workflow que não chama ai-review-fallback não cobre o gate.
+        candidates = [
+            f for f in files
+            if f.endswith((".yml", ".yaml"))
+            and ("fallback" in f or "ai-review" in f)
+        ]
+        has_workflow = False
+        read_error: str | None = None
+        for fname in candidates:
+            try:
+                doc = _gh_api(
+                    owner, name,
+                    f"/contents/.github/workflows/{fname}", timeout)
+            except RuntimeError as exc:
+                read_error = str(exc)[:120]
+                continue
+            if _calls_review_fallback(doc):
+                has_workflow = True
+                break
+        if read_error is not None and not has_workflow:
+            out.append(Row(name, "ci-review-fallback", "—", "—",
+                           "unavailable", f"{owner}/{name}", read_error))
+            continue
+        state = "ok" if has_workflow else "drift"
+        local = "workflow" if has_workflow else "no fallback workflow"
         note = "" if state == "ok" else "review gate cannot produce evidence"
-        out.append(Row(name, "ci-review-fallback", local, "workflow+secret",
+        out.append(Row(name, "ci-review-fallback", local, "workflow",
                        state, f"{owner}/{name}", note))
     return out
 
